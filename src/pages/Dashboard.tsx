@@ -4,7 +4,6 @@ import { Satellite, Trash2, AlertTriangle, Target, CloudSun, BarChart3 } from 'l
 import MetricCard from '../components/dashboard/MetricCard';
 import OrbitalCongestion from '../components/dashboard/OrbitalCongestion';
 import CloseApproachTable from '../components/dashboard/CloseApproachTable';
-import SpaceWeatherMini from '../components/dashboard/SpaceWeatherMini';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
 import { dashboardMetrics, type Satellite as SatType } from '../data/mockData';
 
@@ -20,6 +19,16 @@ const defaultFilters: Record<string, boolean> = {
   Scientific: true,
 };
 
+const filterColors: Record<string, string> = {
+  Communication: '#00AEEF',
+  Debris: '#FF4D4D',
+  ISS: '#FFFFFF',
+  Weather: '#FFC107',
+  Military: '#FF4D4D',
+  GPS: '#00FF99',
+  Scientific: '#9B59B6',
+};
+
 export default function Dashboard() {
   const [selectedObject, setSelectedObject] = useState<SatType | null>(null);
   const [filters, setFilters] = useState(defaultFilters);
@@ -29,9 +38,29 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-5 pb-16">
-      {/* Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4">
+    <div className="space-y-6">
+      {/* Page Title — subtle */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between"
+      >
+        <div>
+          <h1 className="text-xl font-orbitron font-bold text-white tracking-wide">
+            Mission Control
+          </h1>
+          <p className="text-xs font-space mt-0.5" style={{ color: '#64748B' }}>
+            Real-time orbital situational awareness
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="status-dot status-dot-success" />
+          <span className="text-[10px] font-space" style={{ color: '#94A3B8' }}>All systems nominal</span>
+        </div>
+      </motion.div>
+
+      {/* Metric Cards — 3 columns on medium, 6 on large */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         <MetricCard
           title="ACTIVE SATELLITES"
           value={dashboardMetrics.activeSatellites.value}
@@ -39,7 +68,7 @@ export default function Dashboard() {
           color="#00AEEF"
           trend={dashboardMetrics.activeSatellites.trend}
           trendDir="up"
-          delay={0.1}
+          delay={0.05}
         />
         <MetricCard
           title="TRACKED DEBRIS"
@@ -48,7 +77,7 @@ export default function Dashboard() {
           color="#FFC107"
           trend={dashboardMetrics.trackedDebris.trend}
           trendDir="up"
-          delay={0.15}
+          delay={0.1}
         />
         <MetricCard
           title="HIGH RISK OBJECTS"
@@ -57,7 +86,7 @@ export default function Dashboard() {
           color="#FF4D4D"
           trend={dashboardMetrics.highRiskObjects.trend}
           trendDir="down"
-          delay={0.2}
+          delay={0.15}
         />
         <MetricCard
           title="PREDICTED COLLISIONS"
@@ -66,7 +95,7 @@ export default function Dashboard() {
           color="#FF4D4D"
           trend={0}
           trendDir="neutral"
-          delay={0.25}
+          delay={0.2}
         />
         <MetricCard
           title="SPACE WEATHER"
@@ -74,7 +103,7 @@ export default function Dashboard() {
           icon={CloudSun}
           color="#FFC107"
           severity="MEDIUM"
-          delay={0.3}
+          delay={0.25}
         />
         <MetricCard
           title="ORBITAL CONGESTION"
@@ -82,47 +111,26 @@ export default function Dashboard() {
           icon={BarChart3}
           color="#FF4D4D"
           severity="HIGH"
-          delay={0.35}
+          delay={0.3}
         />
       </div>
 
-      {/* Globe + Filters */}
-      <div className="relative">
-        <Suspense
-          fallback={
-            <div
-              className="w-full h-[500px] rounded-xl flex items-center justify-center"
-              style={{ background: '#0B1220', border: '1px solid rgba(0,174,239,0.2)' }}
-            >
-              <div className="text-center">
-                <div
-                  className="w-12 h-12 rounded-full border-2 border-t-transparent mx-auto mb-3"
-                  style={{ borderColor: 'rgba(0,174,239,0.3)', borderTopColor: 'transparent', animation: 'orbit 1s linear infinite' }}
-                />
-                <span className="text-sm font-space" style={{ color: '#94A3B8' }}>Initializing Globe...</span>
-              </div>
-            </div>
-          }
-        >
-          <CesiumGlobe onSelectObject={setSelectedObject} filters={filters} />
-        </Suspense>
-
-        {/* Object Details Overlay */}
-        <ObjectDetailsPanel satellite={selectedObject} onClose={() => setSelectedObject(null)} />
-
-        {/* Filter Panel */}
+      {/* Globe Section — with inline filter bar above */}
+      <div className="space-y-3">
+        {/* Filter bar — horizontal above globe, not overlapping */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
-          className="absolute bottom-4 left-4 glass-panel-strong p-3 z-10"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="glass-panel px-4 py-2.5 flex items-center gap-4 flex-wrap"
         >
-          <h4 className="text-[10px] font-space font-semibold tracking-widest mb-2" style={{ color: '#94A3B8' }}>
+          <span className="text-[10px] font-space font-semibold tracking-widest flex-shrink-0" style={{ color: '#64748B' }}>
             OBJECT FILTERS
-          </h4>
-          <div className="space-y-1.5">
+          </span>
+          <div className="h-4 w-px flex-shrink-0" style={{ background: 'rgba(0,174,239,0.15)' }} />
+          <div className="flex items-center gap-3 flex-wrap">
             {Object.entries(filters).map(([key, enabled]) => (
-              <label key={key} className="flex items-center gap-2 cursor-pointer group">
+              <label key={key} className="flex items-center gap-1.5 cursor-pointer group select-none">
                 <input
                   type="checkbox"
                   checked={enabled}
@@ -130,33 +138,54 @@ export default function Dashboard() {
                   className="sr-only"
                 />
                 <div
-                  className="w-4 h-4 rounded border flex items-center justify-center transition-all duration-200"
+                  className="w-3.5 h-3.5 rounded border flex items-center justify-center transition-all duration-200"
                   style={{
-                    borderColor: enabled ? '#00AEEF' : 'rgba(148,163,184,0.3)',
-                    background: enabled ? 'rgba(0,174,239,0.2)' : 'transparent',
+                    borderColor: enabled ? filterColors[key] : 'rgba(148,163,184,0.3)',
+                    background: enabled ? `${filterColors[key]}20` : 'transparent',
                   }}
                 >
                   {enabled && (
-                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="#00AEEF" strokeWidth={3}>
+                    <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke={filterColors[key]} strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   )}
                 </div>
-                <span className="text-xs font-space group-hover:text-white transition-colors" style={{ color: enabled ? '#fff' : '#64748B' }}>
+                <span className="text-[11px] font-space group-hover:text-white transition-colors" style={{ color: enabled ? '#fff' : '#64748B' }}>
                   {key}
                 </span>
               </label>
             ))}
           </div>
         </motion.div>
+
+        {/* Globe */}
+        <div className="relative">
+          <Suspense
+            fallback={
+              <div
+                className="w-full h-[460px] rounded-xl flex items-center justify-center"
+                style={{ background: '#0B1220', border: '1px solid rgba(0,174,239,0.15)' }}
+              >
+                <div className="text-center">
+                  <div
+                    className="w-10 h-10 rounded-full border-2 border-t-transparent mx-auto mb-3"
+                    style={{ borderColor: 'rgba(0,174,239,0.3)', borderTopColor: 'transparent', animation: 'orbit 1s linear infinite' }}
+                  />
+                  <span className="text-xs font-space" style={{ color: '#94A3B8' }}>Initializing Globe...</span>
+                </div>
+              </div>
+            }
+          >
+            <CesiumGlobe onSelectObject={setSelectedObject} filters={filters} />
+          </Suspense>
+
+          {/* Object Details Overlay */}
+          <ObjectDetailsPanel satellite={selectedObject} onClose={() => setSelectedObject(null)} />
+        </div>
       </div>
 
-      {/* Lower Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <OrbitalCongestion />
-        <SpaceWeatherMini />
-      </div>
-
+      {/* Lower Sections — single column with clean spacing */}
+      <OrbitalCongestion />
       <CloseApproachTable />
     </div>
   );

@@ -20,11 +20,11 @@ export default function MetricCard({ title, value, icon: Icon, color, trend, tre
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }}
-      whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="glass-panel glass-panel-hover p-5 cursor-pointer relative overflow-hidden group"
+      transition={{ duration: 0.4, delay }}
+      whileHover={{ y: -2, transition: { duration: 0.2 } }}
+      className="glass-panel glass-panel-hover p-4 cursor-pointer relative overflow-hidden group"
     >
       {/* Background glow */}
       <div
@@ -36,30 +36,30 @@ export default function MetricCard({ title, value, icon: Icon, color, trend, tre
 
       <div className="relative z-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[11px] font-space font-medium tracking-wider" style={{ color: '#94A3B8' }}>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[10px] font-space font-medium tracking-wider uppercase" style={{ color: '#64748B' }}>
             {title}
           </span>
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 group-hover:scale-110"
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300"
             style={{
-              background: `${color}15`,
-              border: `1px solid ${color}30`,
+              background: `${color}10`,
+              border: `1px solid ${color}20`,
             }}
           >
-            <Icon className="w-4 h-4" style={{ color, filter: `drop-shadow(0 0 6px ${color})` }} />
+            <Icon className="w-3.5 h-3.5" style={{ color, filter: `drop-shadow(0 0 4px ${color})` }} />
           </div>
         </div>
 
         {/* Value */}
-        <div className="mb-2">
+        <div className="mb-1.5">
           {isNumber ? (
-            <span className="text-2xl font-orbitron font-bold text-white">
+            <span className="text-xl font-orbitron font-bold text-white">
               <AnimatedCounter value={value} />
             </span>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-orbitron font-bold text-white">{value}</span>
+              <span className="text-xl font-orbitron font-bold text-white">{value}</span>
               {severity && (
                 <span
                   className="text-[10px] font-space font-semibold px-2 py-0.5 rounded-full"
@@ -79,11 +79,11 @@ export default function MetricCard({ title, value, icon: Icon, color, trend, tre
         {/* Trend */}
         {trend !== undefined && (
           <div className="flex items-center gap-1">
-            <TrendIcon className="w-3.5 h-3.5" style={{ color: trendColor }} />
-            <span className="text-xs font-space" style={{ color: trendColor }}>
+            <TrendIcon className="w-3 h-3" style={{ color: trendColor }} />
+            <span className="text-[11px] font-space" style={{ color: trendColor }}>
               {Math.abs(trend)}%
             </span>
-            <span className="text-xs font-space" style={{ color: '#64748B' }}>
+            <span className="text-[11px] font-space" style={{ color: '#475569' }}>
               vs last month
             </span>
           </div>

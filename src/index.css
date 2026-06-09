@@ -147,7 +147,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 174, 239, 0.3);
+  background: rgba(0, 174, 239, 0.2);
   border-radius: 3px;
 }
 
@@ -160,18 +160,18 @@ body {
    ============================ */
 
 .glass-panel {
-  background: rgba(11, 18, 32, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 174, 239, 0.15);
+  background: rgba(11, 18, 32, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 174, 239, 0.1);
   border-radius: 12px;
 }
 
 .glass-panel-strong {
-  background: rgba(11, 18, 32, 0.85);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(0, 174, 239, 0.25);
+  background: rgba(11, 18, 32, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 174, 239, 0.15);
   border-radius: 12px;
 }
 
@@ -180,9 +180,8 @@ body {
 }
 
 .glass-panel-hover:hover {
-  border-color: rgba(0, 174, 239, 0.4);
-  box-shadow: 0 0 20px rgba(0, 174, 239, 0.15), 0 8px 32px rgba(0, 0, 0, 0.3);
-  transform: translateY(-2px);
+  border-color: rgba(0, 174, 239, 0.2);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
 /* ============================
@@ -252,18 +251,18 @@ body {
 
 .status-dot-success {
   background: var(--color-success);
-  box-shadow: 0 0 8px rgba(0, 255, 153, 0.6);
+  box-shadow: 0 0 6px rgba(0, 255, 153, 0.4);
 }
 
 .status-dot-warning {
   background: var(--color-warning);
-  box-shadow: 0 0 8px rgba(255, 193, 7, 0.6);
+  box-shadow: 0 0 6px rgba(255, 193, 7, 0.4);
 }
 
 .status-dot-danger {
   background: var(--color-danger);
-  box-shadow: 0 0 8px rgba(255, 77, 77, 0.6);
-  animation: blink 1.5s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(255, 77, 77, 0.4);
+  animation: blink 2s ease-in-out infinite;
 }
 
 /* ============================
@@ -299,16 +298,16 @@ body {
    ============================ */
 
 .progress-bar-track {
-  height: 8px;
+  height: 6px;
   background: rgba(11, 18, 32, 0.8);
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
-  border: 1px solid rgba(0, 174, 239, 0.1);
+  border: 1px solid rgba(0, 174, 239, 0.06);
 }
 
 .progress-bar-fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: 3px;
   transition: width 1.5s ease-out;
   position: relative;
 }
@@ -338,7 +337,7 @@ body {
   position: absolute;
   width: 2px;
   height: 2px;
-  background: rgba(0, 174, 239, 0.4);
+  background: rgba(0, 174, 239, 0.25);
   border-radius: 50%;
   animation: particle-float linear infinite;
 }

@@ -35,7 +35,7 @@ export default function OrbitalRiskGauge({ value, status }: OrbitalRiskGaugeProp
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const size = 200;
+    const size = 170;
     canvas.width = size * dpr;
     canvas.height = size * dpr;
     canvas.style.width = `${size}px`;
@@ -43,8 +43,8 @@ export default function OrbitalRiskGauge({ value, status }: OrbitalRiskGaugeProp
     ctx.scale(dpr, dpr);
 
     const cx = size / 2;
-    const cy = size / 2 + 10;
-    const radius = 75;
+    const cy = size / 2 + 8;
+    const radius = 65;
     const startAngle = Math.PI * 0.8;
     const endAngle = Math.PI * 2.2;
     const sweepAngle = endAngle - startAngle;
@@ -55,8 +55,8 @@ export default function OrbitalRiskGauge({ value, status }: OrbitalRiskGaugeProp
     // Track
     ctx.beginPath();
     ctx.arc(cx, cy, radius, startAngle, endAngle);
-    ctx.strokeStyle = 'rgba(0, 174, 239, 0.1)';
-    ctx.lineWidth = 8;
+    ctx.strokeStyle = 'rgba(0, 174, 239, 0.08)';
+    ctx.lineWidth = 6;
     ctx.lineCap = 'round';
     ctx.stroke();
 
@@ -70,15 +70,15 @@ export default function OrbitalRiskGauge({ value, status }: OrbitalRiskGaugeProp
     ctx.beginPath();
     ctx.arc(cx, cy, radius, startAngle, valueAngle);
     ctx.strokeStyle = gradient;
-    ctx.lineWidth = 8;
+    ctx.lineWidth = 6;
     ctx.lineCap = 'round';
     ctx.stroke();
 
     // Glow effect
     ctx.beginPath();
     ctx.arc(cx, cy, radius, startAngle, valueAngle);
-    ctx.strokeStyle = 'rgba(255, 193, 7, 0.2)';
-    ctx.lineWidth = 16;
+    ctx.strokeStyle = 'rgba(255, 193, 7, 0.12)';
+    ctx.lineWidth = 12;
     ctx.lineCap = 'round';
     ctx.stroke();
 
@@ -86,12 +86,12 @@ export default function OrbitalRiskGauge({ value, status }: OrbitalRiskGaugeProp
     const dotX = cx + radius * Math.cos(valueAngle);
     const dotY = cy + radius * Math.sin(valueAngle);
     ctx.beginPath();
-    ctx.arc(dotX, dotY, 6, 0, Math.PI * 2);
+    ctx.arc(dotX, dotY, 5, 0, Math.PI * 2);
     ctx.fillStyle = animatedValue > 60 ? '#FF4D4D' : animatedValue > 30 ? '#FFC107' : '#00FF99';
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(dotX, dotY, 10, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 77, 77, 0.2)';
+    ctx.arc(dotX, dotY, 8, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 77, 77, 0.15)';
     ctx.fill();
 
     // Tick marks
@@ -128,8 +128,8 @@ export default function OrbitalRiskGauge({ value, status }: OrbitalRiskGaugeProp
       <div className="flex flex-col items-center">
         <div className="relative">
           <canvas ref={canvasRef} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingTop: '20px' }}>
-            <span className="text-3xl font-orbitron font-bold text-white">
+          <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ paddingTop: '16px' }}>
+            <span className="text-2xl font-orbitron font-bold text-white">
               {Math.round(animatedValue)}%
             </span>
             <span

@@ -19,7 +19,7 @@ export default function Header() {
 
   return (
     <header
-      className="h-20 flex items-center justify-between px-6 z-40"
+      className="h-16 flex items-center justify-between px-6 z-40 flex-shrink-0"
       style={{
         background: 'rgba(5, 8, 22, 0.8)',
         backdropFilter: 'blur(20px)',

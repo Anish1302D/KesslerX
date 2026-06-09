@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -39,13 +39,13 @@ function PageLoader() {
 
 function FloatingParticles() {
   const [particles] = useState(() =>
-    Array.from({ length: 30 }, (_, i) => ({
+    Array.from({ length: 20 }, (_, i) => ({
       id: i,
       left: `${Math.random() * 100}%`,
-      animDuration: `${8 + Math.random() * 15}s`,
+      animDuration: `${12 + Math.random() * 20}s`,
       animDelay: `${Math.random() * 10}s`,
-      size: `${1 + Math.random() * 2}px`,
-      opacity: 0.2 + Math.random() * 0.3,
+      size: `${1 + Math.random() * 1.5}px`,
+      opacity: 0.15 + Math.random() * 0.2,
     }))
   );
 
@@ -70,11 +70,51 @@ function FloatingParticles() {
   );
 }
 
-export default function App() {
-  const [sidebarWidth, setSidebarWidth] = useState(280);
+function AppContent({ sidebarWidth }: { sidebarWidth: number }) {
+  const location = useLocation();
+  const showRightPanel = location.pathname === '/';
 
-  // Listen for sidebar collapse (via CSS observation or state management)
-  // For now, we'll use a simple approach
+  return (
+    <div
+      className="h-screen flex flex-col transition-all duration-300"
+      style={{ marginLeft: `${sidebarWidth}px` }}
+    >
+      {/* Header */}
+      <Header />
+
+      {/* Content + Right Panel */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Main scrollable content */}
+        <main className="flex-1 overflow-y-auto px-6 py-5 pb-20">
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/orbital-map" element={<OrbitalMap />} />
+              <Route path="/collision-monitor" element={<CollisionMonitor />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/space-weather" element={<SpaceWeather />} />
+              <Route path="/ai-copilot" element={<AICopilot />} />
+              <Route path="/simulations" element={<Simulations />} />
+              <Route path="/alert-center" element={<AlertCenter />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Suspense>
+        </main>
+
+        {/* Right Panel - only on Dashboard */}
+        {showRightPanel && <RightPanel />}
+      </div>
+
+      {/* AI Copilot Bar — positioned in flow, not fixed */}
+      <AICopilotBar />
+    </div>
+  );
+}
+
+export default function App() {
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+
   useEffect(() => {
     const observer = new MutationObserver(() => {
       const sidebar = document.querySelector('aside');
@@ -94,48 +134,15 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="h-screen overflow-hidden bg-grid-pattern" style={{ background: '#050816' }}>
-        {/* Background particles */}
+      <div className="h-screen overflow-hidden" style={{ background: '#050816' }}>
+        {/* Background particles — subtle */}
         <FloatingParticles />
 
         {/* Sidebar */}
         <Sidebar />
 
         {/* Main content area */}
-        <div
-          className="h-screen flex flex-col transition-all duration-300"
-          style={{ marginLeft: `${sidebarWidth}px` }}
-        >
-          {/* Header */}
-          <Header />
-
-          {/* Content + Right Panel */}
-          <div className="flex-1 flex overflow-hidden">
-            {/* Main scrollable content */}
-            <main className="flex-1 overflow-y-auto p-5" style={{ paddingBottom: '60px' }}>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/orbital-map" element={<OrbitalMap />} />
-                  <Route path="/collision-monitor" element={<CollisionMonitor />} />
-                  <Route path="/analytics" element={<Analytics />} />
-                  <Route path="/space-weather" element={<SpaceWeather />} />
-                  <Route path="/ai-copilot" element={<AICopilot />} />
-                  <Route path="/simulations" element={<Simulations />} />
-                  <Route path="/alert-center" element={<AlertCenter />} />
-                  <Route path="/reports" element={<Reports />} />
-                  <Route path="/settings" element={<Settings />} />
-                </Routes>
-              </Suspense>
-            </main>
-
-            {/* Right Panel - visible on Dashboard */}
-            <RightPanel />
-          </div>
-
-          {/* AI Copilot Bar */}
-          <AICopilotBar />
-        </div>
+        <AppContent sidebarWidth={sidebarWidth} />
       </div>
     </BrowserRouter>
   );

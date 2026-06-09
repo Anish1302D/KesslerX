@@ -35,22 +35,22 @@ export default function Sidebar() {
 
   return (
     <motion.aside
-      animate={{ width: collapsed ? 72 : 280 }}
+      animate={{ width: collapsed ? 68 : 260 }}
       transition={{ duration: 0.3, ease: 'easeInOut' }}
       className="h-screen fixed left-0 top-0 z-50 flex flex-col"
       style={{
         background: 'linear-gradient(180deg, #0B1220 0%, #050816 100%)',
-        borderRight: '1px solid rgba(0, 174, 239, 0.15)',
+        borderRight: '1px solid rgba(0, 174, 239, 0.08)',
       }}
     >
       {/* Logo */}
-      <div className="p-5 flex items-center gap-3 relative">
+      <div className="p-4 flex items-center gap-3 relative">
         <div className="relative flex-shrink-0">
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{
               background: 'linear-gradient(135deg, #00AEEF, #00E5FF)',
-              boxShadow: '0 0 20px rgba(0, 174, 239, 0.4)',
+              boxShadow: '0 0 15px rgba(0, 174, 239, 0.3)',
             }}
           >
             <Satellite className="w-5 h-5 text-white" />
@@ -82,10 +82,10 @@ export default function Sidebar() {
       </div>
 
       {/* Divider */}
-      <div className="mx-4 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,174,239,0.3), transparent)' }} />
+      <div className="mx-3 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,174,239,0.15), transparent)' }} />
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-2 overflow-y-auto space-y-1">
+      <nav className="flex-1 py-3 px-2 overflow-y-auto space-y-0.5">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
@@ -100,9 +100,8 @@ export default function Sidebar() {
             style={({ isActive }) =>
               isActive
                 ? {
-                    background: 'rgba(0, 174, 239, 0.1)',
+                    background: 'rgba(0, 174, 239, 0.08)',
                     borderLeft: '3px solid #00AEEF',
-                    boxShadow: '0 0 15px rgba(0, 174, 239, 0.1)',
                   }
                 : { borderLeft: '3px solid transparent' }
             }
@@ -136,7 +135,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Divider */}
-      <div className="mx-4 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,174,239,0.3), transparent)' }} />
+      <div className="mx-3 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,174,239,0.15), transparent)' }} />
 
       {/* Bottom Section */}
       <div className="p-4">

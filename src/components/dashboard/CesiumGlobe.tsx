@@ -189,18 +189,18 @@ export default function CesiumGlobe({ onSelectObject, filters }: CesiumGlobeProp
       transition={{ duration: 0.8, delay: 0.3 }}
       className="relative rounded-xl overflow-hidden"
       style={{
-        border: '1px solid rgba(0, 174, 239, 0.2)',
-        boxShadow: '0 0 40px rgba(0, 174, 239, 0.1), inset 0 0 40px rgba(0, 0, 0, 0.5)',
+        border: '1px solid rgba(0, 174, 239, 0.12)',
+        boxShadow: '0 0 30px rgba(0, 174, 239, 0.06)',
       }}
     >
       {/* Globe container */}
-      <div ref={containerRef} className="w-full h-[500px]" />
+      <div ref={containerRef} className="w-full h-[420px]" />
 
       {/* Overlay gradient */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at center, transparent 40%, rgba(5,8,22,0.6) 100%)',
+          background: 'radial-gradient(circle at center, transparent 50%, rgba(5,8,22,0.4) 100%)',
         }}
       />
 

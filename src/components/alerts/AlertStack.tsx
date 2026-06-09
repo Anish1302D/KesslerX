@@ -20,25 +20,22 @@ function AlertCard({ alert, index }: AlertCardProps) {
 
   const severityStyles = {
     HIGH: {
-      bg: 'rgba(255, 77, 77, 0.08)',
-      border: 'rgba(255, 77, 77, 0.25)',
-      glow: '0 0 15px rgba(255, 77, 77, 0.1)',
+      bg: 'rgba(255, 77, 77, 0.06)',
+      border: 'rgba(255, 77, 77, 0.15)',
       color: '#FF4D4D',
-      label: 'HIGH RISK',
+      label: 'HIGH',
     },
     MEDIUM: {
-      bg: 'rgba(255, 193, 7, 0.08)',
-      border: 'rgba(255, 193, 7, 0.25)',
-      glow: '0 0 15px rgba(255, 193, 7, 0.1)',
+      bg: 'rgba(255, 193, 7, 0.06)',
+      border: 'rgba(255, 193, 7, 0.15)',
       color: '#FFC107',
-      label: 'MEDIUM RISK',
+      label: 'MEDIUM',
     },
     LOW: {
-      bg: 'rgba(0, 174, 239, 0.08)',
-      border: 'rgba(0, 174, 239, 0.25)',
-      glow: '0 0 15px rgba(0, 174, 239, 0.1)',
+      bg: 'rgba(0, 174, 239, 0.06)',
+      border: 'rgba(0, 174, 239, 0.15)',
       color: '#00AEEF',
-      label: 'LOW RISK',
+      label: 'LOW',
     },
   };
 
@@ -51,19 +48,18 @@ function AlertCard({ alert, index }: AlertCardProps) {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
-      className="rounded-xl p-3.5 cursor-pointer transition-all duration-200 hover:scale-[1.02]"
+      className="rounded-lg p-3 cursor-pointer transition-all duration-200 hover:scale-[1.01]"
       style={{
         background: s.bg,
         border: `1px solid ${s.border}`,
-        boxShadow: s.glow,
       }}
     >
       <div className="flex items-start gap-3">
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-          style={{ background: `${s.color}15`, border: `1px solid ${s.color}30` }}
+          className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5"
+          style={{ background: `${s.color}10`, border: `1px solid ${s.color}20` }}
         >
-          <Icon className="w-4 h-4" style={{ color: s.color }} />
+          <Icon className="w-3.5 h-3.5" style={{ color: s.color }} />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -102,7 +98,7 @@ interface AlertStackProps {
 
 export default function AlertStack({ alerts }: AlertStackProps) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {alerts.map((alert, i) => (
         <AlertCard key={alert.id} alert={alert} index={i} />
       ))}
