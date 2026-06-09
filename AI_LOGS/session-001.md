@@ -131,6 +131,45 @@
 - [x] Production build passes
 - [x] Git commits with semantic messages
 - [x] AI logs for team handoff
+- [x] **UI Polish Pass** — professional startup aesthetic
+
+---
+
+## Prompt 3: UI Polish
+
+**User Request**:
+> Improve the UI. Currently it is very clustered. Make sure it is very very professional.
+> Like a proper startup type. The current UI is overlapping with some features like on
+> dashboard the weather section.
+
+**Changes Made (11 files, commit `a136873`)**:
+
+### Layout Fixes
+| Component | Before | After |
+|---|---|---|
+| Dashboard | 6 metric cards + globe + 2-col grid (SpaceWeather + Congestion) + table, all crammed | Clean single-column flow: cards → filter bar → globe → congestion → table |
+| SpaceWeatherMini | Crammed into dashboard half-width | Removed from dashboard (has dedicated full page) |
+| Object Filters | Overlapping the globe as absolute overlay | Horizontal filter bar above globe, no overlap |
+| Right Panel | Always visible on every page | Only shows on Dashboard route |
+| AI Copilot Bar | `position: fixed` with hardcoded `left: 280px` | Flow-based, no fixed positioning, no overlap |
+| Sidebar | 280px wide, heavy glow effects | 260px, subtler borders & glows |
+| Header | 80px tall | 64px tall |
+
+### Design System Refinements
+| Property | Before | After |
+|---|---|---|
+| Glass panel border | `rgba(0,174,239,0.15)` | `rgba(0,174,239,0.1)` |
+| Glass panel blur | `blur(20px)` | `blur(16px)` |
+| Hover effect | `translateY(-2px) + boxShadow glow` | `boxShadow only (no transform)` |
+| Progress bars | 8px height | 6px height |
+| Status dot glow | `0.6 opacity` | `0.4 opacity` |
+| Particles | 30 count, 0.4 opacity | 20 count, 0.25 opacity |
+| MetricCard | p-5, text-2xl, y:-4 hover | p-4, text-xl, y:-2 hover |
+| OrbitalRiskGauge | 200px canvas, 8px arcs | 170px canvas, 6px arcs |
+| CesiumGlobe | 500px height, heavy border | 420px height, subtle border |
+| AlertStack | glow shadows, "HIGH RISK" labels | no glow, "HIGH" labels |
+
+---
 
 ## What's Next (for teammates)
 
