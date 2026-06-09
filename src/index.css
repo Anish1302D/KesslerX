@@ -1,0 +1,376 @@
+@import "tailwindcss";
+
+/* ============================
+   KesslerX Design System
+   ============================ */
+
+@theme {
+  --color-bg-primary: #050816;
+  --color-bg-secondary: #0B1220;
+  --color-bg-tertiary: #111827;
+  --color-bg-panel: rgba(11, 18, 32, 0.8);
+  --color-border-glow: rgba(0, 174, 239, 0.2);
+  --color-border-glow-strong: rgba(0, 174, 239, 0.4);
+  --color-blue-primary: #00AEEF;
+  --color-blue-dark: #0077B6;
+  --color-cyan-accent: #00E5FF;
+  --color-success: #00FF99;
+  --color-warning: #FFC107;
+  --color-danger: #FF4D4D;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+
+  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-space: 'Space Grotesk', sans-serif;
+  --font-orbitron: 'Orbitron', sans-serif;
+
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-scan-line: scan-line 3s linear infinite;
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-up: slide-up 0.5s ease-out;
+  --animate-slide-right: slide-right 0.3s ease-out;
+  --animate-blink: blink 1.5s ease-in-out infinite;
+  --animate-orbit: orbit 20s linear infinite;
+  --animate-gauge-fill: gauge-fill 1.5s ease-out;
+  --animate-count-up: count-up 1s ease-out;
+}
+
+/* ============================
+   Keyframes
+   ============================ */
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(0, 174, 239, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(0, 174, 239, 0.6), 0 0 40px rgba(0, 174, 239, 0.2); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-right {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes gauge-fill {
+  from { stroke-dashoffset: 283; }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes particle-float {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-100vh) translateX(50px); opacity: 0; }
+}
+
+/* ============================
+   Base Styles
+   ============================ */
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-inter);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ============================
+   Scrollbar
+   ============================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 174, 239, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 174, 239, 0.5);
+}
+
+/* ============================
+   Glass Panel
+   ============================ */
+
+.glass-panel {
+  background: rgba(11, 18, 32, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 174, 239, 0.15);
+  border-radius: 12px;
+}
+
+.glass-panel-strong {
+  background: rgba(11, 18, 32, 0.85);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(0, 174, 239, 0.25);
+  border-radius: 12px;
+}
+
+.glass-panel-hover {
+  transition: all 0.3s ease;
+}
+
+.glass-panel-hover:hover {
+  border-color: rgba(0, 174, 239, 0.4);
+  box-shadow: 0 0 20px rgba(0, 174, 239, 0.15), 0 8px 32px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+/* ============================
+   Glow Effects
+   ============================ */
+
+.glow-blue {
+  box-shadow: 0 0 10px rgba(0, 174, 239, 0.3), 0 0 20px rgba(0, 174, 239, 0.1);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3), 0 0 20px rgba(0, 229, 255, 0.1);
+}
+
+.glow-success {
+  box-shadow: 0 0 10px rgba(0, 255, 153, 0.3), 0 0 20px rgba(0, 255, 153, 0.1);
+}
+
+.glow-warning {
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.3), 0 0 20px rgba(255, 193, 7, 0.1);
+}
+
+.glow-danger {
+  box-shadow: 0 0 10px rgba(255, 77, 77, 0.3), 0 0 20px rgba(255, 77, 77, 0.1);
+}
+
+.text-glow-blue {
+  text-shadow: 0 0 10px rgba(0, 174, 239, 0.5), 0 0 20px rgba(0, 174, 239, 0.2);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.5), 0 0 20px rgba(0, 229, 255, 0.2);
+}
+
+/* ============================
+   Gradient Borders
+   ============================ */
+
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(0, 174, 239, 0.5), rgba(0, 229, 255, 0.1), rgba(0, 174, 239, 0.5));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ============================
+   Status Indicators
+   ============================ */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot-success {
+  background: var(--color-success);
+  box-shadow: 0 0 8px rgba(0, 255, 153, 0.6);
+}
+
+.status-dot-warning {
+  background: var(--color-warning);
+  box-shadow: 0 0 8px rgba(255, 193, 7, 0.6);
+}
+
+.status-dot-danger {
+  background: var(--color-danger);
+  box-shadow: 0 0 8px rgba(255, 77, 77, 0.6);
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+/* ============================
+   Severity Badges
+   ============================ */
+
+.badge-high {
+  background: rgba(255, 77, 77, 0.15);
+  color: var(--color-danger);
+  border: 1px solid rgba(255, 77, 77, 0.3);
+}
+
+.badge-medium {
+  background: rgba(255, 193, 7, 0.15);
+  color: var(--color-warning);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.badge-low {
+  background: rgba(0, 174, 239, 0.15);
+  color: var(--color-blue-primary);
+  border: 1px solid rgba(0, 174, 239, 0.3);
+}
+
+.badge-success {
+  background: rgba(0, 255, 153, 0.15);
+  color: var(--color-success);
+  border: 1px solid rgba(0, 255, 153, 0.3);
+}
+
+/* ============================
+   Progress Bars
+   ============================ */
+
+.progress-bar-track {
+  height: 8px;
+  background: rgba(11, 18, 32, 0.8);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 174, 239, 0.1);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1.5s ease-out;
+  position: relative;
+}
+
+.progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: shimmer 2s infinite;
+  background-size: 200% 100%;
+}
+
+/* ============================
+   Floating Particles
+   ============================ */
+
+.particles-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(0, 174, 239, 0.4);
+  border-radius: 50%;
+  animation: particle-float linear infinite;
+}
+
+/* ============================
+   Utility Classes
+   ============================ */
+
+.font-orbitron { font-family: var(--font-orbitron); }
+.font-space { font-family: var(--font-space); }
+.font-inter { font-family: var(--font-inter); }
+
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(rgba(0, 174, 239, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 174, 239, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* CesiumJS overrides */
+.cesium-viewer-bottom,
+.cesium-viewer-animationContainer,
+.cesium-viewer-timelineContainer,
+.cesium-viewer-fullscreenContainer {
+  display: none !important;
+}
+
+.cesium-widget-credits {
+  display: none !important;
+}
+
+.cesium-viewer {
+  border-radius: 12px;
+  overflow: hidden;
+}
