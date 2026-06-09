@@ -1,73 +1,91 @@
-# React + TypeScript + Vite
+# KesslerX
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **AI-Powered Orbital Traffic Management & Space Situational Awareness**
 
-Currently, two official plugins are available:
+![Status](https://img.shields.io/badge/Status-Active-00FF99?style=flat-square)
+![Version](https://img.shields.io/badge/Version-2.1-00AEEF?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-FFC107?style=flat-square)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Overview
 
-## React Compiler
+KesslerX is a production-grade aerospace dashboard for monitoring satellites, tracking space debris, predicting collisions, analyzing orbital congestion, and providing mission-control intelligence. Designed with a NASA/SpaceX mission-control aesthetic.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+- 🌍 **3D Orbital Map** — Interactive CesiumJS globe with real-time satellite/debris tracking
+- ⚠️ **Collision Monitor** — Conjunction assessment and collision avoidance recommendations
+- 📊 **Analytics** — Satellite growth, debris trends, country ownership, collision history
+- ☀️ **Space Weather** — Solar activity, Kp index, solar wind, and Bz monitoring
+- 🧪 **Kessler Simulator** — Cascading debris collision simulation
+- 🤖 **AI Copilot** — AI-powered orbital intelligence assistant
+- 🔔 **Alert Center** — Real-time threat notifications with severity classification
+- 📋 **Reports** — Automated orbital situation reports with PDF export
+- ⚙️ **Settings** — Configurable display, notifications, API keys, and globe settings
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Tech Stack
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+| Layer | Technology |
+|---|---|
+| Framework | React 18 + TypeScript |
+| Build | Vite |
+| Styling | Tailwind CSS v4 |
+| Animations | Framer Motion |
+| 3D Globe | CesiumJS + Resium |
+| Charts | Recharts |
+| Routing | React Router v7 |
+| Icons | Lucide React |
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Quick Start
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+
+# Production build
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env` file:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+VITE_CESIUM_ION_TOKEN=your_cesium_ion_token_here
 ```
+
+Get a free token at [cesium.com/ion/tokens](https://cesium.com/ion/tokens)
+
+## Project Structure
+
+```
+src/
+├── components/
+│   ├── ai/           # AI Copilot bar
+│   ├── alerts/       # Alert cards and stack
+│   ├── dashboard/    # Globe, metrics, charts
+│   ├── layout/       # Sidebar, Header, RightPanel
+│   └── ui/           # Reusable components
+├── pages/            # 10 route pages
+├── data/             # Mock data catalog
+├── App.tsx           # Root with routing
+└── index.css         # Design system
+```
+
+## AI Development Logs
+
+See [AI_LOGS/](./AI_LOGS/) for full development session history, enabling seamless team handoff.
+
+## Design
+
+- Ultra-dark aerospace theme (#050816)
+- Glassmorphism panels with backdrop blur
+- Glow effects and animated borders
+- Orbitron + Space Grotesk + Inter typography
+- Micro-animations on hover and state change
+
+## License
+
+MIT
