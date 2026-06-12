@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KesslerX | Orbital Reports &amp; Analytics</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700&amp;family=Jetbrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-tertiary": "#68000a", "surface-container-lowest": "#060e20", "inverse-surface": "#dae2fd", "surface-tint": "#b4c5ff", "on-surface": "#dae2fd", "on-secondary-fixed": "#341100", background: "#0b1326", "on-surface-variant": "#c3c6d7", "surface-container-high": "#222a3d", "on-secondary": "#552100", tertiary: "#ffb3ad", "surface-container": "#171f33", "surface-container-highest": "#2d3449", surface: "#0b1326", "surface-container-low": "#131b2e", "secondary-fixed": "#ffdbca", "on-primary": "#002a78", "on-error": "#690005", secondary: "#ffb690", error: "#ffb4ab", "tertiary-container": "#cf2c30", "secondary-container": "#ec6a06", "primary-fixed-dim": "#b4c5ff", "outline-variant": "#434655", "inverse-primary": "#0053db", "on-primary-fixed": "#00174b", "error-container": "#93000a", "on-primary-fixed-variant": "#003ea8", "primary-container": "#2563eb", "on-secondary-fixed-variant": "#783200", "surface-bright": "#31394d", "surface-variant": "#2d3449", "tertiary-fixed": "#ffdad7", "on-error-container": "#ffdad6", "surface-dim": "#0b1326", "on-tertiary-container": "#ffecea", "on-secondary-container": "#4a1c00", "secondary-fixed-dim": "#ffb690", "tertiary-fixed-dim": "#ffb3ad", "on-tertiary-fixed-variant": "#930013", "inverse-on-surface": "#283044", "on-background": "#dae2fd", outline: "#8d90a0", "on-primary-container": "#eeefff", "primary-fixed": "#dbe1ff", "on-tertiary-fixed": "#410004", primary: "#b4c5ff"}, borderRadius: {DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem"}, spacing: {"card-gap": "16px", "element-stack": "8px", "container-margin": "24px", "section-padding": "20px", "inner-padding": "16px"}, fontFamily: {"display-lg": ["Hanken Grotesk"], "body-lg": ["Hanken Grotesk"], "label-mono": ["JetBrains Mono"], "headline-md": ["Hanken Grotesk"], "stat-lg": ["Hanken Grotesk"], "headline-sm": ["Hanken Grotesk"], "body-md": ["Hanken Grotesk"], headline: ["Hanken Grotesk"], display: ["Hanken Grotesk"], body: ["Hanken Grotesk"], label: ["Jetbrains Mono"]}, fontSize: {"display-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "body-lg": ["16px", {lineHeight: "24px", fontWeight: "400"}], "label-mono": ["12px", {lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "500"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "stat-lg": ["28px", {lineHeight: "32px", fontWeight: "700"}], "headline-sm": ["18px", {lineHeight: "24px", fontWeight: "600"}], "body-md": ["14px", {lineHeight: "20px", fontWeight: "400"}]}}}};</script>
+<style>
+        body {
+            background-color: #0b1326;
+            color: #dae2fd;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(23, 31, 51, 0.2);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(180, 197, 255, 0.1);
+        }
+        .glass-card:hover {
+            border-color: rgba(180, 197, 255, 0.3);
+            box-shadow: 0 0 20px rgba(180, 197, 255, 0.05);
+        }
+        .glow-blue { box-shadow: 0 0 15px rgba(37, 99, 235, 0.4); }
+        .glow-amber { box-shadow: 0 0 15px rgba(236, 106, 6, 0.4); }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, #2563eb, transparent);
+            position: absolute;
+            top: -2px;
+            animation: scan 4s linear infinite;
+            opacity: 0.5;
+        }
+        @keyframes scan {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #060e20; }
+        ::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 10px; }
+    </style>
+</head>
+<body class="flex min-h-screen">
+<!-- Side Navigation Bar -->
+<aside class="fixed h-screen left-0 w-64 z-50 bg-surface-container-lowest/40 backdrop-blur-2xl border-r border-outline-variant/10 flex flex-col py-section-padding space-y-element-stack shadow-2xl shadow-black/50">
+<div class="px-inner-padding mb-8">
+<h1 class="font-display-lg text-display-lg text-primary uppercase tracking-widest">KesslerX</h1>
+<p class="font-label-mono text-label-mono text-on-surface-variant/60">Orbital Management</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 hover:backdrop-blur-md transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 hover:backdrop-blur-md transition-all duration-300" href="#">
+<span class="material-symbols-outlined">public</span>
+<span class="font-body-md text-body-md">Orbital Map</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 hover:backdrop-blur-md transition-all duration-300" href="#">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-body-md text-body-md">Collision Monitor</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 hover:backdrop-blur-md transition-all duration-300" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+<a class="bg-primary-container/20 text-primary border-l-4 border-primary px-inner-padding py-3 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md text-body-md">Reports</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 hover:backdrop-blur-md transition-all duration-300" href="#">
+<span class="material-symbols-outlined">wb_sunny</span>
+<span class="font-body-md text-body-md">Space Weather</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 hover:backdrop-blur-md transition-all duration-300" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-body-md text-body-md">AI Copilot</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 hover:backdrop-blur-md transition-all duration-300" href="#">
+<span class="material-symbols-outlined">notifications_active</span>
+<span class="font-body-md text-body-md">Alert Center</span>
+</a>
+</nav>
+<div class="px-inner-padding pt-6 space-y-4">
+<button class="w-full py-3 px-4 bg-primary text-on-primary font-headline-sm text-headline-sm rounded hover:brightness-110 transition-all flex items-center justify-center gap-2 glow-blue">
+<span class="material-symbols-outlined">model_training</span>
+                Launch Simulation
+            </button>
+<div class="space-y-1">
+<a class="text-on-surface-variant/70 hover:text-on-surface py-2 flex items-center gap-3 text-sm" href="#">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+<span class="font-label-mono text-label-mono">System Status</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface py-2 flex items-center gap-3 text-sm" href="#">
+<span class="material-symbols-outlined text-sm">help</span>
+<span class="font-label-mono text-label-mono">Documentation</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="flex-1 ml-64 min-h-screen relative">
+<!-- Top Nav Bar -->
+<header class="sticky top-0 z-40 bg-background/20 backdrop-blur-xl border-b border-outline-variant/10 flex justify-between items-center w-full px-container-margin py-element-stack shadow-lg shadow-primary/5">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50">search</span>
+<input class="w-full bg-surface-container-low/50 border-none rounded-lg pl-10 pr-4 py-2 text-on-surface font-label-mono text-label-mono focus:ring-1 focus:ring-primary/50" placeholder="Search mission IDs or orbital parameters..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-right">
+<p class="font-label-mono text-label-mono text-primary tracking-widest" id="utc-clock">12:45:32 UTC</p>
+<p class="font-label-mono text-xs text-on-surface-variant/50 uppercase">Mission Time</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="material-symbols-outlined text-primary hover:bg-primary/10 p-2 rounded transition-all">notifications</button>
+<button class="material-symbols-outlined text-primary hover:bg-primary/10 p-2 rounded transition-all">hub</button>
+<div class="h-10 w-10 rounded-full border border-primary/30 p-0.5 overflow-hidden">
+<img alt="Mission Control Admin" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCA8tSb8cwLHCjmW01Ea8omj2hPx-cGuWSIlCINS1m77uRYf2cMO_ZxOrHvPebcwm61HLFEgk1GqVex08KrQxt5ThdRQQhRhLr4lXudLEITkX3Gl214LIEz3lFAFB0qgZpZ8IocfrSTAtmCcNzcxdRMpkWsGHVuhwrnVu0k8q3p5Iv3YTtsrpIYaWfFDCbopWivghrWQbFBMRWDX1_3T0zDyjT8bsmhSt2nEFm-3R29dlNzlBS1ODterqnr0AW9rcG0I5dk2lYR4nk"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-container-margin space-y-card-gap">
+<!-- Page Hero / Dashboard Summary -->
+<div class="grid grid-cols-12 gap-card-gap">
+<div class="col-span-12 md:col-span-8 space-y-card-gap">
+<!-- Section: Report Generation & Featured -->
+<div class="glass-card rounded-xl p-inner-padding relative overflow-hidden">
+<div class="scanline"></div>
+<div class="flex justify-between items-end mb-6">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">analytics</span>
+                                    Intelligence Synthesis
+                                </h2>
+<p class="font-body-md text-body-md text-on-surface-variant/70">Aggregate multi-source orbital data into mission-ready reports.</p>
+</div>
+<div class="flex gap-2">
+<button class="px-4 py-2 bg-surface-container-highest/50 border border-outline-variant/30 rounded font-label-mono text-label-mono hover:bg-primary/20 transition-all">TEMPLATES</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-inner-padding">
+<!-- Featured Report 1 -->
+<div class="group cursor-pointer">
+<div class="bg-surface-container-low border border-outline-variant/20 rounded-lg p-inner-padding hover:border-primary/50 transition-all h-full relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-7xl">security</span>
+</div>
+<span class="inline-block px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-label-mono mb-3">CRITICAL</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-2">Weekly Orbital Safety Summary</h3>
+<p class="font-body-md text-xs text-on-surface-variant/60 leading-relaxed mb-4">Collision probability heatmap and conjunction assessment for active lanes.</p>
+<div class="flex items-center text-primary gap-1 font-label-mono text-[11px] group-hover:translate-x-1 transition-transform">
+                                        GENERATE NOW <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- Featured Report 2 -->
+<div class="group cursor-pointer">
+<div class="bg-surface-container-low border border-outline-variant/20 rounded-lg p-inner-padding hover:border-secondary-container/50 transition-all h-full relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-7xl">data_exploration</span>
+</div>
+<span class="inline-block px-2 py-0.5 rounded bg-secondary-container/10 text-secondary-container text-[10px] font-label-mono mb-3">ANALYTICS</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-2">Debris Trend Analysis Q3</h3>
+<p class="font-body-md text-xs text-on-surface-variant/60 leading-relaxed mb-4">Fragmentation event tracking and long-term population density forecasts.</p>
+<div class="flex items-center text-secondary-container gap-1 font-label-mono text-[11px] group-hover:translate-x-1 transition-transform">
+                                        GENERATE NOW <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- Featured Report 3 -->
+<div class="group cursor-pointer">
+<div class="bg-surface-container-low border border-outline-variant/20 rounded-lg p-inner-padding hover:border-on-surface/30 transition-all h-full relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-7xl">hub</span>
+</div>
+<span class="inline-block px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant text-[10px] font-label-mono mb-3">SYSTEMS</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-2">Satellite Health Audit</h3>
+<p class="font-body-md text-xs text-on-surface-variant/60 leading-relaxed mb-4">Operational status review and maneuver capability assessment per fleet.</p>
+<div class="flex items-center text-on-surface-variant gap-1 font-label-mono text-[11px] group-hover:translate-x-1 transition-transform">
+                                        GENERATE NOW <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Section: Recent Reports -->
+<div class="glass-card rounded-xl p-inner-padding">
+<div class="flex items-center justify-between mb-6">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Mission Archive</h2>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 font-label-mono text-xs text-on-surface-variant/50">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> LIVE SYNC
+                                </div>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary">filter_list</button>
+</div>
+</div>
+<div class="overflow-hidden border border-outline-variant/10 rounded-lg">
+<table class="w-full text-left font-body-md text-body-md">
+<thead class="bg-surface-container-high/50 font-label-mono text-label-mono text-on-surface-variant uppercase text-[10px] tracking-wider">
+<tr>
+<th class="px-inner-padding py-4">Report Identifier</th>
+<th class="px-inner-padding py-4">Status</th>
+<th class="px-inner-padding py-4">Timestamp (UTC)</th>
+<th class="px-inner-padding py-4 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="px-inner-padding py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary/70">picture_as_pdf</span>
+<div>
+<p class="font-medium">StarLink-Conjunction-2024-W12</p>
+<p class="text-xs text-on-surface-variant/50 font-label-mono">SAFETY | LEO-A</p>
+</div>
+</div>
+</td>
+<td class="px-inner-padding py-4">
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-container text-[11px] font-bold">READY</span>
+</td>
+<td class="px-inner-padding py-4 font-label-mono text-sm">2024.05.21 09:12</td>
+<td class="px-inner-padding py-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">download</button>
+<button class="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">visibility</button>
+<button class="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">delete</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="px-inner-padding py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary-container/70">terminal</span>
+<div>
+<p class="font-medium">Kessler-Drift-Modeling-PRO</p>
+<p class="text-xs text-on-surface-variant/50 font-label-mono">ANALYTICS | GRID-09</p>
+</div>
+</div>
+</td>
+<td class="px-inner-padding py-4">
+<div class="flex items-center gap-2 text-primary text-[11px] font-bold">
+<div class="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                                GENERATING
+                                            </div>
+</td>
+<td class="px-inner-padding py-4 font-label-mono text-sm">2024.05.21 12:40</td>
+<td class="px-inner-padding py-4 text-right">
+<button class="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded opacity-50 cursor-not-allowed">stop_circle</button>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="px-inner-padding py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant/70">inventory_2</span>
+<div>
+<p class="font-medium">ITU-Spectrum-Compliance-Log</p>
+<p class="text-xs text-on-surface-variant/50 font-label-mono">COMPLIANCE | GLOBAL</p>
+</div>
+</div>
+</td>
+<td class="px-inner-padding py-4">
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-[11px] font-bold uppercase">Archived</span>
+</td>
+<td class="px-inner-padding py-4 font-label-mono text-sm">2024.05.18 22:01</td>
+<td class="px-inner-padding py-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">unarchive</button>
+<button class="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">visibility</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Right Sidebar: Builder & Automation -->
+<div class="col-span-12 md:col-span-4 space-y-card-gap">
+<!-- Report Builder -->
+<div class="glass-card rounded-xl p-inner-padding border-l-4 border-l-primary relative overflow-hidden">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">build</span>
+                            Report Builder
+                        </h3>
+<div class="space-y-4">
+<div>
+<label class="font-label-mono text-[10px] text-on-surface-variant/70 mb-1.5 block uppercase tracking-wider">Metric Universe</label>
+<select class="w-full bg-surface-container-lowest/50 border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface focus:ring-1 focus:ring-primary">
+<option>Orbital Safety &amp; Conjunction</option>
+<option>Historical Debris Drift</option>
+<option>Compliance &amp; Spectrum</option>
+<option>Constellation Performance</option>
+</select>
+</div>
+<div>
+<label class="font-label-mono text-[10px] text-on-surface-variant/70 mb-1.5 block uppercase tracking-wider">Temporal Range</label>
+<div class="grid grid-cols-2 gap-2">
+<input class="bg-surface-container-lowest/50 border border-outline-variant/30 rounded px-3 py-2 text-xs text-on-surface-variant focus:ring-1 focus:ring-primary" type="date"/>
+<input class="bg-surface-container-lowest/50 border border-outline-variant/30 rounded px-3 py-2 text-xs text-on-surface-variant focus:ring-1 focus:ring-primary" type="date"/>
+</div>
+</div>
+<div>
+<label class="font-label-mono text-[10px] text-on-surface-variant/70 mb-1.5 block uppercase tracking-wider">Output Protocol</label>
+<div class="grid grid-cols-3 gap-2">
+<button class="border border-primary/40 bg-primary/10 text-primary font-label-mono text-[10px] py-2 rounded">PDF</button>
+<button class="border border-outline-variant/30 text-on-surface-variant/60 font-label-mono text-[10px] py-2 rounded hover:bg-surface-container-high transition-all">JSON</button>
+<button class="border border-outline-variant/30 text-on-surface-variant/60 font-label-mono text-[10px] py-2 rounded hover:bg-surface-container-high transition-all">CSV</button>
+</div>
+</div>
+<button class="w-full mt-4 bg-primary-container text-white font-headline-sm py-3 rounded-lg flex items-center justify-center gap-2 hover:brightness-110 transition-all glow-blue">
+<span class="material-symbols-outlined">rocket_launch</span>
+                                Compile Report
+                            </button>
+</div>
+</div>
+<!-- Automation -->
+<div class="glass-card rounded-xl p-inner-padding bg-gradient-to-br from-surface-container/30 to-surface-container-highest/20">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Automation Hooks</h3>
+<span class="material-symbols-outlined text-secondary-container">schedule</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 rounded bg-surface-container-low border border-outline-variant/10">
+<div>
+<p class="font-body-md text-sm font-medium">Daily Security Digest</p>
+<p class="font-label-mono text-[10px] text-on-surface-variant/50">06:00 UTC | Stakeholder Hub</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface-variant after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary peer-checked:after:bg-on-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between p-3 rounded bg-surface-container-low border border-outline-variant/10">
+<div>
+<p class="font-body-md text-sm font-medium">Weekly Compliance Audit</p>
+<p class="font-label-mono text-[10px] text-on-surface-variant/50">Sunday 00:00 UTC | PDF</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface-variant after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<button class="w-full border border-outline-variant/30 py-2.5 rounded font-label-mono text-label-mono text-on-surface-variant hover:border-primary/50 hover:text-primary transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span>
+                                CONFIGURE NEW HOOK
+                            </button>
+</div>
+</div>
+<!-- System Health Visual -->
+<div class="glass-card rounded-xl p-inner-padding h-48 relative flex items-center justify-center">
+<div class="absolute inset-0 z-0">
+</div>
+<div class="relative z-10 text-center">
+<p class="font-label-mono text-[10px] uppercase tracking-[0.2em] text-primary mb-2">Live Node Status</p>
+<p class="font-stat-lg text-stat-lg text-white">99.98<span class="text-primary">%</span></p>
+<div class="mt-2 flex justify-center gap-1">
+<div class="h-1 w-4 bg-primary/80 rounded-full"></div>
+<div class="h-1 w-4 bg-primary/80 rounded-full"></div>
+<div class="h-1 w-4 bg-primary/80 rounded-full"></div>
+<div class="h-1 w-4 bg-primary/80 rounded-full animate-pulse"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple UTC Clock update
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toISOString().substr(11, 8) + " UTC";
+            document.getElementById('utc-clock').textContent = timeString;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Interaction for the simulation button
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('mousedown', () => {
+                btn.style.transform = 'scale(0.96)';
+            });
+            btn.addEventListener('mouseup', () => {
+                btn.style.transform = 'scale(1)';
+            });
+            btn.addEventListener('mouseleave', () => {
+                btn.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body></html>

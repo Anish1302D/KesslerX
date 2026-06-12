@@ -1,207 +1,241 @@
-import { motion } from 'framer-motion';
-import { collisionEvents } from '../data/mockData';
-import StatusBadge from '../components/ui/StatusBadge';
-import { AlertTriangle, Shield, Navigation, Crosshair, ArrowUpRight } from 'lucide-react';
-
-const statusColors: Record<string, string> = {
-  CRITICAL: '#FF4D4D',
-  WARNING: '#FFC107',
-  CAUTION: '#FF8C00',
-  WATCH: '#00AEEF',
-  NOMINAL: '#00FF99',
-};
-
 export default function CollisionMonitor() {
   return (
-    <div className="space-y-5 pb-16">
-      {/* Page Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
-      >
+    <div className="space-y-card-gap">
+      {/* Dashboard Header */}
+      <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-2xl font-orbitron font-bold text-white flex items-center gap-3">
-            <AlertTriangle className="w-7 h-7" style={{ color: '#FF4D4D', filter: 'drop-shadow(0 0 8px rgba(255,77,77,0.5))' }} />
-            Collision Monitor
-          </h1>
-          <p className="text-sm font-space mt-1" style={{ color: '#94A3B8' }}>
-            Real-time conjunction assessment and collision avoidance
-          </p>
+          <h2 className="font-headline-md text-headline-md text-primary">Collision Monitor</h2>
+          <p className="text-on-surface-variant/80">Real-time tracking of conjunction events and orbital safety metrics.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="status-dot status-dot-danger" />
-          <span className="text-xs font-space" style={{ color: '#FF4D4D' }}>2 Critical Events</span>
+        <div className="flex gap-2">
+          <button className="px-4 py-2 glass rounded-lg flex items-center gap-2 text-sm hover:bg-surface-container-highest transition-all">
+            <span className="material-symbols-outlined text-sm">filter_alt</span> Filters
+          </button>
+          <button className="px-4 py-2 bg-primary-container text-white rounded-lg flex items-center gap-2 text-sm hover:brightness-110 active:scale-95 transition-all">
+            <span className="material-symbols-outlined text-sm">add</span> Add Tracking Object
+          </button>
         </div>
-      </motion.div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Active Conjunctions', value: '23', color: '#00AEEF', icon: Crosshair },
-          { label: 'Critical Events', value: '2', color: '#FF4D4D', icon: AlertTriangle },
-          { label: 'Maneuvers Planned', value: '1', color: '#FFC107', icon: Navigation },
-          { label: 'Safe Passages', value: '18', color: '#00FF99', icon: Shield },
-        ].map((card, i) => (
-          <motion.div
-            key={card.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 + i * 0.1 }}
-            className="glass-panel glass-panel-hover p-4"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-space font-semibold tracking-wider" style={{ color: '#94A3B8' }}>{card.label}</span>
-              <card.icon className="w-4 h-4" style={{ color: card.color }} />
-            </div>
-            <span className="text-2xl font-orbitron font-bold" style={{ color: card.color }}>{card.value}</span>
-          </motion.div>
-        ))}
       </div>
 
-      {/* Collision Events Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="glass-panel p-5"
-      >
-        <h3 className="text-sm font-space font-semibold tracking-wider mb-4" style={{ color: '#94A3B8' }}>
-          CONJUNCTION ASSESSMENT
-        </h3>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr>
-                {['Event', 'Primary', 'Secondary', 'Probability', 'Miss Dist.', 'Rel. Velocity', 'Status', 'Maneuver'].map((h) => (
-                  <th key={h} className="text-[10px] font-space font-semibold tracking-wider text-left py-2 px-3" style={{ color: '#64748B', borderBottom: '1px solid rgba(0,174,239,0.1)' }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {collisionEvents.map((event, i) => (
-                <motion.tr
-                  key={event.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4 + i * 0.1 }}
-                  className="cursor-pointer transition-all duration-200 hover:bg-[rgba(0,174,239,0.05)]"
-                  style={{ borderBottom: '1px solid rgba(0,174,239,0.05)' }}
-                >
-                  <td className="py-3 px-3">
-                    <span className="text-xs font-orbitron" style={{ color: '#00AEEF' }}>{event.id}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-xs font-space text-white">{event.primary}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-xs font-space" style={{ color: '#94A3B8' }}>{event.secondary}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-xs font-orbitron font-bold" style={{ color: event.probability > 5 ? '#FF4D4D' : event.probability > 2 ? '#FFC107' : '#00FF99' }}>
-                      {event.probability}%
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-xs font-space" style={{ color: '#94A3B8' }}>{event.missDistance}m</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-xs font-space" style={{ color: '#94A3B8' }}>{event.relVelocity} km/s</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-[10px] font-space font-bold tracking-wider" style={{ color: statusColors[event.status] }}>
-                      {event.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span
-                      className="text-[10px] font-space px-2 py-1 rounded-full"
-                      style={{
-                        background: event.maneuver === 'Recommended' ? 'rgba(255,77,77,0.15)' : 'rgba(0,174,239,0.1)',
-                        color: event.maneuver === 'Recommended' ? '#FF4D4D' : '#94A3B8',
-                        border: `1px solid ${event.maneuver === 'Recommended' ? 'rgba(255,77,77,0.3)' : 'rgba(0,174,239,0.15)'}`,
-                      }}
-                    >
-                      {event.maneuver}
-                    </span>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Upper Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-card-gap">
+        <div className="glass p-4 rounded-xl flex flex-col">
+          <div className="flex justify-between items-start mb-2">
+            <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded">warning</span>
+            <span className="text-error font-label-mono text-[10px]">+12.4%</span>
+          </div>
+          <p className="text-xs text-on-surface-variant uppercase tracking-wide">Critical Alerts</p>
+          <p className="font-stat-lg text-stat-lg">24</p>
         </div>
-      </motion.div>
+        <div className="glass p-4 rounded-xl flex flex-col">
+          <div className="flex justify-between items-start mb-2">
+            <span className="material-symbols-outlined text-secondary bg-secondary/10 p-2 rounded">near_me</span>
+            <span className="text-on-surface-variant font-label-mono text-[10px]">T-24h</span>
+          </div>
+          <p className="text-xs text-on-surface-variant uppercase tracking-wide">Close Approaches</p>
+          <p className="font-stat-lg text-stat-lg">1,482</p>
+        </div>
+        <div className="glass p-4 rounded-xl flex flex-col">
+          <div className="flex justify-between items-start mb-2">
+            <span className="material-symbols-outlined text-tertiary bg-tertiary/10 p-2 rounded">analytics</span>
+            <span className="text-primary font-label-mono text-[10px]">99.8%</span>
+          </div>
+          <p className="text-xs text-on-surface-variant uppercase tracking-wide">Mean Miss Distance</p>
+          <p className="font-stat-lg text-stat-lg">42.5 km</p>
+        </div>
+        <div className="glass p-4 rounded-xl flex flex-col">
+          <div className="flex justify-between items-start mb-2">
+            <span className="material-symbols-outlined text-on-surface-variant bg-surface-container-highest p-2 rounded">explore</span>
+            <span className="text-secondary font-label-mono text-[10px]">LEO-01</span>
+          </div>
+          <p className="text-xs text-on-surface-variant uppercase tracking-wide">High Risk Zone</p>
+          <p className="font-stat-lg text-stat-lg">Polar LEO</p>
+        </div>
+      </div>
 
-      {/* Threat Assessment Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="glass-panel p-5"
-        >
-          <h3 className="text-sm font-space font-semibold tracking-wider mb-4" style={{ color: '#94A3B8' }}>
-            RECOMMENDED ACTIONS
-          </h3>
-          <div className="space-y-3">
-            {[
-              { action: 'Execute CAM for STARLINK-3021', priority: 'CRITICAL', detail: 'Delta-v: 0.3 m/s retrograde burn within 8 minutes' },
-              { action: 'Prepare PDAM for ISS', priority: 'WARNING', detail: 'Standby for potential debris avoidance maneuver' },
-              { action: 'Continue monitoring ONEWEB-0345', priority: 'CAUTION', detail: 'Update TLE data and reassess in 1 hour' },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-3 p-3 rounded-lg transition-all duration-200 hover:bg-[rgba(0,174,239,0.05)]"
-                style={{ border: `1px solid ${statusColors[item.priority]}30` }}
-              >
-                <ArrowUpRight className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: statusColors[item.priority] }} />
+      {/* Main Workspace Grid */}
+      <div className="grid grid-cols-12 gap-card-gap h-auto">
+        {/* Upcoming Close Approaches List */}
+        <div className="col-span-12 xl:col-span-4 glass rounded-xl overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-outline-variant/10 flex justify-between items-center">
+            <h3 className="font-headline-sm text-headline-sm flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">format_list_bulleted</span>
+              Conjunction Queue
+            </h3>
+            <span className="text-[10px] font-label-mono bg-surface-container-highest px-2 py-0.5 rounded">AUTO-REFRESH: ON</span>
+          </div>
+          <div className="flex-1 overflow-y-auto max-h-[600px]">
+            {/* Event 1 - High Risk */}
+            <div className="p-4 border-b border-outline-variant/10 bg-primary-container/10 border-l-4 border-l-error cursor-pointer hover:bg-primary-container/20 transition-all">
+              <div className="flex justify-between items-start mb-2">
                 <div>
-                  <p className="text-xs font-space font-medium text-white">{item.action}</p>
-                  <p className="text-[11px] font-inter mt-0.5" style={{ color: '#94A3B8' }}>{item.detail}</p>
+                  <h4 className="font-bold text-sm">STARLINK-3021 vs DEBRIS-88172</h4>
+                  <p className="text-xs text-on-surface-variant">Conjunction ID: CX-9921-A</p>
                 </div>
-                <StatusBadge severity={item.priority === 'CRITICAL' ? 'HIGH' : item.priority === 'WARNING' ? 'MEDIUM' : 'LOW'} label={item.priority} />
+                <span className="bg-error/20 text-error text-[10px] px-2 py-0.5 rounded-full font-bold">CRITICAL</span>
               </div>
-            ))}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">schedule</span> TCA: 12 min
+                </div>
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">monitoring</span> Risk: 9.8%
+                </div>
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">straighten</span> Miss: 0.12 km
+                </div>
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">language</span> Orbit: LEO
+                </div>
+              </div>
+            </div>
+            {/* Event 2 - Medium Risk */}
+            <div className="p-4 border-b border-outline-variant/10 cursor-pointer hover:bg-surface-container-highest/20 transition-all">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h4 className="font-bold text-sm">ONEWEB-1160 vs DEBRIS-77319</h4>
+                  <p className="text-xs text-on-surface-variant">Conjunction ID: CX-8840-B</p>
+                </div>
+                <span className="bg-secondary/20 text-secondary text-[10px] px-2 py-0.5 rounded-full font-bold">ELEVATED</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">schedule</span> TCA: 1h 32m
+                </div>
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">monitoring</span> Risk: 4.6%
+                </div>
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">straighten</span> Miss: 1.4 km
+                </div>
+              </div>
+            </div>
+            {/* Event 3 - Low Risk */}
+            <div className="p-4 border-b border-outline-variant/10 cursor-pointer hover:bg-surface-container-highest/20 transition-all opacity-70">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h4 className="font-bold text-sm">GPS IIF-11 vs DEBRIS-12444</h4>
+                  <p className="text-xs text-on-surface-variant">Conjunction ID: CX-4122-C</p>
+                </div>
+                <span className="bg-on-surface-variant/20 text-on-surface-variant text-[10px] px-2 py-0.5 rounded-full font-bold">NOMINAL</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">schedule</span> TCA: 3h 15m
+                </div>
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">monitoring</span> Risk: 1.2%
+                </div>
+              </div>
+            </div>
           </div>
-        </motion.div>
+          <button className="w-full p-3 text-xs text-primary font-bold hover:bg-primary/10 transition-all border-t border-outline-variant/10">VIEW ALL COLLISION EVENTS</button>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="glass-panel p-5"
-        >
-          <h3 className="text-sm font-space font-semibold tracking-wider mb-4" style={{ color: '#94A3B8' }}>
-            RISK DISTRIBUTION
-          </h3>
-          <div className="space-y-4">
-            {[
-              { label: 'Critical (>5%)', count: 2, total: 23, color: '#FF4D4D' },
-              { label: 'High (2-5%)', count: 3, total: 23, color: '#FFC107' },
-              { label: 'Medium (0.5-2%)', count: 6, total: 23, color: '#00AEEF' },
-              { label: 'Low (<0.5%)', count: 12, total: 23, color: '#00FF99' },
-            ].map((item) => (
-              <div key={item.label}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-space" style={{ color: '#94A3B8' }}>{item.label}</span>
-                  <span className="text-xs font-orbitron font-bold" style={{ color: item.color }}>{item.count}</span>
+        {/* 3D Encounter Details View */}
+        <div className="col-span-12 xl:col-span-8 space-y-card-gap">
+          <div className="glass rounded-xl p-6 relative overflow-hidden h-[400px]">
+            <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-40">
+            </div>
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-headline-sm text-headline-sm">Active Encounter Visualization</h3>
+                  <p className="font-label-mono text-[10px] text-error flex items-center gap-1 mt-1">
+                    <span className="w-1.5 h-1.5 bg-error rounded-full animate-pulse"></span> MONITORING LIVE INTERSECTION
+                  </p>
                 </div>
-                <div className="progress-bar-track">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(item.count / item.total) * 100}%` }}
-                    transition={{ duration: 1, delay: 0.8 }}
-                    className="progress-bar-fill"
-                    style={{ background: `linear-gradient(90deg, ${item.color}80, ${item.color})` }}
-                  />
+                <div className="flex gap-2">
+                  <button className="p-2 glass rounded hover:bg-surface-container-highest"><span className="material-symbols-outlined text-sm">videocam</span></button>
+                  <button className="p-2 glass rounded hover:bg-surface-container-highest"><span className="material-symbols-outlined text-sm">fullscreen</span></button>
                 </div>
               </div>
-            ))}
+              <div className="mt-auto grid grid-cols-3 gap-4">
+                <div className="p-3 glass bg-surface-container-lowest/60 rounded-lg">
+                  <p className="text-[10px] text-on-surface-variant uppercase">Relative Velocity</p>
+                  <p className="text-xl font-bold">14.2 km/s</p>
+                </div>
+                <div className="p-3 glass bg-surface-container-lowest/60 rounded-lg border-l-4 border-l-error">
+                  <p className="text-[10px] text-error uppercase">Miss Distance</p>
+                  <p className="text-xl font-bold">120m</p>
+                </div>
+                <div className="p-3 glass bg-surface-container-lowest/60 rounded-lg">
+                  <p className="text-[10px] text-on-surface-variant uppercase">Collision Prob.</p>
+                  <p className="text-xl font-bold">1 in 10.2</p>
+                </div>
+              </div>
+            </div>
           </div>
-        </motion.div>
+
+          {/* Detail Tabs & Graphs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-card-gap">
+            {/* Probability Heatmap/History */}
+            <div className="glass rounded-xl p-4">
+              <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary">show_chart</span> Probability Trend (24h)
+              </h3>
+              <div className="h-40 flex items-end justify-between gap-1 px-2">
+                {/* Mock Sparkline */}
+                <div className="w-full h-full relative">
+                  <svg className="w-full h-full" viewBox="0 0 400 100">
+                    <path className="trajectory-line" d="M0 80 Q 50 70, 100 85 T 200 40 T 300 20 T 400 5" fill="none" stroke="url(#lineGradient)" strokeWidth="2"></path>
+                    <defs>
+                      <linearGradient id="lineGradient" x1="0" x2="1" y1="0" y2="0">
+                        <stop offset="0%" stopColor="#b4c5ff"></stop>
+                        <stop offset="100%" stopColor="#ffb4ab"></stop>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute top-0 left-0 text-[8px] text-on-surface-variant flex flex-col h-full justify-between py-2">
+                    <span>10.0%</span>
+                    <span>5.0%</span>
+                    <span>1.0%</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between mt-2 text-[10px] text-on-surface-variant px-4">
+                <span>-24H</span>
+                <span>-12H</span>
+                <span>NOW</span>
+              </div>
+            </div>
+            {/* Risk Zones Map */}
+            <div className="glass rounded-xl p-4 overflow-hidden relative">
+              <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-tertiary">map</span> Global Risk Heatmap
+              </h3>
+              <div className="relative rounded-lg overflow-hidden h-40 bg-surface-container-low border border-outline-variant/10">
+                <img alt="Risk Map" className="w-full h-full object-cover mix-blend-screen opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJiHLG9E_810m401A_GAaXOA8hQsIyulpMKfgTWRAoHx5U9kpSx9x_QVbGq9QLifRI8zi6YOGVVjMEyx4ulMw9eWlejUW37hWW-ygsPFgmOBcmPU6fKCUrwh0U0SUbMwxe7d1e_FFr1SfrUXDyNB2ygGZvVezMe2OwjgiwWQ5yDnsZMd2q4M1tipkWOOSJOdIozZ3SyY2vSJpjmaFl1vunKy8NgTH5Xt8B8gKeVb6jj8ThPQZHKWsNDPyjgBfxmgsCH3pSt6pTVb4"/>
+                {/* Hotspots overlay */}
+                <div className="absolute top-1/4 left-1/2 w-8 h-8 bg-error/40 rounded-full animate-ping"></div>
+                <div className="absolute bottom-1/3 left-1/4 w-4 h-4 bg-secondary/40 rounded-full animate-ping" style={{ animationDelay: '75ms' }}></div>
+                <div className="absolute top-1/2 right-1/3 w-6 h-6 bg-error/30 rounded-full animate-ping" style={{ animationDelay: '150ms' }}></div>
+              </div>
+              <div className="flex justify-between mt-3">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-error"></div>
+                  <span className="text-[10px] text-on-surface-variant uppercase">Critical Density</span>
+                </div>
+                <button className="text-[10px] text-primary uppercase font-bold hover:underline">Full Analysis</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Copilot Quick Assist */}
+      <div className="glass rounded-xl p-4 border-l-4 border-l-primary flex items-center gap-6 mt-4">
+        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary flex-shrink-0">
+          <span className="material-symbols-outlined">smart_toy</span>
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-bold text-primary">Kessler AI Insight</p>
+          <p className="text-xs text-on-surface-variant leading-relaxed">The conjunction event <span className="text-on-surface font-mono">CX-9921-A</span> has reached a risk threshold. Recommend executing a 0.5m/s retrograde burn on STARLINK-3021 at <span className="text-on-surface font-mono">12:55:10 UTC</span> to increase radial separation by 450m.</p>
+        </div>
+        <div className="flex gap-2">
+          <button className="px-4 py-2 bg-surface-container-highest hover:bg-outline-variant text-white text-xs rounded transition-all">Dismiss</button>
+          <button className="px-4 py-2 bg-primary-container hover:brightness-110 text-white text-xs rounded font-bold transition-all">Execute Advice</button>
+        </div>
       </div>
     </div>
   );

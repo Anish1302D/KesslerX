@@ -90,6 +90,11 @@ export const satellites: Satellite[] = [
   { id: 'SAT-012', name: 'INTELSAT 40E', type: 'Communication', country: 'USA', altitude: 35786, velocity: 11068, period: 1436.0, inclination: 0.01, collisionRisk: 0.01, lat: 0.0, lon: -58.0, orbitType: 'GEO', status: 'Active', launchDate: '2025-08-14', operator: 'Intelsat' },
   { id: 'SAT-013', name: 'GALILEO-FOC-26', type: 'GPS', country: 'EU', altitude: 23222, velocity: 13600, period: 844.7, inclination: 56.0, collisionRisk: 0.08, lat: 45.0, lon: 10.5, orbitType: 'MEO', status: 'Active', launchDate: '2024-12-01', operator: 'ESA' },
   { id: 'SAT-014', name: 'KUIPER-0122', type: 'Communication', country: 'USA', altitude: 630, velocity: 27400, period: 97.2, inclination: 51.9, collisionRisk: 1.5, lat: -8.3, lon: -155.7, orbitType: 'LEO', status: 'Active', launchDate: '2025-10-30', operator: 'Amazon' },
+  { id: 'SAT-015', name: 'HST (HUBBLE)', type: 'Scientific', country: 'USA/ESA', altitude: 539, velocity: 27300, period: 95.4, inclination: 28.5, collisionRisk: 0.4, lat: 20.1, lon: -40.3, orbitType: 'LEO', status: 'Active', launchDate: '1990-04-24', operator: 'NASA/ESA' },
+  { id: 'SAT-016', name: 'NOAA-19', type: 'Weather', country: 'USA', altitude: 847, velocity: 26800, period: 102.1, inclination: 99.1, collisionRisk: 1.1, lat: 45.2, lon: 10.4, orbitType: 'LEO', status: 'Active', launchDate: '2009-02-06', operator: 'NOAA' },
+  { id: 'SAT-017', name: 'METEOSAT-11', type: 'Weather', country: 'EU', altitude: 35786, velocity: 11068, period: 1436.0, inclination: 0.05, collisionRisk: 0.03, lat: 0.0, lon: 0.0, orbitType: 'GEO', status: 'Active', launchDate: '2015-07-15', operator: 'EUMETSAT' },
+  { id: 'SAT-018', name: 'IRIDIUM-154', type: 'Communication', country: 'USA', altitude: 780, velocity: 27000, period: 100.4, inclination: 86.4, collisionRisk: 2.1, lat: 80.2, lon: -120.5, orbitType: 'LEO', status: 'Active', launchDate: '2018-05-22', operator: 'Iridium' },
+  { id: 'SAT-019', name: 'SUOMI NPP', type: 'Scientific', country: 'USA', altitude: 824, velocity: 26900, period: 101.4, inclination: 98.7, collisionRisk: 0.7, lat: -25.4, lon: 135.2, orbitType: 'LEO', status: 'Active', launchDate: '2011-10-28', operator: 'NASA/NOAA' },
 ];
 
 // ============================================================

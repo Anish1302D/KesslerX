@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KesslerX | Orbital Analytics Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700&amp;family=Jetbrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for HUD feel */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(11, 19, 38, 0.5); }
+        ::-webkit-scrollbar-thumb { background: rgba(180, 197, 255, 0.2); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(180, 197, 255, 0.4); }
+
+        .glass-card {
+            background: rgba(45, 52, 73, 0.15);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(141, 144, 160, 0.1);
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(180, 197, 255, 0.3);
+            background: rgba(45, 52, 73, 0.25);
+        }
+        .neon-glow-primary { box-shadow: 0 0 15px rgba(37, 99, 235, 0.2); }
+        .neon-text-error { text-shadow: 0 0 8px rgba(255, 180, 171, 0.4); }
+        
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .scanline-effect {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(to right, transparent, rgba(180, 197, 255, 0.1), transparent);
+            animation: scanline 8s linear infinite;
+        }
+    </style>
+<!-- Tailwind Config Verbatim -->
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"on-tertiary": "#68000a", tertiary: "#ffb3ad", "on-tertiary-container": "#ffecea", "on-secondary": "#552100", background: "#0b1326", "surface-container-low": "#131b2e", "outline-variant": "#434655", "surface-container-highest": "#2d3449", "primary-container": "#2563eb", "on-primary-fixed-variant": "#003ea8", "secondary-fixed-dim": "#ffb690", "secondary-fixed": "#ffdbca", error: "#ffb4ab", "on-error": "#690005", "tertiary-container": "#cf2c30", outline: "#8d90a0", "tertiary-fixed": "#ffdad7", primary: "#b4c5ff", "on-error-container": "#ffdad6", "on-tertiary-fixed-variant": "#930013", "primary-fixed-dim": "#b4c5ff", "primary-fixed": "#dbe1ff", "on-secondary-fixed-variant": "#783200", "on-secondary-container": "#4a1c00", "inverse-on-surface": "#283044", "inverse-surface": "#dae2fd", "surface-container-lowest": "#060e20", secondary: "#ffb690", "surface-variant": "#2d3449", surface: "#0b1326", "on-primary": "#002a78", "surface-bright": "#31394d", "surface-dim": "#0b1326", "secondary-container": "#ec6a06", "tertiary-fixed-dim": "#ffb3ad", "error-container": "#93000a", "on-surface-variant": "#c3c6d7", "on-secondary-fixed": "#341100", "on-background": "#dae2fd", "surface-container": "#171f33", "on-primary-fixed": "#00174b", "surface-tint": "#b4c5ff", "surface-container-high": "#222a3d", "on-tertiary-fixed": "#410004", "on-surface": "#dae2fd", "on-primary-container": "#eeefff", "inverse-primary": "#0053db"}, borderRadius: {DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem"}, spacing: {"card-gap": "16px", "section-padding": "20px", "inner-padding": "16px", "element-stack": "8px", "container-margin": "24px"}, fontFamily: {"label-mono": ["JetBrains Mono"], "display-lg": ["Hanken Grotesk"], "body-md": ["Hanken Grotesk"], "stat-lg": ["Hanken Grotesk"], "headline-md": ["Hanken Grotesk"], "body-lg": ["Hanken Grotesk"], "headline-sm": ["Hanken Grotesk"], headline: ["Hanken Grotesk"], display: ["Hanken Grotesk"], body: ["Hanken Grotesk"], label: ["Jetbrains Mono"]}, fontSize: {"label-mono": ["12px", {lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "500"}], "display-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}], "body-md": ["14px", {lineHeight: "20px", fontWeight: "400"}], "stat-lg": ["28px", {lineHeight: "32px", fontWeight: "700"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "body-lg": ["16px", {lineHeight: "24px", fontWeight: "400"}], "headline-sm": ["18px", {lineHeight: "24px", fontWeight: "600"}]}}}};</script>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-hidden flex h-screen">
+<!-- SideNavBar (Authority: Shared Components JSON) -->
+<aside class="hidden md:flex flex-col h-full py-section-padding space-y-element-stack bg-surface-container-lowest/40 backdrop-blur-2xl border-r border-outline-variant/10 shadow-2xl shadow-black/50 w-64 z-50">
+<div class="px-container-margin mb-8">
+<h1 class="font-display-lg text-display-lg text-primary uppercase tracking-widest">KesslerX</h1>
+<p class="font-label-mono text-label-mono text-primary/60">Orbital Management</p>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Active: Analytics -->
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">public</span>
+<span class="font-body-md text-body-md">Orbital Map</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-body-md text-body-md">Collision Monitor</span>
+</a>
+<a class="bg-primary-container/20 text-primary border-l-4 border-primary px-inner-padding py-3 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">wb_sunny</span>
+<span class="font-body-md text-body-md">Space Weather</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">model_training</span>
+<span class="font-body-md text-body-md">Simulations</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-body-md text-body-md">AI Copilot</span>
+</a>
+</nav>
+<div class="px-container-margin pt-4 mt-auto">
+<button class="w-full py-3 bg-primary-container text-white rounded-lg font-headline-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:brightness-110 transition-all">
+<span class="material-symbols-outlined">rocket_launch</span>
+                Launch Simulation
+            </button>
+<div class="mt-8 pt-4 border-t border-outline-variant/10 space-y-2">
+<div class="flex items-center gap-3 text-on-surface-variant/70 px-inner-padding py-2">
+<span class="material-symbols-outlined text-green-400">check_circle</span>
+<span class="font-label-mono text-label-mono uppercase">System Status</span>
+</div>
+<div class="flex items-center gap-3 text-on-surface-variant/70 px-inner-padding py-2">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-mono text-label-mono uppercase">Documentation</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col min-w-0 relative bg-background">
+<!-- Background Animation -->
+<!-- TopNavBar (Authority: Shared Components JSON) -->
+<header class="flex justify-between items-center w-full px-container-margin py-element-stack bg-background/20 backdrop-blur-xl border-b border-outline-variant/10 shadow-lg shadow-primary/5 z-40">
+<div class="flex items-center gap-6">
+<div class="relative group">
+<span class="absolute inset-y-0 left-3 flex items-center text-outline pointer-events-none">
+<span class="material-symbols-outlined text-body-lg">search</span>
+</span>
+<input class="bg-surface-container-highest/30 border-none rounded-lg pl-10 pr-4 py-2 w-80 text-body-md focus:ring-1 focus:ring-primary/50 transition-all" placeholder="Search satellites, debris, events..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="font-label-mono text-label-mono text-primary flex items-center gap-2">
+<span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    12:45:32 UTC
+                </div>
+<div class="flex items-center gap-4">
+<button class="relative p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">hub</span>
+</button>
+<div class="flex items-center gap-3 pl-4 border-l border-outline-variant/20">
+<div class="text-right">
+<p class="font-headline-sm text-label-mono text-primary leading-none">Admin</p>
+<p class="text-[10px] text-outline uppercase tracking-widest mt-1">Mission Control</p>
+</div>
+<img alt="Mission Control Admin" class="w-10 h-10 rounded-full border border-primary/30 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAm2SqXpZPXTmspToDdzQYfuhQFwERn_aFyZJX8ifchFKVmaedhLgW-n9YXhwh1utrpdjayHzXiyv3MwfNKOEH9Y9JIHWgdqF-1tcfagNO31YBdzmlFMbHf0QJJO7lJv0Nu3QdLxlrc2jK6P3RvW6JOEKw7Q4jCVBRKx52rmAr1OjJHiGU5PsuQouDU7zgebQW4A7PUx7cEUh--QUkOFKZUF2zpXGHzkBpuit9ABe6IB0R4wElzsUPApYmbzSoXbeHsbuypeqVXEoY"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Scrollable Dashboard Content -->
+<div class="flex-1 overflow-y-auto p-container-margin custom-scrollbar z-10">
+<!-- Header Stats -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-card-gap mb-8">
+<div class="glass-card p-inner-padding rounded-xl relative overflow-hidden group">
+<div class="scanline-effect"></div>
+<div class="flex justify-between items-start mb-2">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">rocket</span>
+<span class="text-green-400 font-label-mono text-[10px]">+2.35%</span>
+</div>
+<p class="text-on-surface-variant text-label-mono uppercase tracking-widest">Active Satellites</p>
+<p class="font-stat-lg text-stat-lg text-primary mt-1">12,457</p>
+</div>
+<div class="glass-card p-inner-padding rounded-xl relative overflow-hidden">
+<div class="flex justify-between items-start mb-2">
+<span class="material-symbols-outlined text-secondary bg-secondary/10 p-2 rounded-lg">bubble_chart</span>
+<span class="text-green-400 font-label-mono text-[10px]">+1.89%</span>
+</div>
+<p class="text-on-surface-variant text-label-mono uppercase tracking-widest">Tracked Debris</p>
+<p class="font-stat-lg text-stat-lg text-secondary mt-1">39,812</p>
+</div>
+<div class="glass-card p-inner-padding rounded-xl relative overflow-hidden">
+<div class="flex justify-between items-start mb-2">
+<span class="material-symbols-outlined text-error bg-error/10 p-2 rounded-lg">warning</span>
+<span class="text-error font-label-mono text-[10px]">+12.1%</span>
+</div>
+<p class="text-on-surface-variant text-label-mono uppercase tracking-widest">High Risk Objects</p>
+<p class="font-stat-lg text-stat-lg text-error neon-text-error mt-1">37</p>
+</div>
+<div class="glass-card p-inner-padding rounded-xl relative overflow-hidden">
+<div class="flex justify-between items-start mb-2">
+<span class="material-symbols-outlined text-tertiary bg-tertiary/10 p-2 rounded-lg">bolt</span>
+<span class="text-yellow-400 font-label-mono text-[10px]">Moderate</span>
+</div>
+<p class="text-on-surface-variant text-label-mono uppercase tracking-widest">Space Weather</p>
+<p class="font-stat-lg text-stat-lg text-tertiary mt-1">Kp 5</p>
+</div>
+</div>
+<!-- Main Analytics Grid -->
+<div class="grid grid-cols-12 gap-card-gap">
+<!-- Large Chart: Debris Growth -->
+<div class="col-span-12 lg:col-span-8 glass-card rounded-xl p-inner-padding">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary flex items-center gap-2">
+<span class="material-symbols-outlined">insights</span>
+                                Debris Growth Projection
+                            </h3>
+<p class="text-on-surface-variant text-body-md mt-1">Cumulative object count in LEO (2010 - 2035 Estimated)</p>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-surface-container-highest/50 border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">LEO</button>
+<button class="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">MEO</button>
+<button class="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">GEO</button>
+</div>
+</div>
+<!-- Placeholder for Chart -->
+<div class="h-[300px] w-full relative">
+<div class="absolute inset-0 flex items-end gap-1 px-4">
+<!-- Simulated Chart Bars -->
+<div class="flex-1 bg-primary/20 border-t border-primary/40 h-[10%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/20 border-t border-primary/40 h-[15%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/20 border-t border-primary/40 h-[12%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/20 border-t border-primary/40 h-[22%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/20 border-t border-primary/40 h-[35%] rounded-t-sm"></div>
+<div class="flex-1 bg-primary/40 border-t-2 border-primary h-[48%] rounded-t-sm relative group">
+<div class="absolute -top-10 left-1/2 -translate-x-1/2 bg-surface-container-high p-2 rounded border border-primary/30 opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
+<p class="text-label-mono text-[10px]">2024: 39,812</p>
+</div>
+</div>
+<div class="flex-1 bg-primary/30 border-t border-primary/50 h-[55%] rounded-t-sm border-dashed"></div>
+<div class="flex-1 bg-primary/20 border-t border-primary/30 h-[65%] rounded-t-sm border-dashed"></div>
+<div class="flex-1 bg-primary/10 border-t border-primary/20 h-[82%] rounded-t-sm border-dashed"></div>
+</div>
+<!-- Axis Labels -->
+<div class="absolute bottom-[-24px] w-full flex justify-between text-outline text-label-mono px-4">
+<span>2010</span><span>2015</span><span>2020</span><span>2025</span><span>2030</span><span>2035</span>
+</div>
+</div>
+</div>
+<!-- Right Sidebar: Live Alerts & Heatmap -->
+<div class="col-span-12 lg:col-span-4 space-y-card-gap">
+<!-- Congestion Heatmap -->
+<div class="glass-card rounded-xl p-inner-padding">
+<h3 class="font-headline-sm text-headline-sm text-secondary flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined">map</span>
+                            Debris Density Map
+                        </h3>
+<div class="aspect-video relative rounded border border-outline-variant/10 overflow-hidden group">
+<img class="w-full h-full object-cover grayscale brightness-50 group-hover:scale-110 transition-transform duration-700" data-alt="A high-tech digital world map visualization in deep navy blue and neon orange. Hotspots of orbital debris are highlighted with glowing heat gradients ranging from yellow to intense red, specifically focused over major telecommunication corridors and polar regions. The aesthetic is clean, cinematic, and data-driven with a futuristic heads-up display overlay." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhbECmngyPSIEEb014nOGDhhlWTiy0NvQ5-aZsFMxhFdWH-SqPl5xfttUmEV6qfc5g8a3k2khMu3hGnimyG8hQ0UIzMDYh04Gti5T4zgBX3DWl1E9Wwl3v5j2pTMFXI8jVRwWmKv44qIfAcY_vA4GKdbixwbITfBCHIkq0nmnj2TdL3L45JGblYmBC2w9XAg9N8c0DMTnPtQbE3EFvQgUEZxh1rwKhxNI36cVL_yzu3yLKRHguEYWdY3_IntkCwgjQgFtZLA1uDaU"/>
+<div class="absolute inset-0 bg-secondary/5 mix-blend-overlay"></div>
+<div class="absolute bottom-2 left-2 flex items-center gap-2 px-2 py-1 bg-black/40 backdrop-blur rounded">
+<div class="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
+<span class="text-[10px] font-label-mono text-on-surface">LEO CORRIDOR A7</span>
+</div>
+</div>
+<div class="mt-4 flex justify-between text-[10px] font-label-mono text-outline">
+<span>LOW DENSITY</span>
+<div class="w-32 h-1 bg-gradient-to-right from-blue-500 via-yellow-500 to-red-500 mt-1.5 rounded-full"></div>
+<span>CRITICAL</span>
+</div>
+</div>
+<!-- Orbital Risk Index -->
+<div class="glass-card rounded-xl p-inner-padding">
+<h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center justify-between mb-4">
+                            Risk Index
+                            <span class="material-symbols-outlined text-error">info</span>
+</h3>
+<div class="flex flex-col items-center py-4">
+<div class="relative w-40 h-20 overflow-hidden">
+<div class="w-40 h-40 border-[12px] border-surface-container-highest rounded-full"></div>
+<div class="absolute top-0 w-40 h-40 border-[12px] border-transparent border-t-error border-l-error rounded-full rotate-[145deg]"></div>
+<div class="absolute bottom-0 w-full text-center">
+<p class="font-stat-lg text-stat-lg leading-none">72%</p>
+<p class="text-label-mono text-error uppercase tracking-tighter mt-1">High Risk</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Row: Multi-Metric Widgets -->
+<div class="col-span-12 lg:col-span-4 glass-card rounded-xl p-inner-padding">
+<h3 class="font-headline-sm text-headline-sm text-primary mb-4">Launch Trends</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant font-label-mono text-xs">COMMERCIAL</span>
+<div class="flex-1 mx-4 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[78%]"></div>
+</div>
+<span class="text-primary font-label-mono text-xs">78%</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant font-label-mono text-xs">GOVERNMENT</span>
+<div class="flex-1 mx-4 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[15%]"></div>
+</div>
+<span class="text-secondary font-label-mono text-xs">15%</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant font-label-mono text-xs">MILITARY</span>
+<div class="flex-1 mx-4 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-[7%]"></div>
+</div>
+<span class="text-tertiary font-label-mono text-xs">07%</span>
+</div>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-8 glass-card rounded-xl p-inner-padding">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Upcoming Close Approaches</h3>
+<a class="text-primary text-label-mono hover:underline" href="#">View All Catalog</a>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-label-mono text-xs">
+<thead>
+<tr class="text-outline border-b border-outline-variant/10">
+<th class="pb-3 font-medium uppercase">Object Name</th>
+<th class="pb-3 font-medium uppercase">TCA</th>
+<th class="pb-3 font-medium uppercase">Distance (km)</th>
+<th class="pb-3 font-medium uppercase">Probability</th>
+<th class="pb-3 font-medium uppercase">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="py-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary scale-75">satellite_alt</span>
+                                        STARLINK-3021
+                                    </td>
+<td class="py-4">12:57:44 UTC</td>
+<td class="py-4">0.14 km</td>
+<td class="py-4 text-error font-bold">9.8e-3</td>
+<td class="py-4">
+<button class="px-3 py-1 bg-error-container text-on-error-container rounded-lg hover:brightness-125">ALERT</button>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="py-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary scale-75">category</span>
+                                        DEBRIS-88172
+                                    </td>
+<td class="py-4">13:12:05 UTC</td>
+<td class="py-4">1.22 km</td>
+<td class="py-4 text-secondary">4.6e-5</td>
+<td class="py-4">
+<button class="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors">
+<td class="py-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary scale-75">satellite_alt</span>
+                                        GPS IIF-11
+                                    </td>
+<td class="py-4">15:45:30 UTC</td>
+<td class="py-4">4.80 km</td>
+<td class="py-4 text-green-400">1.2e-7</td>
+<td class="py-4">
+<button class="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- AI Copilot Quick Bar -->
+<div class="px-container-margin py-3 bg-surface-container-low/80 backdrop-blur-md border-t border-outline-variant/10 flex items-center gap-4 z-40">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary relative">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="absolute -top-1 -right-1 w-3 h-3 bg-primary border-2 border-surface-container-low rounded-full"></span>
+</div>
+<div class="flex-1 relative">
+<input class="w-full bg-surface-container-highest/50 border-none rounded-xl px-4 py-2 text-body-md focus:ring-1 focus:ring-primary/50 placeholder:text-outline/50" placeholder="Ask AI Copilot about orbital congestion trends..." type="text"/>
+<button class="absolute right-2 top-1.5 p-1 bg-primary text-on-primary rounded transition-transform active:scale-90">
+<span class="material-symbols-outlined text-body-lg">arrow_forward</span>
+</button>
+</div>
+<div class="hidden lg:flex items-center gap-4">
+<button class="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-body-md">description</span>
+                    Generate Report
+                </button>
+<button class="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-body-md">share</span>
+                    Share View
+                </button>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interactions and Atmosphere
+        document.addEventListener('mousemove', (e) => {
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+            
+            // Subtle parallax for glass cards
+            const cards = document.querySelectorAll('.glass-card');
+            cards.forEach(card => {
+                const rect = card.getBoundingClientRect();
+                const cardX = (e.clientX - rect.left) / rect.width;
+                const cardY = (e.clientY - rect.top) / rect.height;
+                
+                if (cardX > 0 && cardX < 1 && cardY > 0 && cardY < 1) {
+                    card.style.transform = `perspective(1000px) rotateX(${(cardY - 0.5) * 2}deg) rotateY(${(cardX - 0.5) * -2}deg)`;
+                } else {
+                    card.style.transform = `none`;
+                }
+            });
+        });
+
+        // Search highlight logic
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('ring-1', 'ring-primary');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('ring-1', 'ring-primary');
+        });
+
+        // Initialize HUD elements
+        console.log("KesslerX Core Analytics Engine... [ONLINE]");
+    </script>
+</body></html>

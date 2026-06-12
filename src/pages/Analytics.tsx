@@ -1,190 +1,243 @@
-import { motion } from 'framer-motion';
-import { BarChart3, TrendingUp } from 'lucide-react';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, Legend,
-} from 'recharts';
-import { analyticsData, countryData } from '../data/mockData';
-
-const customTooltipStyle = {
-  backgroundColor: 'rgba(11, 18, 32, 0.95)',
-  border: '1px solid rgba(0, 174, 239, 0.3)',
-  borderRadius: '8px',
-  padding: '8px 12px',
-  color: '#fff',
-  fontSize: '12px',
-  fontFamily: 'Space Grotesk',
-};
-
 export default function Analytics() {
   return (
-    <div className="space-y-5 pb-16">
-      {/* Page Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-orbitron font-bold text-white flex items-center gap-3">
-          <BarChart3 className="w-7 h-7" style={{ color: '#00AEEF', filter: 'drop-shadow(0 0 8px rgba(0,174,239,0.5))' }} />
-          Analytics
-        </h1>
-        <p className="text-sm font-space mt-1" style={{ color: '#94A3B8' }}>
-          Executive orbital intelligence and trend analysis
-        </p>
-      </motion.div>
-
-      {/* Satellite & Debris Growth */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="glass-panel p-5"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-space font-semibold tracking-wider" style={{ color: '#94A3B8' }}>
-              SATELLITE GROWTH
-            </h3>
-            <div className="flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5" style={{ color: '#00FF99' }} />
-              <span className="text-[10px] font-space" style={{ color: '#00FF99' }}>+803%</span>
+    <div className="flex-1 flex flex-col min-w-0 relative">
+      {/* Scrollable Dashboard Content */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar z-10 pb-20">
+        <div className="space-y-card-gap">
+          {/* Header Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-card-gap mb-8">
+            <div className="glass p-inner-padding rounded-xl relative overflow-hidden group">
+              <div className="scanline-effect"></div>
+              <div className="flex justify-between items-start mb-2">
+                <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">rocket</span>
+                <span className="text-emerald-400 font-label-mono text-[10px]">+2.35%</span>
+              </div>
+              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">Active Satellites</p>
+              <p className="font-stat-lg text-stat-lg text-primary mt-1">12,457</p>
+            </div>
+            <div className="glass p-inner-padding rounded-xl relative overflow-hidden">
+              <div className="flex justify-between items-start mb-2">
+                <span className="material-symbols-outlined text-secondary bg-secondary/10 p-2 rounded-lg">bubble_chart</span>
+                <span className="text-emerald-400 font-label-mono text-[10px]">+1.89%</span>
+              </div>
+              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">Tracked Debris</p>
+              <p className="font-stat-lg text-stat-lg text-secondary mt-1">39,812</p>
+            </div>
+            <div className="glass p-inner-padding rounded-xl relative overflow-hidden">
+              <div className="flex justify-between items-start mb-2">
+                <span className="material-symbols-outlined text-error bg-error/10 p-2 rounded-lg">warning</span>
+                <span className="text-error font-label-mono text-[10px]">+12.1%</span>
+              </div>
+              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">High Risk Objects</p>
+              <p className="font-stat-lg text-stat-lg text-error neon-text-error mt-1">37</p>
+            </div>
+            <div className="glass p-inner-padding rounded-xl relative overflow-hidden">
+              <div className="flex justify-between items-start mb-2">
+                <span className="material-symbols-outlined text-tertiary bg-tertiary/10 p-2 rounded-lg">bolt</span>
+                <span className="text-yellow-400 font-label-mono text-[10px]">Moderate</span>
+              </div>
+              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">Space Weather</p>
+              <p className="font-stat-lg text-stat-lg text-tertiary mt-1">Kp 5</p>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={analyticsData}>
-              <defs>
-                <linearGradient id="satGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00AEEF" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#00AEEF" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,174,239,0.1)" />
-              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <Tooltip contentStyle={customTooltipStyle} />
-              <Area type="monotone" dataKey="satellites" stroke="#00AEEF" fill="url(#satGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="glass-panel p-5"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-space font-semibold tracking-wider" style={{ color: '#94A3B8' }}>
-              DEBRIS GROWTH
-            </h3>
-            <div className="flex items-center gap-1">
-              <TrendingUp className="w-3.5 h-3.5" style={{ color: '#FF4D4D' }} />
-              <span className="text-[10px] font-space" style={{ color: '#FF4D4D' }}>+123%</span>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={analyticsData}>
-              <defs>
-                <linearGradient id="debGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FFC107" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#FFC107" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,174,239,0.1)" />
-              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <Tooltip contentStyle={customTooltipStyle} />
-              <Area type="monotone" dataKey="debris" stroke="#FFC107" fill="url(#debGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </motion.div>
-      </div>
-
-      {/* Country Ownership & Collision Trends */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="glass-panel p-5"
-        >
-          <h3 className="text-sm font-space font-semibold tracking-wider mb-4" style={{ color: '#94A3B8' }}>
-            COUNTRY OWNERSHIP
-          </h3>
-          <div className="flex items-center">
-            <ResponsiveContainer width="50%" height={250}>
-              <PieChart>
-                <Pie
-                  data={countryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  dataKey="satellites"
-                  stroke="none"
-                  paddingAngle={2}
-                >
-                  {countryData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={customTooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex-1 space-y-2 pl-4">
-              {countryData.map((item) => (
-                <div key={item.country} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
-                    <span className="text-xs font-space" style={{ color: '#94A3B8' }}>{item.country}</span>
-                  </div>
-                  <span className="text-xs font-orbitron text-white">{item.satellites.toLocaleString()}</span>
+          {/* Main Analytics Grid */}
+          <div className="grid grid-cols-12 gap-card-gap">
+            {/* Large Chart: Debris Growth */}
+            <div className="col-span-12 lg:col-span-8 glass rounded-xl p-inner-padding">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="font-headline-sm text-headline-sm text-primary flex items-center gap-2">
+                    <span className="material-symbols-outlined">insights</span>
+                    Debris Growth Projection
+                  </h3>
+                  <p className="text-on-surface-variant text-body-md mt-1">Cumulative object count in LEO (2010 - 2035 Estimated)</p>
                 </div>
-              ))}
+                <div className="flex gap-2">
+                  <button className="px-3 py-1 bg-surface-container-highest/50 border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">LEO</button>
+                  <button className="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">MEO</button>
+                  <button className="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">GEO</button>
+                </div>
+              </div>
+              {/* Placeholder for Chart */}
+              <div className="h-[300px] w-full relative">
+                <div className="absolute inset-0 flex items-end gap-1 px-4">
+                  {/* Simulated Chart Bars */}
+                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[10%] rounded-t-sm"></div>
+                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[15%] rounded-t-sm"></div>
+                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[12%] rounded-t-sm"></div>
+                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[22%] rounded-t-sm"></div>
+                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[35%] rounded-t-sm"></div>
+                  <div className="flex-1 bg-primary/40 border-t-2 border-primary h-[48%] rounded-t-sm relative group">
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-surface-container-high p-2 rounded border border-primary/30 opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
+                      <p className="text-label-mono text-[10px]">2024: 39,812</p>
+                    </div>
+                  </div>
+                  <div className="flex-1 bg-primary/30 border-t border-primary/50 h-[55%] rounded-t-sm border-dashed"></div>
+                  <div className="flex-1 bg-primary/20 border-t border-primary/30 h-[65%] rounded-t-sm border-dashed"></div>
+                  <div className="flex-1 bg-primary/10 border-t border-primary/20 h-[82%] rounded-t-sm border-dashed"></div>
+                </div>
+                {/* Axis Labels */}
+                <div className="absolute bottom-[-24px] w-full flex justify-between text-outline text-label-mono px-4">
+                  <span>2010</span><span>2015</span><span>2020</span><span>2025</span><span>2030</span><span>2035</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar: Live Alerts & Heatmap */}
+            <div className="col-span-12 lg:col-span-4 space-y-card-gap">
+              {/* Congestion Heatmap */}
+              <div className="glass rounded-xl p-inner-padding">
+                <h3 className="font-headline-sm text-headline-sm text-secondary flex items-center gap-2 mb-4">
+                  <span className="material-symbols-outlined">map</span>
+                  Debris Density Map
+                </h3>
+                <div className="aspect-video relative rounded border border-outline-variant/10 overflow-hidden group">
+                  <img className="w-full h-full object-cover grayscale brightness-50 group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhbECmngyPSIEEb014nOGDhhlWTiy0NvQ5-aZsFMxhFdWH-SqPl5xfttUmEV6qfc5g8a3k2khMu3hGnimyG8hQ0UIzMDYh04Gti5T4zgBX3DWl1E9Wwl3v5j2pTMFXI8jVRwWmKv44qIfAcY_vA4GKdbixwbITfBCHIkq0nmnj2TdL3L45JGblYmBC2w9XAg9N8c0DMTnPtQbE3EFvQgUEZxh1rwKhxNI36cVL_yzu3yLKRHguEYWdY3_IntkCwgjQgFtZLA1uDaU" />
+                  <div className="absolute inset-0 bg-secondary/5 mix-blend-overlay"></div>
+                  <div className="absolute bottom-2 left-2 flex items-center gap-2 px-2 py-1 bg-black/40 backdrop-blur rounded">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
+                    <span className="text-[10px] font-label-mono text-on-surface">LEO CORRIDOR A7</span>
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-between text-[10px] font-label-mono text-outline">
+                  <span>LOW DENSITY</span>
+                  <div className="w-32 h-1 bg-gradient-to-right from-blue-500 via-yellow-500 to-red-500 mt-1.5 rounded-full"></div>
+                  <span>CRITICAL</span>
+                </div>
+              </div>
+
+              {/* Orbital Risk Index */}
+              <div className="glass rounded-xl p-inner-padding">
+                <h3 className="font-headline-sm text-headline-sm text-on-surface flex items-center justify-between mb-4">
+                  Risk Index
+                  <span className="material-symbols-outlined text-error">info</span>
+                </h3>
+                <div className="flex flex-col items-center py-4">
+                  <div className="relative w-40 h-20 overflow-hidden">
+                    <div className="w-40 h-40 border-[12px] border-surface-container-highest rounded-full"></div>
+                    <div className="absolute top-0 w-40 h-40 border-[12px] border-transparent border-t-error border-l-error rounded-full rotate-[145deg]"></div>
+                    <div className="absolute bottom-0 w-full text-center">
+                      <p className="font-stat-lg text-stat-lg leading-none">72%</p>
+                      <p className="text-label-mono text-error uppercase tracking-tighter mt-1">High Risk</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Row: Multi-Metric Widgets */}
+            <div className="col-span-12 lg:col-span-4 glass rounded-xl p-inner-padding">
+              <h3 className="font-headline-sm text-headline-sm text-primary mb-4">Launch Trends</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-on-surface-variant font-label-mono text-xs">COMMERCIAL</span>
+                  <div className="flex-1 mx-4 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                    <div className="h-full bg-primary w-[78%]"></div>
+                  </div>
+                  <span className="text-primary font-label-mono text-xs">78%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-on-surface-variant font-label-mono text-xs">GOVERNMENT</span>
+                  <div className="flex-1 mx-4 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                    <div className="h-full bg-secondary w-[15%]"></div>
+                  </div>
+                  <span className="text-secondary font-label-mono text-xs">15%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-on-surface-variant font-label-mono text-xs">MILITARY</span>
+                  <div className="flex-1 mx-4 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                    <div className="h-full bg-tertiary w-[7%]"></div>
+                  </div>
+                  <span className="text-tertiary font-label-mono text-xs">07%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-span-12 lg:col-span-8 glass rounded-xl p-inner-padding">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-headline-sm text-headline-sm text-on-surface">Upcoming Close Approaches</h3>
+                <button className="text-primary text-label-mono hover:underline">View All Catalog</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-label-mono text-xs">
+                  <thead>
+                    <tr className="text-outline border-b border-outline-variant/10">
+                      <th className="pb-3 font-medium uppercase">Object Name</th>
+                      <th className="pb-3 font-medium uppercase">TCA</th>
+                      <th className="pb-3 font-medium uppercase">Distance (km)</th>
+                      <th className="pb-3 font-medium uppercase">Probability</th>
+                      <th className="pb-3 font-medium uppercase">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/5">
+                    <tr className="hover:bg-primary/5 transition-colors">
+                      <td className="py-4 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary scale-75">satellite_alt</span>
+                        STARLINK-3021
+                      </td>
+                      <td className="py-4">12:57:44 UTC</td>
+                      <td className="py-4">0.14 km</td>
+                      <td className="py-4 text-error font-bold">9.8e-3</td>
+                      <td className="py-4">
+                        <button className="px-3 py-1 bg-error/20 text-error rounded-lg hover:brightness-125">ALERT</button>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-primary/5 transition-colors">
+                      <td className="py-4 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-secondary scale-75">category</span>
+                        DEBRIS-88172
+                      </td>
+                      <td className="py-4">13:12:05 UTC</td>
+                      <td className="py-4">1.22 km</td>
+                      <td className="py-4 text-secondary">4.6e-5</td>
+                      <td className="py-4">
+                        <button className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-primary/5 transition-colors">
+                      <td className="py-4 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary scale-75">satellite_alt</span>
+                        GPS IIF-11
+                      </td>
+                      <td className="py-4">15:45:30 UTC</td>
+                      <td className="py-4">4.80 km</td>
+                      <td className="py-4 text-emerald-400">1.2e-7</td>
+                      <td className="py-4">
+                        <button className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass-panel p-5"
-        >
-          <h3 className="text-sm font-space font-semibold tracking-wider mb-4" style={{ color: '#94A3B8' }}>
-            COLLISION TRENDS
-          </h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={analyticsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,174,239,0.1)" />
-              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <Tooltip contentStyle={customTooltipStyle} />
-              <Bar dataKey="collisions" fill="#FF4D4D" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
+        </div>
       </div>
 
-      {/* Orbital Utilization */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="glass-panel p-5"
-      >
-        <h3 className="text-sm font-space font-semibold tracking-wider mb-4" style={{ color: '#94A3B8' }}>
-          ORBITAL UTILIZATION TIMELINE
-        </h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={analyticsData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,174,239,0.1)" />
-            <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-            <YAxis tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-            <Tooltip contentStyle={customTooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'Space Grotesk', color: '#94A3B8' }} />
-            <Line type="monotone" dataKey="satellites" stroke="#00AEEF" strokeWidth={2} dot={{ fill: '#00AEEF', r: 3 }} name="Satellites" />
-            <Line type="monotone" dataKey="debris" stroke="#FFC107" strokeWidth={2} dot={{ fill: '#FFC107', r: 3 }} name="Debris" />
-          </LineChart>
-        </ResponsiveContainer>
-      </motion.div>
+      {/* AI Copilot Quick Bar */}
+      <div className="absolute bottom-0 left-0 right-0 px-container-margin py-3 bg-surface-container-low/80 backdrop-blur-md border-t border-outline-variant/10 flex items-center gap-4 z-40">
+        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary relative">
+          <span className="material-symbols-outlined">smart_toy</span>
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary border-2 border-surface-container-low rounded-full"></span>
+        </div>
+        <div className="flex-1 relative">
+          <input className="w-full bg-surface-container-highest/50 border-none rounded-xl px-4 py-2 text-body-md focus:ring-1 focus:ring-primary/50 placeholder:text-outline/50" placeholder="Ask AI Copilot about orbital congestion trends..." type="text" />
+          <button className="absolute right-2 top-1.5 p-1 bg-primary text-on-primary rounded transition-transform active:scale-90">
+            <span className="material-symbols-outlined text-body-lg">arrow_forward</span>
+          </button>
+        </div>
+        <div className="hidden lg:flex items-center gap-4">
+          <button className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
+            <span className="material-symbols-outlined text-body-md">description</span>
+            Generate Report
+          </button>
+          <button className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
+            <span className="material-symbols-outlined text-body-md">share</span>
+            Share View
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

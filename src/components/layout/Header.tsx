@@ -1,16 +1,24 @@
 import { useState, useEffect } from 'react';
-import { Search, Bell, User } from 'lucide-react';
 
-export default function Header() {
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+export default function Header({ onMenuClick }: HeaderProps) {
   const [utcTime, setUtcTime] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
+  const [utcDate, setUtcDate] = useState('');
 
   useEffect(() => {
     const update = () => {
       const now = new Date();
-      setUtcTime(
-        now.toISOString().replace('T', '  ').substring(0, 21) + ' UTC'
-      );
+      
+      const h = String(now.getUTCHours()).padStart(2, '0');
+      const m = String(now.getUTCMinutes()).padStart(2, '0');
+      const s = String(now.getUTCSeconds()).padStart(2, '0');
+      setUtcTime(`${h}:${m}:${s} UTC`);
+      
+      const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+      setUtcDate(now.toLocaleDateString('en-US', options));
     };
     update();
     const interval = setInterval(update, 1000);
@@ -18,98 +26,44 @@ export default function Header() {
   }, []);
 
   return (
-    <header
-      className="h-16 flex items-center justify-between px-6 z-40 flex-shrink-0"
-      style={{
-        background: 'rgba(5, 8, 22, 0.8)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(0, 174, 239, 0.1)',
-      }}
-    >
-      {/* Search Bar */}
-      <div className="flex-1 max-w-xl">
-        <div
-          className="relative flex items-center rounded-xl px-4 py-2.5 transition-all duration-300"
-          style={{
-            background: 'rgba(11, 18, 32, 0.8)',
-            border: searchFocused
-              ? '1px solid rgba(0, 174, 239, 0.5)'
-              : '1px solid rgba(0, 174, 239, 0.15)',
-            boxShadow: searchFocused
-              ? '0 0 20px rgba(0, 174, 239, 0.15)'
-              : 'none',
-          }}
+    <header className="flex justify-between items-center w-full px-container-margin py-4 bg-background/20 backdrop-blur-xl border-b border-outline-variant/10 z-30 sticky top-0">
+      <div className="flex items-center gap-4 md:gap-8 flex-1">
+        <button 
+          className="md:hidden p-2 -ml-2 text-on-surface hover:bg-surface-container-highest/30 rounded-full flex items-center justify-center"
+          onClick={onMenuClick}
         >
-          <Search className="w-4 h-4 mr-3 flex-shrink-0" style={{ color: '#94A3B8' }} />
-          <input
-            type="text"
-            placeholder="Search satellites, debris, events..."
-            className="bg-transparent border-none outline-none text-sm font-space w-full"
-            style={{ color: '#fff' }}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-          />
-          <kbd
-            className="hidden md:flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-space"
-            style={{ background: 'rgba(0,174,239,0.1)', color: '#94A3B8', border: '1px solid rgba(0,174,239,0.2)' }}
-          >
-            ⌘K
-          </kbd>
+          <span className="material-symbols-outlined">menu</span>
+        </button>
+        <div className="relative w-full max-w-xl group hidden md:block">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 group-focus-within:text-primary transition-colors">search</span>
+          <input className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-lg py-2 pl-10 pr-12 text-sm focus:ring-1 focus:ring-primary focus:border-primary transition-all font-label-mono outline-none text-on-surface" placeholder="Search satellites, debris, events, missions..." type="text"/>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 border border-outline-variant/40 rounded px-1.5 py-0.5 pointer-events-none">
+            <span className="text-[10px] font-bold text-on-surface-variant/50">⌘</span>
+            <span className="text-[10px] font-bold text-on-surface-variant/50">K</span>
+          </div>
         </div>
       </div>
-
-      {/* Right Section */}
-      <div className="flex items-center gap-5 ml-6">
-        {/* UTC Clock */}
-        <div className="hidden lg:flex flex-col items-end">
-          <span className="text-[10px] font-space tracking-widest" style={{ color: '#64748B' }}>
-            MISSION TIME
-          </span>
-          <span className="text-sm font-orbitron tracking-wider" style={{ color: '#00E5FF' }}>
-            {utcTime}
-          </span>
+      <div className="flex items-center gap-6">
+        <div className="flex flex-col items-end mr-4">
+          <div className="font-label-mono text-label-mono text-primary uppercase font-bold tracking-widest">{utcTime}</div>
+          <div className="text-[10px] text-on-surface-variant/60 font-medium">{utcDate}</div>
         </div>
-
-        {/* Divider */}
-        <div className="h-8 w-px hidden lg:block" style={{ background: 'rgba(0,174,239,0.2)' }} />
-
-        {/* Notifications */}
-        <button
-          className="relative p-2 rounded-lg transition-all duration-200 hover:bg-[rgba(0,174,239,0.1)]"
-          style={{ color: '#94A3B8' }}
-        >
-          <Bell className="w-5 h-5" />
-          <span
-            className="absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-            style={{
-              background: '#FF4D4D',
-              color: '#fff',
-              boxShadow: '0 0 8px rgba(255, 77, 77, 0.6)',
-              animation: 'blink 2s ease-in-out infinite',
-            }}
-          >
-            3
-          </span>
-        </button>
-
-        {/* User Avatar */}
-        <button
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-[rgba(0,174,239,0.1)]"
-        >
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(135deg, #00AEEF, #00E5FF)',
-              boxShadow: '0 0 12px rgba(0, 174, 239, 0.3)',
-            }}
-          >
-            <User className="w-4 h-4 text-white" />
+        <div className="flex items-center gap-4 border-l border-outline-variant/20 pl-6">
+          <button className="relative w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90">
+            <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
+            <span className="absolute top-2 right-2 w-2 h-2 bg-tertiary-container rounded-full border border-background"></span>
+          </button>
+          <button className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90">
+            <span className="material-symbols-outlined text-on-surface-variant">hub</span>
+          </button>
+          <div className="flex items-center gap-3 ml-2 hover:bg-surface-container-highest/20 p-1 rounded-full pr-4 transition-all cursor-pointer">
+            <img alt="Mission Control Admin" className="w-9 h-9 rounded-full border border-primary/40 p-0.5 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDm3N00za-MnqYNglVs61SUAZJ2JvtNFpGys8mraVCvcLRdJMbg0foa49BvTT6HmsMed4vqc7uw9GV9gBmPTiS3y-TAev8HCj1AsW2D1KJMD4IaV1oYw-anLN4gSm8nYHdlaPYhgG391oVk_4i0ByMB-UMZsUpA0uOq-uUbEcPMiYygJt6Ytp4N3Yz0C0u0leB1jnl4SyEGLjcLfj7WHPgvtWS48ZahBcxX8PYdZIZk6a6ifW9KhPed0PBlGpAa5U4THW7P71bHcqQ"/>
+            <div className="hidden lg:block">
+              <div className="text-xs font-bold leading-none text-on-surface">Mission Control</div>
+              <div className="text-[10px] text-on-surface-variant font-label-mono mt-0.5">Admin</div>
+            </div>
           </div>
-          <div className="hidden md:block text-left">
-            <p className="text-xs font-space font-medium text-white">Commander</p>
-            <p className="text-[10px] font-space" style={{ color: '#64748B' }}>ADMIN</p>
-          </div>
-        </button>
+        </div>
       </div>
     </header>
   );

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KesslerX | System Configuration</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700&amp;family=Jetbrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #0b1326;
+            color: #dae2fd;
+            font-family: 'Hanken Grotesk', sans-serif;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: rgba(19, 27, 46, 0.4);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(180, 197, 255, 0.1);
+        }
+        .glow-hover:hover {
+            box-shadow: 0 0 15px rgba(180, 197, 255, 0.15);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #2563eb;
+            border-radius: 10px;
+        }
+        .status-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .4; }
+        }
+    </style>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"surface-container-lowest": "#060e20", surface: "#0b1326", "primary-fixed": "#dbe1ff", "on-secondary-fixed": "#341100", "tertiary-fixed-dim": "#ffb3ad", "on-error-container": "#ffdad6", "on-surface-variant": "#c3c6d7", "error-container": "#93000a", "on-tertiary-fixed-variant": "#930013", "outline-variant": "#434655", "surface-variant": "#2d3449", "surface-tint": "#b4c5ff", "tertiary-container": "#cf2c30", secondary: "#ffb690", "inverse-primary": "#0053db", "on-tertiary-container": "#ffecea", "on-surface": "#dae2fd", "on-secondary-container": "#4a1c00", "on-secondary-fixed-variant": "#783200", "inverse-surface": "#dae2fd", "on-tertiary": "#68000a", outline: "#8d90a0", "on-background": "#dae2fd", "surface-container-low": "#131b2e", "inverse-on-surface": "#283044", "secondary-fixed-dim": "#ffb690", "primary-fixed-dim": "#b4c5ff", tertiary: "#ffb3ad", "surface-container-highest": "#2d3449", "tertiary-fixed": "#ffdad7", primary: "#b4c5ff", background: "#0b1326", "surface-bright": "#31394d", "secondary-container": "#ec6a06", "primary-container": "#2563eb", "surface-container": "#171f33", "on-secondary": "#552100", "on-primary-fixed": "#00174b", "on-primary-container": "#eeefff", "on-error": "#690005", "on-primary-fixed-variant": "#003ea8", "on-primary": "#002a78", error: "#ffb4ab", "surface-dim": "#0b1326", "on-tertiary-fixed": "#410004", "surface-container-high": "#222a3d", "secondary-fixed": "#ffdbca"}, borderRadius: {DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem"}, spacing: {"section-padding": "20px", "inner-padding": "16px", "element-stack": "8px", "container-margin": "24px", "card-gap": "16px"}, fontFamily: {"label-mono": ["JetBrains Mono"], "headline-md": ["Hanken Grotesk"], "body-md": ["Hanken Grotesk"], "headline-sm": ["Hanken Grotesk"], "stat-lg": ["Hanken Grotesk"], "body-lg": ["Hanken Grotesk"], "display-lg": ["Hanken Grotesk"], headline: ["Hanken Grotesk"], display: ["Hanken Grotesk"], body: ["Hanken Grotesk"], label: ["Jetbrains Mono"]}, fontSize: {"label-mono": ["12px", {lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "500"}], "headline-md": ["24px", {lineHeight: "32px", fontWeight: "600"}], "body-md": ["14px", {lineHeight: "20px", fontWeight: "400"}], "headline-sm": ["18px", {lineHeight: "24px", fontWeight: "600"}], "stat-lg": ["28px", {lineHeight: "32px", fontWeight: "700"}], "body-lg": ["16px", {lineHeight: "24px", fontWeight: "400"}], "display-lg": ["32px", {lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700"}]}}}};</script>
+</head>
+<body class="bg-surface overflow-hidden h-screen flex">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-full py-section-padding space-y-element-stack bg-surface-container-lowest/40 backdrop-blur-2xl border-r border-outline-variant/10 w-64 z-50 shadow-2xl shadow-black/50">
+<div class="px-container-margin mb-8">
+<h1 class="font-display-lg text-display-lg text-primary uppercase tracking-widest">KesslerX</h1>
+<p class="font-label-mono text-label-mono text-on-surface-variant/70">Orbital Management</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">public</span>
+<span class="font-body-md text-body-md">Orbital Map</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-body-md text-body-md">Collision Monitor</span>
+</a>
+<a class="text-on-surface-variant/70 hover:text-on-surface px-inner-padding py-3 flex items-center gap-3 hover:bg-surface-container-highest/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+<div class="pt-4 pb-2 px-container-margin opacity-40 font-label-mono text-label-mono uppercase tracking-tighter">System</div>
+<a class="bg-primary-container/20 text-primary border-l-4 border-primary px-inner-padding py-3 flex items-center gap-3 translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+</nav>
+<div class="px-container-margin mt-auto">
+<button class="w-full py-3 px-4 bg-primary text-on-primary font-bold rounded hover:shadow-[0_0_20px_rgba(180,197,255,0.4)] transition-all">
+                Launch Simulation
+            </button>
+</div>
+</aside>
+<main class="flex-1 flex flex-col relative overflow-hidden h-full">
+<!-- TopNavBar -->
+<header class="bg-background/20 backdrop-blur-xl border-b border-outline-variant/10 shadow-lg shadow-primary/5 flex justify-between items-center w-full px-container-margin py-element-stack z-50">
+<div class="flex items-center gap-6">
+<div class="font-display-lg text-headline-sm font-bold text-primary tracking-tighter">System Configuration</div>
+<div class="flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/10">
+<span class="material-symbols-outlined text-[16px]">hub</span>
+<span class="font-label-mono text-label-mono">12:45:32 UTC</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined p-2 hover:bg-surface-container-highest/30 rounded-full transition-all">notifications</button>
+<div class="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden">
+<img alt="Mission Control Admin" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuArORbA5Ndesg_hnrp8bSwImZG6llKMd5n4Q_JJ8qEbYRikc-fdDMGmg6aixkVpbqIvGzOFJbEmE0B9OmZpLYB29wgODQQONpTkEDVw9s3N2w-8xleeZc_MQviaEhL8OozAmX0Wu8hARUXo9rCT2_q9F2ycGbNTEikI1g3nAyAeiZFNtt0B3_z40yjVSlaZfl3KEpFEKTO22lpBh9YcgSACwnwVtgova1YDpNuy2n9xsuShKyeaZXPpFDT3EmmH0uG1cYMZKblBd3Y"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-container-margin space-y-card-gap">
+<!-- Page Header/Tabs -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-outline-variant/20 mb-8">
+<nav class="flex gap-8 overflow-x-auto pb-px">
+<button class="tab-btn pb-4 font-headline-sm text-on-surface-variant border-b-2 border-transparent hover:text-primary transition-all" id="tab-general" onclick="switchTab('general')">General</button>
+<button class="tab-btn pb-4 font-headline-sm text-primary border-b-2 border-primary" id="tab-satellite" onclick="switchTab('satellite')">Satellite Database</button>
+<button class="tab-btn pb-4 font-headline-sm text-on-surface-variant border-b-2 border-transparent hover:text-primary transition-all" id="tab-api" onclick="switchTab('api')">API Keys</button>
+<button class="tab-btn pb-4 font-headline-sm text-on-surface-variant border-b-2 border-transparent hover:text-primary transition-all" id="tab-notifications" onclick="switchTab('notifications')">Notifications</button>
+</nav>
+<div class="flex items-center gap-4 pb-4">
+<div class="flex items-center gap-3">
+<span class="font-label-mono text-label-mono text-on-surface-variant">AUTO-REFRESH</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- Content: Satellite Database (Active Tab) -->
+<section class="space-y-6" id="content-satellite">
+<!-- Summary Widgets -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-card-gap">
+<div class="glass-panel p-inner-padding rounded-xl flex items-center gap-4 border-l-4 border-primary">
+<div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">dataset</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-on-surface-variant/60 uppercase">Connected Sources</div>
+<div class="font-stat-lg text-stat-lg">12 Active</div>
+</div>
+</div>
+<div class="glass-panel p-inner-padding rounded-xl flex items-center gap-4 border-l-4 border-secondary">
+<div class="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">sync</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-on-surface-variant/60 uppercase">Data Throughput</div>
+<div class="font-stat-lg text-stat-lg">1.2 GB/m</div>
+</div>
+</div>
+<div class="glass-panel p-inner-padding rounded-xl flex items-center gap-4 border-l-4 border-tertiary">
+<div class="w-12 h-12 rounded-lg bg-tertiary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">update</span>
+</div>
+<div>
+<div class="font-label-mono text-label-mono text-on-surface-variant/60 uppercase">Last Global Sync</div>
+<div class="font-stat-lg text-stat-lg">42s ago</div>
+</div>
+</div>
+</div>
+<!-- Main Data Table Container -->
+<div class="glass-panel rounded-xl overflow-hidden flex flex-col">
+<div class="p-6 flex justify-between items-center border-b border-outline-variant/10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">database</span>
+<h2 class="font-headline-md text-headline-md">Orbital Data Sources</h2>
+</div>
+<button class="bg-primary-container text-on-primary-container hover:bg-primary-container/80 px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all glow-hover">
+<span class="material-symbols-outlined">add</span>
+                            Add Data Source
+                        </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-surface-container-high/50 border-b border-outline-variant/10">
+<tr>
+<th class="p-4 font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider">Source Name</th>
+<th class="p-4 font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider">Type</th>
+<th class="p-4 font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider">Sync Status</th>
+<th class="p-4 font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider">Objects Tracked</th>
+<th class="p-4 font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider">Last Updated</th>
+<th class="p-4 font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10 font-body-md text-body-md">
+<tr class="hover:bg-surface-container-highest/10 transition-colors">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container rounded-md flex items-center justify-center font-bold text-xs text-primary">NRD</div>
+<div>
+<div class="font-bold">NORAD SatCat</div>
+<div class="text-xs text-on-surface-variant/60">TLE Data Engine</div>
+</div>
+</div>
+</td>
+<td class="p-4 font-label-mono text-xs">GOVERNMENTAL</td>
+<td class="p-4">
+<div class="flex items-center gap-2 text-primary">
+<div class="w-2 h-2 rounded-full bg-primary status-pulse"></div>
+                                            Active
+                                        </div>
+</td>
+<td class="p-4 font-label-mono">18,492</td>
+<td class="p-4 text-on-surface-variant">2023-10-27 12:44:11</td>
+<td class="p-4 text-right">
+<button class="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span class="material-symbols-outlined text-on-surface-variant">settings</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span class="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-highest/10 transition-colors">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container rounded-md flex items-center justify-center font-bold text-xs text-secondary">ESA</div>
+<div>
+<div class="font-bold">ESA DISCOS</div>
+<div class="text-xs text-on-surface-variant/60">Space Debris Database</div>
+</div>
+</div>
+</td>
+<td class="p-4 font-label-mono text-xs">INSTITUTIONAL</td>
+<td class="p-4">
+<div class="flex items-center gap-2 text-primary">
+<div class="w-2 h-2 rounded-full bg-primary status-pulse"></div>
+                                            Active
+                                        </div>
+</td>
+<td class="p-4 font-label-mono">42,105</td>
+<td class="p-4 text-on-surface-variant">2023-10-27 12:41:05</td>
+<td class="p-4 text-right">
+<button class="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span class="material-symbols-outlined text-on-surface-variant">settings</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span class="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-highest/10 transition-colors">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container rounded-md flex items-center justify-center font-bold text-xs text-tertiary">STX</div>
+<div>
+<div class="font-bold">Starlink Public API</div>
+<div class="text-xs text-on-surface-variant/60">Constellation Status</div>
+</div>
+</div>
+</td>
+<td class="p-4 font-label-mono text-xs">PRIVATE</td>
+<td class="p-4">
+<div class="flex items-center gap-2 text-on-surface-variant/40">
+<div class="w-2 h-2 rounded-full bg-surface-container-highest"></div>
+                                            Hibernating
+                                        </div>
+</td>
+<td class="p-4 font-label-mono">5,210</td>
+<td class="p-4 text-on-surface-variant">2023-10-27 10:15:22</td>
+<td class="p-4 text-right">
+<button class="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span class="material-symbols-outlined text-on-surface-variant">settings</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span class="material-symbols-outlined text-on-surface-variant">play_arrow</span></button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-highest/10 transition-colors">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container rounded-md flex items-center justify-center font-bold text-xs text-error">JAX</div>
+<div>
+<div class="font-bold">JAXA Orbital Catalog</div>
+<div class="text-xs text-on-surface-variant/60">Regional Surveillance</div>
+</div>
+</div>
+</td>
+<td class="p-4 font-label-mono text-xs">GOVERNMENTAL</td>
+<td class="p-4">
+<div class="flex items-center gap-2 text-error">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+                                            Sync Error
+                                        </div>
+</td>
+<td class="p-4 font-label-mono">948</td>
+<td class="p-4 text-on-surface-variant">2023-10-26 23:59:59</td>
+<td class="p-4 text-right">
+<button class="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span class="material-symbols-outlined text-on-surface-variant">warning</span></button>
+<button class="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span class="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 bg-surface-container-low/50 border-t border-outline-variant/10 flex justify-between items-center">
+<div class="font-label-mono text-label-mono text-on-surface-variant/60">Displaying 4 of 12 registered sources</div>
+<div class="flex gap-2">
+<button class="px-3 py-1 glass-panel rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">Prev</button>
+<button class="px-3 py-1 glass-panel rounded bg-primary/10 border-primary/50 transition-all text-xs font-bold uppercase">1</button>
+<button class="px-3 py-1 glass-panel rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">2</button>
+<button class="px-3 py-1 glass-panel rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">Next</button>
+</div>
+</div>
+</div>
+<!-- Database Advanced Settings -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-card-gap">
+<div class="glass-panel p-6 rounded-xl space-y-4">
+<h3 class="font-headline-sm text-headline-sm border-b border-outline-variant/10 pb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">memory</span>
+                            Cache Management
+                        </h3>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<div>
+<div class="font-bold">Orbital State Persistence</div>
+<div class="text-sm text-on-surface-variant">Time to keep stale orbital data before purge</div>
+</div>
+<select class="bg-surface-container-high border-outline-variant text-on-surface rounded-lg p-2 font-label-mono text-xs">
+<option>24 Hours</option>
+<option selected="">7 Days</option>
+<option>30 Days</option>
+</select>
+</div>
+<div class="flex justify-between items-center">
+<div>
+<div class="font-bold">Compression Level</div>
+<div class="text-sm text-on-surface-variant">GZIP compression for incoming telemetry</div>
+</div>
+<div class="flex gap-1 p-1 bg-surface-container-highest rounded-lg">
+<button class="px-3 py-1 text-xs font-bold uppercase rounded hover:bg-surface-container">Low</button>
+<button class="px-3 py-1 text-xs font-bold uppercase rounded bg-primary text-on-primary">High</button>
+</div>
+</div>
+</div>
+</div>
+<div class="glass-panel p-6 rounded-xl space-y-4">
+<h3 class="font-headline-sm text-headline-sm border-b border-outline-variant/10 pb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">security</span>
+                            Ingestion Security
+                        </h3>
+<div class="space-y-4">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary">verified_user</span>
+<div class="flex-1">
+<div class="font-bold">Enforce TLS 1.3</div>
+<div class="text-sm text-on-surface-variant">Require latest encryption for all external nodes</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-10 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
+</label>
+</div>
+<button class="w-full py-2 border border-outline-variant hover:bg-surface-container-highest rounded-lg font-bold text-sm transition-all">
+                                Rotate Encryption Keys
+                            </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom Spacer -->
+<div class="h-10"></div>
+</div>
+<!-- Subtle Ambient Background -->
+<div class="absolute inset-0 -z-10 opacity-30 pointer-events-none">
+</div>
+</main>
+<script>
+        function switchTab(tab) {
+            // Update UI buttons
+            const tabs = ['general', 'satellite', 'api', 'notifications'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    btn.classList.remove('text-on-surface-variant', 'border-transparent');
+                    btn.classList.add('text-primary', 'border-primary');
+                } else {
+                    btn.classList.add('text-on-surface-variant', 'border-transparent');
+                    btn.classList.remove('text-primary', 'border-primary');
+                }
+            });
+            
+            // Logic to swap content would go here
+            console.log(`Switched to tab: ${tab}`);
+        }
+    </script>
+</body></html>

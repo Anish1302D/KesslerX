@@ -1,179 +1,226 @@
-import { motion } from 'framer-motion';
-import { Sun, Wind, Zap, Activity, Radio, Shield, ThermometerSun, Flame } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { solarActivityTimeline, spaceWeather } from '../data/mockData';
-
-const customTooltipStyle = {
-  backgroundColor: 'rgba(11, 18, 32, 0.95)',
-  border: '1px solid rgba(0, 174, 239, 0.3)',
-  borderRadius: '8px',
-  padding: '8px 12px',
-  color: '#fff',
-  fontSize: '12px',
-  fontFamily: 'Space Grotesk',
-};
-
 export default function SpaceWeather() {
   return (
-    <div className="space-y-5 pb-16">
-      {/* Page Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-orbitron font-bold text-white flex items-center gap-3">
-          <Sun className="w-7 h-7" style={{ color: '#FFC107', filter: 'drop-shadow(0 0 8px rgba(255,193,7,0.5))' }} />
-          Space Weather Center
-        </h1>
-        <p className="text-sm font-space mt-1" style={{ color: '#94A3B8' }}>
-          Solar activity monitoring and geomagnetic conditions
-        </p>
-      </motion.div>
-
-      {/* Current Conditions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Solar Activity', value: spaceWeather.solarActivity, icon: Sun, color: '#FFC107' },
-          { label: 'Kp Index', value: `${spaceWeather.kpIndex}/9`, icon: Activity, color: spaceWeather.kpIndex > 4 ? '#FF4D4D' : '#00FF99' },
-          { label: 'Solar Wind', value: `${spaceWeather.solarWind} km/s`, icon: Wind, color: '#00AEEF' },
-          { label: 'Bz Component', value: `${spaceWeather.bz} nT`, icon: Zap, color: spaceWeather.bz < 0 ? '#FF4D4D' : '#00FF99' },
-          { label: 'Proton Flux', value: `${spaceWeather.protonFlux} pfu`, icon: Radio, color: '#9B59B6' },
-          { label: 'X-Ray Flux', value: spaceWeather.xrayFlux, icon: Flame, color: '#FF8C00' },
-          { label: 'Flare Class', value: spaceWeather.solarFlareClass, icon: ThermometerSun, color: '#FFC107' },
-          { label: 'Radiation', value: 'Normal', icon: Shield, color: '#00FF99' },
-        ].map((item, i) => (
-          <motion.div
-            key={item.label}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.1 + i * 0.05 }}
-            className="glass-panel glass-panel-hover p-4"
-          >
-            <item.icon className="w-5 h-5 mb-2" style={{ color: item.color, filter: `drop-shadow(0 0 4px ${item.color})` }} />
-            <p className="text-[10px] font-space tracking-wider mb-1" style={{ color: '#64748B' }}>{item.label}</p>
-            <p className="text-lg font-orbitron font-bold" style={{ color: item.color }}>{item.value}</p>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Sun Visualization + Kp Index */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Sun Visualization */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="glass-panel p-5 flex flex-col items-center justify-center"
-        >
-          <h3 className="text-sm font-space font-semibold tracking-wider mb-6 self-start" style={{ color: '#94A3B8' }}>
-            SOLAR ACTIVITY MONITOR
-          </h3>
-          <div className="relative">
-            {/* Sun body */}
-            <div
-              className="w-40 h-40 rounded-full relative"
-              style={{
-                background: 'radial-gradient(circle at 40% 40%, #FFF176 0%, #FFC107 30%, #FF8C00 60%, #FF4D4D 90%)',
-                boxShadow: '0 0 60px rgba(255,193,7,0.5), 0 0 120px rgba(255,140,0,0.3), 0 0 200px rgba(255,77,77,0.15)',
-              }}
-            >
-              {/* Sunspots */}
-              <div className="absolute w-4 h-3 rounded-full" style={{ background: 'rgba(200,100,0,0.5)', top: '35%', left: '30%' }} />
-              <div className="absolute w-3 h-3 rounded-full" style={{ background: 'rgba(200,100,0,0.4)', top: '50%', left: '55%' }} />
-              <div className="absolute w-2 h-2 rounded-full" style={{ background: 'rgba(200,100,0,0.3)', top: '30%', left: '60%' }} />
-            </div>
-            {/* Corona rings */}
-            {[0, 1, 2, 3].map((ring) => (
-              <div
-                key={ring}
-                className="absolute rounded-full"
-                style={{
-                  inset: `${-12 - ring * 10}px`,
-                  border: `1px solid rgba(255, 193, 7, ${0.2 - ring * 0.04})`,
-                  animation: `pulse-glow ${3 + ring * 0.8}s ease-in-out infinite`,
-                  animationDelay: `${ring * 0.4}s`,
-                }}
-              />
-            ))}
-            {/* Solar flare */}
-            <div
-              className="absolute w-6 h-12 -right-3 top-1/3"
-              style={{
-                background: 'linear-gradient(90deg, rgba(255,193,7,0.4), transparent)',
-                borderRadius: '0 50% 50% 0',
-                animation: 'pulse-glow 2s ease-in-out infinite',
-                filter: 'blur(3px)',
-              }}
-            />
+    <div className="flex-1 overflow-y-auto custom-scrollbar pb-20">
+      {/* Page Header Area */}
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <div className="flex items-center gap-3 text-secondary mb-2">
+            <span className="material-symbols-outlined">wb_sunny</span>
+            <h2 className="font-headline-md text-headline-md tracking-tight uppercase">Solar Influence Monitor</h2>
           </div>
-          <p className="mt-6 text-sm font-space" style={{ color: '#94A3B8' }}>Current Flare: <span style={{ color: '#FFC107' }}>{spaceWeather.xrayFlux}</span></p>
-        </motion.div>
-
-        {/* Kp Index Timeline */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass-panel p-5"
-        >
-          <h3 className="text-sm font-space font-semibold tracking-wider mb-4" style={{ color: '#94A3B8' }}>
-            KP INDEX — 24HR
-          </h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={solarActivityTimeline}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,174,239,0.1)" />
-              <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <YAxis domain={[0, 9]} tick={{ fontSize: 10, fill: '#64748B', fontFamily: 'Space Grotesk' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <Tooltip contentStyle={customTooltipStyle} />
-              <Bar dataKey="kp" radius={[4, 4, 0, 0]}>
-                {solarActivityTimeline.map((entry, i) => (
-                  <motion.rect key={i} fill={entry.kp > 5 ? '#FF4D4D' : entry.kp > 3 ? '#FFC107' : '#00FF99'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
+          <p className="text-on-surface-variant font-body-lg max-w-2xl">Real-time telemetry and predictive modeling of solar activity and its specific impact on the orbital drag of Earth-stationed assets.</p>
+        </div>
+        <div className="flex gap-3">
+          <button className="px-6 py-2 border border-outline-variant text-body-md font-bold rounded-lg hover:bg-surface-container-highest/30 transition-all flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">history</span> Archive
+          </button>
+          <button className="px-6 py-2 bg-secondary text-on-secondary font-bold rounded-lg hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-secondary/20">
+            <span className="material-symbols-outlined text-sm">download</span> Full Report
+          </button>
+        </div>
       </div>
 
-      {/* Solar Wind & Bz */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="glass-panel p-5"
-        >
-          <h3 className="text-sm font-space font-semibold tracking-wider mb-4" style={{ color: '#94A3B8' }}>
-            SOLAR WIND SPEED
-          </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={solarActivityTimeline}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,174,239,0.1)" />
-              <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <Tooltip contentStyle={customTooltipStyle} />
-              <Line type="monotone" dataKey="solarWind" stroke="#00AEEF" strokeWidth={2} dot={{ fill: '#00AEEF', r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </motion.div>
+      {/* Main Grid Layout */}
+      <div className="grid grid-cols-12 gap-card-gap">
+        {/* COLUMN 1: Visual Solar Telemetry */}
+        <div className="col-span-12 lg:col-span-5 flex flex-col gap-card-gap">
+          {/* Solar Visualization Widget */}
+          <div className="glass rounded-xl p-inner-padding relative overflow-hidden h-[500px]">
+            <div className="flex justify-between items-start relative z-10">
+              <div>
+                <h3 className="font-headline-sm text-headline-sm text-on-surface">Live Solar Feed</h3>
+                <span className="font-label-mono text-label-mono text-secondary">SDO/HMI - 171Å</span>
+              </div>
+              <div className="bg-secondary-container/20 border border-secondary/30 px-3 py-1 rounded-full flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-sm animate-pulse">radio_button_checked</span>
+                <span className="text-secondary font-label-mono text-[10px] font-bold">LIVE STREAM</span>
+              </div>
+            </div>
+            
+            {/* 3D Sun Simulation Placeholder */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-80 h-80 rounded-full relative sun-glow">
+                <img className="w-full h-full object-cover rounded-full mix-blend-screen opacity-90 animate-glow-pulse" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGVMLaAPXiykvPx_UP53RpwbV7ON2dhZTWO7okaPoBbqS44E3scpEeNUFgjL4t3Hew7ImY5xKD8iGtYGb9PCZZJddDzMs3LIYN0xEVXGpKs7Qc66QJBgk7I803htpfTAbRQp_jp_RpWZRvwgTKY7FdOfD6IdQYDa8-6Ruxl8JTnRpRKqetVM0m3lMcTPdw5sVQia3mmc8xiDHtBt3oK3rYv0XpXMO6pxjj2hAcoBCXqov1rg-hSRGF7cEZqhQK2IG8_vVVF_iTxac" />
+                <div className="absolute inset-0 rounded-full border border-secondary/20 bg-radial-gradient from-transparent to-black/40"></div>
+              </div>
+            </div>
+            
+            {/* Overlay Metrics */}
+            <div className="absolute bottom-inner-padding left-inner-padding right-inner-padding grid grid-cols-2 gap-4">
+              <div className="bg-surface-container-highest/40 backdrop-blur-md p-3 rounded-lg border border-outline-variant/10">
+                <div className="text-on-surface-variant font-label-mono text-[10px] uppercase mb-1">Solar Activity</div>
+                <div className="text-headline-sm font-bold text-secondary">MODERATE</div>
+                <div className="h-1 bg-surface-container-low rounded-full mt-2 overflow-hidden">
+                  <div className="h-full bg-secondary w-3/5"></div>
+                </div>
+              </div>
+              <div className="bg-surface-container-highest/40 backdrop-blur-md p-3 rounded-lg border border-outline-variant/10">
+                <div className="text-on-surface-variant font-label-mono text-[10px] uppercase mb-1">Kp Index</div>
+                <div className="text-headline-sm font-bold text-emerald-400">5 <span className="text-sm font-normal text-on-surface-variant/60">(Stable)</span></div>
+                <div className="h-1 bg-surface-container-low rounded-full mt-2 overflow-hidden">
+                  <div className="h-full bg-emerald-400 w-2/5"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Secondary Telemetry */}
+          <div className="grid grid-cols-2 gap-card-gap">
+            <div className="glass rounded-xl p-inner-padding">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="material-symbols-outlined text-primary text-sm">air</span>
+                <span className="text-on-surface-variant font-label-mono text-[10px] uppercase">Solar Wind Speed</span>
+              </div>
+              <div className="text-stat-lg font-stat-lg text-on-surface">450 <span className="text-sm font-medium text-on-surface-variant">km/s</span></div>
+              <div className="text-[10px] text-primary mt-1 font-label-mono">↑ 12% vs last orbit</div>
+            </div>
+            <div className="glass rounded-xl p-inner-padding">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="material-symbols-outlined text-tertiary text-sm">flare</span>
+                <span className="text-on-surface-variant font-label-mono text-[10px] uppercase">Proton Flux</span>
+              </div>
+              <div className="text-stat-lg font-stat-lg text-on-surface">2.3 <span className="text-sm font-medium text-on-surface-variant">pfu</span></div>
+              <div className="text-[10px] text-on-surface-variant mt-1 font-label-mono">Within nominal range</div>
+            </div>
+          </div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="glass-panel p-5"
-        >
-          <h3 className="text-sm font-space font-semibold tracking-wider mb-4" style={{ color: '#94A3B8' }}>
-            Bz COMPONENT (IMF)
-          </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={solarActivityTimeline}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,174,239,0.1)" />
-              <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={{ stroke: 'rgba(0,174,239,0.15)' }} />
-              <Tooltip contentStyle={customTooltipStyle} />
-              <Line type="monotone" dataKey="bz" stroke="#FF4D4D" strokeWidth={2} dot={{ fill: '#FF4D4D', r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </motion.div>
+        {/* COLUMN 2: Impact Analysis & Forecast */}
+        <div className="col-span-12 lg:col-span-7 flex flex-col gap-card-gap">
+          {/* 24H Storm Forecast Chart */}
+          <div className="glass rounded-xl p-inner-padding flex-1 min-h-[300px] flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="font-headline-sm text-headline-sm text-on-surface">24H Geomagnetic Forecast</h3>
+                <p className="text-on-surface-variant text-[12px]">Predicted storm probability and ionospheric drag impact.</p>
+              </div>
+              <div className="flex gap-2">
+                <button className="px-3 py-1 bg-surface-container-highest rounded text-[10px] font-bold text-primary">DRAG</button>
+                <button className="px-3 py-1 text-[10px] font-bold text-on-surface-variant">COMM</button>
+              </div>
+            </div>
+            {/* Simple Vector Chart Placeholder */}
+            <div className="flex-1 w-full relative flex items-end gap-1">
+              {/* Mock Bars */}
+              <div className="flex-1 bg-primary/10 rounded-t h-[40%] group relative cursor-pointer">
+                <div className="absolute bottom-0 left-0 right-0 bg-primary h-[80%] opacity-20 group-hover:opacity-40 transition-all"></div>
+                <div className="hidden group-hover:block absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-container-high border border-outline-variant p-1 rounded text-[8px] whitespace-nowrap z-20">Drag: +2.1%</div>
+              </div>
+              <div className="flex-1 bg-primary/10 rounded-t h-[35%] group relative">
+                <div className="absolute bottom-0 left-0 right-0 bg-primary h-[70%] opacity-20 group-hover:opacity-40 transition-all"></div>
+              </div>
+              <div className="flex-1 bg-primary/10 rounded-t h-[30%] group relative"></div>
+              <div className="flex-1 bg-secondary/10 rounded-t h-[50%] group relative">
+                <div className="absolute bottom-0 left-0 right-0 bg-secondary h-[90%] opacity-20 group-hover:opacity-40 transition-all"></div>
+              </div>
+              <div className="flex-1 bg-secondary/10 rounded-t h-[75%] group relative">
+                <div className="absolute bottom-0 left-0 right-0 bg-secondary h-[95%] opacity-20 group-hover:opacity-40 transition-all"></div>
+              </div>
+              <div className="flex-1 bg-tertiary-container/10 rounded-t h-[90%] group relative">
+                <div className="absolute bottom-0 left-0 right-0 bg-tertiary-container h-[95%] opacity-40 group-hover:opacity-60 transition-all"></div>
+                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-error/20 border border-error p-2 rounded text-[10px] whitespace-nowrap z-20 shadow-xl text-error">MAJOR STORM PREDICTED</div>
+              </div>
+              <div className="flex-1 bg-primary/10 rounded-t h-[60%] group relative"></div>
+              <div className="flex-1 bg-primary/10 rounded-t h-[40%] group relative"></div>
+              <div className="flex-1 bg-primary/10 rounded-t h-[30%] group relative"></div>
+            </div>
+            <div className="flex justify-between mt-4 text-[10px] font-label-mono text-on-surface-variant/40">
+              <span>00:00 UTC</span>
+              <span>06:00 UTC</span>
+              <span>12:00 UTC</span>
+              <span>18:00 UTC</span>
+              <span>24:00 UTC</span>
+            </div>
+          </div>
+
+          {/* Satellite Drag Alerts */}
+          <div className="glass rounded-xl p-inner-padding flex flex-col">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="material-symbols-outlined text-error text-xl">stat_minus_1</span>
+              <h3 className="font-headline-sm text-headline-sm text-on-surface">Atmospheric Expansion Alerts</h3>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 bg-error/10 border border-error/20 rounded-lg">
+                <div className="flex gap-4 items-center">
+                  <div className="bg-error/20 p-2 rounded-lg">
+                    <span className="material-symbols-outlined text-error text-sm">rocket_launch</span>
+                  </div>
+                  <div>
+                    <div className="text-body-md font-bold text-on-surface">ISS_EXPANSION_WARNING</div>
+                    <div className="text-[10px] text-on-surface-variant">LEO drag increasing by 14.5%. Maneuver recommended.</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-error font-bold text-[12px]">CRITICAL</div>
+                  <div className="text-[10px] font-label-mono text-on-surface-variant">T+ 02:44:00</div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-surface-container-highest/30 border border-outline-variant/10 rounded-lg">
+                <div className="flex gap-4 items-center">
+                  <div className="bg-secondary/20 p-2 rounded-lg">
+                    <span className="material-symbols-outlined text-secondary text-sm">satellite_alt</span>
+                  </div>
+                  <div>
+                    <div className="text-body-md font-bold text-on-surface">STARLINK-GROUP_4</div>
+                    <div className="text-[10px] text-on-surface-variant">Telemetry interference likely in Southern Hemisphere.</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-secondary font-bold text-[12px]">CAUTION</div>
+                  <div className="text-[10px] font-label-mono text-on-surface-variant">T+ 05:12:00</div>
+                </div>
+              </div>
+            </div>
+            <button className="mt-4 text-[11px] font-bold text-primary hover:underline self-start">VIEW ALL ACTIVE IMPACT NOTIFICATIONS →</button>
+          </div>
+        </div>
       </div>
+
+      {/* Bottom Quick Metrics Strip */}
+      <div className="mt-card-gap grid grid-cols-4 gap-card-gap">
+        <div className="glass p-4 rounded-xl flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center border border-secondary/20">
+            <span className="material-symbols-outlined text-secondary">thermostat</span>
+          </div>
+          <div>
+            <div className="text-[10px] font-label-mono text-on-surface-variant">THERMOSPHERE T</div>
+            <div className="text-headline-sm font-bold">1240K</div>
+          </div>
+        </div>
+        <div className="glass p-4 rounded-xl flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+            <span className="material-symbols-outlined text-primary">faucet</span>
+          </div>
+          <div>
+            <div className="text-[10px] font-label-mono text-on-surface-variant">MAG FIELD (Bz)</div>
+            <div className="text-headline-sm font-bold">-2.1 nT</div>
+          </div>
+        </div>
+        <div className="glass p-4 rounded-xl flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-tertiary/10 flex items-center justify-center border border-tertiary/20">
+            <span className="material-symbols-outlined text-tertiary">storm</span>
+          </div>
+          <div>
+            <div className="text-[10px] font-label-mono text-on-surface-variant">CME PROBABILITY</div>
+            <div className="text-headline-sm font-bold">12%</div>
+          </div>
+        </div>
+        <div className="glass p-4 rounded-xl flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-emerald-400/10 flex items-center justify-center border border-emerald-400/20">
+            <span className="material-symbols-outlined text-emerald-400">task_alt</span>
+          </div>
+          <div>
+            <div className="text-[10px] font-label-mono text-on-surface-variant">SENSOR INTEGRITY</div>
+            <div className="text-headline-sm font-bold">99.8%</div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Floating Action Button (FAB) */}
+      <button className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-primary text-on-primary shadow-2xl shadow-primary/40 flex items-center justify-center z-[100] group transition-all hover:scale-110 active:scale-95">
+        <span className="material-symbols-outlined text-3xl">add_alert</span>
+        <span className="absolute right-full mr-4 bg-surface-container-highest text-on-surface px-3 py-1 rounded text-[12px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none">SET SOLAR THRESHOLD</span>
+      </button>
     </div>
   );
 }

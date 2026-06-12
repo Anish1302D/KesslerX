@@ -1,186 +1,328 @@
-import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Bot, Send, Sparkles, Satellite, AlertTriangle, BarChart3, CloudSun, FileText, Shield } from 'lucide-react';
-import { aiSuggestedPrompts, aiMockResponses } from '../data/mockData';
+import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'ai';
   content: string;
-  timestamp: Date;
 }
 
-const capabilityCards = [
-  { icon: Satellite, title: 'Object Analysis', desc: 'Query satellite catalog, orbital parameters, and status', color: '#00AEEF' },
-  { icon: AlertTriangle, title: 'Collision Assessment', desc: 'Evaluate conjunction events and recommend maneuvers', color: '#FF4D4D' },
-  { icon: BarChart3, title: 'Orbital Analytics', desc: 'Analyze trends in congestion, debris growth, and utilization', color: '#FFC107' },
-  { icon: CloudSun, title: 'Space Weather', desc: 'Interpret solar activity impacts on satellite operations', color: '#00E5FF' },
-  { icon: FileText, title: 'Report Generation', desc: 'Create situation reports and risk assessments', color: '#00FF99' },
-  { icon: Shield, title: 'Risk Evaluation', desc: 'Assess overall orbital safety and sustainability metrics', color: '#9B59B6' },
-];
-
 export default function AICopilot() {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      role: 'ai',
+      content: "I've completed the analysis for the Starlink-88 Debris Cloud (Cluster 402). The cloud is currently dispersing through LEO sector 4-B. High collision probability detected for two active meteorological satellites within the next 72 hours."
+    }
+  ]);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
-  const handleSend = (text?: string) => {
-    const msg = text || input.trim();
-    if (!msg) return;
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
-    setMessages((prev) => [...prev, { id: `${Date.now()}`, role: 'user', content: msg, timestamp: new Date() }]);
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input.trim()
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
-    setIsTyping(true);
+    setIsLoading(true);
 
-    setTimeout(() => {
-      setMessages((prev) => [...prev, {
-        id: `${Date.now()}-ai`,
-        role: 'assistant',
-        content: aiMockResponses.default,
-        timestamp: new Date(),
-      }]);
-      setIsTyping(false);
-    }, 2000);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: userMessage.content })
+      });
+      
+      const data = await response.json();
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'ai',
+        content: data.response
+      };
+      
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'ai',
+        content: "Error communicating with the Kessler-Core backend. Please check connection."
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   return (
-    <div className="h-full flex flex-col pb-16">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-5">
-        <h1 className="text-2xl font-orbitron font-bold text-white flex items-center gap-3">
-          <Bot className="w-7 h-7" style={{ color: '#00E5FF', filter: 'drop-shadow(0 0 8px rgba(0,229,255,0.5))' }} />
-          AI Copilot
-          <span className="text-[10px] font-space px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,229,255,0.1)', color: '#00E5FF', border: '1px solid rgba(0,229,255,0.2)' }}>
-            BETA
-          </span>
-        </h1>
-        <p className="text-sm font-space mt-1" style={{ color: '#94A3B8' }}>
-          AI-powered orbital intelligence assistant
-        </p>
-      </motion.div>
-
-      {/* Chat Area */}
-      <div className="flex-1 glass-panel overflow-hidden flex flex-col">
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full gap-6">
-              <div className="relative">
-                <Bot className="w-16 h-16" style={{ color: 'rgba(0,229,255,0.2)' }} />
-                <Sparkles className="w-6 h-6 absolute -top-1 -right-1" style={{ color: '#00E5FF', animation: 'pulse-glow 2s ease-in-out infinite' }} />
-              </div>
-              <div className="text-center max-w-md">
-                <h3 className="text-lg font-space font-semibold text-white mb-2">How can I help you?</h3>
-                <p className="text-sm font-inter" style={{ color: '#94A3B8' }}>
-                  I can analyze orbital data, assess collision risks, generate reports, and provide real-time space situational awareness.
-                </p>
-              </div>
-
-              {/* Capability Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-2xl w-full">
-                {capabilityCards.map((card, i) => (
-                  <motion.div
-                    key={card.title}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 + i * 0.1 }}
-                    className="p-3 rounded-lg cursor-pointer transition-all duration-200 hover:scale-105"
-                    style={{ background: 'rgba(11,18,32,0.6)', border: '1px solid rgba(0,174,239,0.1)' }}
-                  >
-                    <card.icon className="w-4 h-4 mb-2" style={{ color: card.color }} />
-                    <p className="text-xs font-space font-medium text-white">{card.title}</p>
-                    <p className="text-[10px] font-inter mt-0.5" style={{ color: '#64748B' }}>{card.desc}</p>
-                  </motion.div>
-                ))}
-              </div>
-
-              {/* Suggested Prompts */}
-              <div className="flex flex-wrap gap-2 justify-center max-w-xl">
-                {aiSuggestedPrompts.map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => handleSend(prompt)}
-                    className="text-[11px] font-space px-3 py-1.5 rounded-full transition-all duration-200 hover:scale-105"
-                    style={{ background: 'rgba(0,174,239,0.1)', color: '#00AEEF', border: '1px solid rgba(0,174,239,0.2)' }}
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
+    <div className="flex h-[calc(100vh-64px)] -m-container-margin bg-background">
+      {/* Main Content Canvas */}
+      <main className="flex-1 flex flex-col relative overflow-hidden bg-surface-dim">
+        {/* Chat Area */}
+        <div className="flex-1 overflow-y-auto px-container-margin py-8 space-y-10 relative z-10 scroll-smooth custom-scrollbar" id="chat-container" ref={chatContainerRef}>
+          {/* Initial Welcome */}
+          <div className="max-w-4xl mx-auto flex flex-col items-center text-center mt-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+            <div className="w-16 h-16 rounded-2xl glass flex items-center justify-center mb-6 glow-primary border-primary/30">
+              <span className="material-symbols-outlined text-primary text-4xl">smart_toy</span>
             </div>
-          )}
+            <h1 className="font-display-lg text-display-lg text-on-surface mb-2 tracking-tight">Kessler AI Copilot</h1>
+            <p className="font-body-lg text-on-surface-variant/70 max-w-lg">Advanced orbital mechanics engine. Ready for debris analysis, path prediction, and risk assessment.</p>
+          </div>
 
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className="max-w-[70%] rounded-xl px-5 py-4"
-                style={
-                  msg.role === 'user'
-                    ? { background: 'rgba(0,174,239,0.15)', border: '1px solid rgba(0,174,239,0.2)' }
-                    : { background: 'rgba(11,18,32,0.8)', border: '1px solid rgba(0,174,239,0.1)' }
-                }
-              >
-                {msg.role === 'assistant' && (
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Sparkles className="w-3.5 h-3.5" style={{ color: '#00E5FF' }} />
-                    <span className="text-[10px] font-space font-semibold" style={{ color: '#00E5FF' }}>AI COPILOT</span>
+          {/* Messages */}
+          <div className="max-w-4xl mx-auto space-y-6">
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                {msg.role === 'ai' && (
+                  <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center shrink-0 border border-primary/30 mt-1">
+                    <span className="material-symbols-outlined text-primary text-sm">smart_toy</span>
                   </div>
                 )}
-                <div className="text-sm font-inter leading-relaxed text-white whitespace-pre-wrap">{msg.content}</div>
-                <p className="text-[10px] font-space mt-2" style={{ color: '#64748B' }}>
-                  {msg.timestamp.toLocaleTimeString()}
-                </p>
-              </div>
-            </div>
-          ))}
+                
+                {msg.role === 'user' ? (
+                  <div className="glass px-4 py-3 rounded-2xl rounded-tr-none max-w-md border-primary/20">
+                    <p className="font-body-md text-on-surface whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 flex-1">
+                    <div className="font-body-lg text-on-surface whitespace-pre-wrap">
+                      {msg.content}
+                    </div>
+                    
+                    {/* Render the Bento Grid only for the first specific message to keep the cool UI */}
+                    {msg.id === '1' && (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Risk Summary Card */}
+                          <div className="glass p-inner-padding rounded-xl relative overflow-hidden group">
+                            <div className="flex justify-between items-start mb-6">
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-error">warning</span>
+                                <h3 className="font-headline-sm text-headline-sm">Risk Summary</h3>
+                              </div>
+                              <span className="font-label-mono text-label-mono bg-error-container/20 text-error px-2 py-1 rounded">CRITICAL</span>
+                            </div>
+                            <div className="flex flex-col items-center py-4">
+                              <div className="relative w-32 h-32 flex items-center justify-center">
+                                <svg className="w-full h-full transform -rotate-90">
+                                  <circle className="text-surface-container-highest" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" strokeWidth="8"></circle>
+                                  <circle className="text-error" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" strokeDasharray="364.4" strokeDashoffset="40" strokeLinecap="round" strokeWidth="8"></circle>
+                                </svg>
+                                <div className="absolute flex flex-col items-center">
+                                  <span className="font-stat-lg text-stat-lg glow-text">89%</span>
+                                  <span className="font-label-mono text-[10px] text-on-surface-variant">THREAT LEVEL</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-outline-variant/10">
+                              <div className="text-center">
+                                <div className="font-label-mono text-on-surface-variant text-[10px]">OBJECTS</div>
+                                <div className="font-headline-sm">1,242</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="font-label-mono text-on-surface-variant text-[10px]">RADIUS</div>
+                                <div className="font-headline-sm">12.4km</div>
+                              </div>
+                            </div>
+                          </div>
 
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="rounded-xl px-5 py-4" style={{ background: 'rgba(11,18,32,0.8)', border: '1px solid rgba(0,174,239,0.1)' }}>
-                <div className="flex gap-1.5">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="w-2 h-2 rounded-full" style={{ background: '#00AEEF', animation: `blink 1.4s ease-in-out ${i * 0.2}s infinite` }} />
-                  ))}
+                          {/* Predicted Path Card */}
+                          <div className="glass p-inner-padding rounded-xl relative overflow-hidden group">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary">timeline</span>
+                                <h3 className="font-headline-sm text-headline-sm">Predicted Path</h3>
+                              </div>
+                              <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">fullscreen</button>
+                            </div>
+                            <div className="h-40 w-full bg-surface-container-low/50 rounded border border-outline-variant/5 relative overflow-hidden">
+                              <div className="absolute bottom-2 left-2 flex gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+                                <span className="font-label-mono text-[9px] text-primary/80 uppercase">Real-time simulation</span>
+                              </div>
+                            </div>
+                            <div className="mt-4 flex justify-between items-center">
+                              <div>
+                                <div className="font-label-mono text-on-surface-variant text-[10px]">T-MINUS INTERSECT</div>
+                                <div className="font-headline-sm text-primary">04:12:44</div>
+                              </div>
+                              <button className="px-3 py-1 border border-primary/40 text-primary font-label-mono text-[11px] rounded hover:bg-primary/10 transition-colors">
+                                VIEW TELEMETRY
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="font-body-md text-on-surface-variant/80 italic border-l-2 border-primary/30 pl-4 py-1">
+                          Recommendation: Initiate altitude adjustment for NOAA-19 (+2.4km) within the next launch window.
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {msg.role === 'user' && (
+                  <div className="w-8 h-8 rounded bg-surface-container-high border border-outline-variant/20 flex items-center justify-center shrink-0 mt-1">
+                     <span className="font-label-mono text-[10px]">MC</span>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* AI Processing State */}
+            {isLoading && (
+              <div className="flex gap-4 mt-6">
+                <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center shrink-0 border border-primary/30">
+                  <span className="material-symbols-outlined text-primary text-sm">smart_toy</span>
+                </div>
+                <div className="flex items-center gap-1 bg-surface-container-low px-4 py-3 rounded-2xl rounded-tl-none border border-outline-variant/10">
+                  <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '-0.15s' }}></div>
+                  <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '-0.3s' }}></div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Input */}
-        <div className="p-4" style={{ borderTop: '1px solid rgba(0,174,239,0.1)' }}>
-          <div className="flex items-center gap-3">
-            <div
-              className="flex-1 flex items-center rounded-xl px-4 py-3"
-              style={{ background: 'rgba(11,18,32,0.6)', border: '1px solid rgba(0,174,239,0.15)' }}
-            >
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Ask anything about objects, collisions, or orbital conditions..."
-                className="bg-transparent border-none outline-none text-sm font-space w-full"
-                style={{ color: '#fff' }}
-              />
-            </div>
-            <button
-              onClick={() => handleSend()}
-              disabled={!input.trim()}
-              className="p-3 rounded-xl transition-all duration-200 disabled:opacity-30 hover:scale-105"
-              style={{ background: 'rgba(0,174,239,0.2)', border: '1px solid rgba(0,174,239,0.3)', color: '#00AEEF' }}
-            >
-              <Send className="w-4 h-4" />
-            </button>
+            )}
           </div>
         </div>
-      </div>
+
+        {/* Wide Input Bar */}
+        <div className="p-container-margin relative z-20">
+          <div className="max-w-4xl mx-auto">
+            <div className="glass flex items-end gap-3 p-3 rounded-2xl glow-primary border-primary/20 focus-within:border-primary/50 transition-all">
+              <div className="flex flex-col flex-1 gap-2">
+                <div className="flex gap-2 px-2">
+                  <span className="bg-surface-container-highest/50 px-2 py-0.5 rounded font-label-mono text-[10px] text-on-surface-variant border border-outline-variant/10">Orbit: LEO</span>
+                  <span className="bg-surface-container-highest/50 px-2 py-0.5 rounded font-label-mono text-[10px] text-on-surface-variant border border-outline-variant/10">Engine: K-42</span>
+                </div>
+                <textarea 
+                  className="w-full bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-on-surface-variant/40 font-body-lg resize-none py-2 px-2 outline-none" 
+                  placeholder="Ask Kessler AI about orbital events..." 
+                  rows={1}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                ></textarea>
+              </div>
+              <div className="flex items-center gap-2 pb-1">
+                <button className="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-colors">attach_file</button>
+                <button className="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-colors">mic</button>
+                <button 
+                  onClick={handleSend}
+                  disabled={!input.trim() || isLoading}
+                  className="w-10 h-10 bg-primary text-on-primary rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all glow-primary disabled:opacity-50 disabled:hover:scale-100"
+                >
+                  <span className="material-symbols-outlined">send</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="mt-4 flex justify-center gap-6">
+              <button className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">bolt</span> QUICK ANALYZE NEAREST NEIGHBORS
+              </button>
+              <button className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">visibility</span> TOGGLE CONSTELLATION OVERLAY
+              </button>
+              <button className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">save</span> EXPORT SESSION TO MISSION LOG
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Right Panel (Contextual Data) */}
+      <aside className="w-80 bg-surface-container-lowest/20 border-l border-outline-variant/10 p-section-padding space-y-6 hidden lg:block overflow-y-auto custom-scrollbar shrink-0">
+        <h4 className="font-label-mono text-label-mono text-primary flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">settings_input_component</span>
+          LIVE TELEMETRY FEED
+        </h4>
+        <div className="space-y-4">
+          <div className="border border-outline-variant/15 p-3 rounded bg-surface-container-low/30 group hover:border-primary/30 transition-colors">
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-label-mono text-[10px] text-on-surface-variant">NOAA-19</span>
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-[10px] font-label-mono text-on-surface-variant/50">ALTITUDE</div>
+                <div className="text-body-md font-label-mono">847.2 KM</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-label-mono text-on-surface-variant/50">VELOCITY</div>
+                <div className="text-body-md font-label-mono">7.42 KM/S</div>
+              </div>
+            </div>
+            <div className="mt-2 h-1 bg-surface-container-highest rounded overflow-hidden">
+              <div className="h-full bg-primary w-2/3"></div>
+            </div>
+          </div>
+
+          <div className="border border-outline-variant/15 p-3 rounded bg-surface-container-low/30 group hover:border-error/30 transition-colors">
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-label-mono text-[10px] text-on-surface-variant">DEBRIS_ID:402_A</span>
+              <span className="w-2 h-2 rounded-full bg-error"></span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-[10px] font-label-mono text-on-surface-variant/50">REL_DISTANCE</div>
+                <div className="text-body-md font-label-mono text-error">42.1 KM</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-label-mono text-on-surface-variant/50">TRAJECTORY</div>
+                <div className="text-body-md font-label-mono">STABLE</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h4 className="font-label-mono text-label-mono text-on-surface-variant/50 uppercase tracking-widest text-[10px]">Environment Status</h4>
+          <div className="flex items-center justify-between text-body-md">
+            <span>Solar Flux</span>
+            <span className="text-primary font-label-mono">142.1 SFU</span>
+          </div>
+          <div className="flex items-center justify-between text-body-md">
+            <span>Geomagnetic Kp</span>
+            <span className="text-primary font-label-mono">2 (Quiet)</span>
+          </div>
+          <div className="flex items-center justify-between text-body-md">
+            <span>Ionospheric Delay</span>
+            <span className="text-secondary font-label-mono">HIGH</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-lg bg-surface-container-highest/20 border border-outline-variant/10 mt-auto">
+          <div className="flex items-center gap-2 text-primary mb-2">
+            <span className="material-symbols-outlined text-[20px]">verified_user</span>
+            <span className="font-headline-sm text-sm">Security Node</span>
+          </div>
+          <p className="text-[12px] text-on-surface-variant leading-relaxed">
+            Copilot session is encrypted via AES-256 GCM. All recommendations verified by Kessler-Core protocols.
+          </p>
+        </div>
+      </aside>
     </div>
   );
 }

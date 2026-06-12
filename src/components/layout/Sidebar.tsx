@@ -1,163 +1,97 @@
-import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import {
-  LayoutDashboard,
-  Globe2,
-  AlertTriangle,
-  BarChart3,
-  CloudSun,
-  Bot,
-  FlaskConical,
-  Bell,
-  FileText,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Satellite,
-} from 'lucide-react';
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/orbital-map', label: 'Orbital Map', icon: Globe2 },
-  { path: '/collision-monitor', label: 'Collision Monitor', icon: AlertTriangle },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/space-weather', label: 'Space Weather', icon: CloudSun },
-  { path: '/ai-copilot', label: 'AI Copilot', icon: Bot },
-  { path: '/simulations', label: 'Simulations', icon: FlaskConical },
-  { path: '/alert-center', label: 'Alert Center', icon: Bell },
-  { path: '/reports', label: 'Reports', icon: FileText },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/', label: 'Dashboard', icon: 'dashboard' },
+  { path: '/orbital-map', label: 'Orbital Map', icon: 'public' },
+  { path: '/collision-monitor', label: 'Collision Monitor', icon: 'warning' },
+  { path: '/analytics', label: 'Analytics', icon: 'bar_chart' },
+  { path: '/space-weather', label: 'Space Weather', icon: 'wb_sunny' },
+  { path: '/simulations', label: 'Simulations', icon: 'model_training' },
+  { path: '/ai-copilot', label: 'AI Copilot', icon: 'smart_toy', badge: 'Beta' },
+  { path: '/alert-center', label: 'Alert Center', icon: 'notifications_active', count: 7 },
+  { path: '/reports', label: 'Reports', icon: 'description' },
+  { path: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
-export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   return (
-    <motion.aside
-      animate={{ width: collapsed ? 68 : 260 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="h-screen fixed left-0 top-0 z-50 flex flex-col"
-      style={{
-        background: 'linear-gradient(180deg, #0B1220 0%, #050816 100%)',
-        borderRight: '1px solid rgba(0, 174, 239, 0.08)',
-      }}
-    >
-      {/* Logo */}
-      <div className="p-4 flex items-center gap-3 relative">
-        <div className="relative flex-shrink-0">
-          <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(135deg, #00AEEF, #00E5FF)',
-              boxShadow: '0 0 15px rgba(0, 174, 239, 0.3)',
-            }}
-          >
-            <Satellite className="w-5 h-5 text-white" />
-          </div>
-          {/* Orbiting dot */}
-          <div className="absolute inset-[-4px] animate-orbit" style={{ animation: 'orbit 4s linear infinite' }}>
-            <div
-              className="w-1.5 h-1.5 rounded-full absolute top-0 left-1/2 -translate-x-1/2"
-              style={{ background: '#00E5FF', boxShadow: '0 0 6px #00E5FF' }}
-            />
-          </div>
-        </div>
-
-        {!collapsed && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <h1 className="font-orbitron text-lg font-bold tracking-wider" style={{ color: '#00AEEF' }}>
-              KESSLER<span style={{ color: '#00E5FF' }}>X</span>
-            </h1>
-            <p className="text-[10px] font-space tracking-widest" style={{ color: '#94A3B8' }}>
-              PREDICT · PROTECT · PRESERVE
-            </p>
-          </motion.div>
-        )}
+    <>
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
+      <aside className={`
+        fixed md:static inset-y-0 left-0 z-50
+        flex flex-col h-full w-64 bg-surface-container-lowest/40 backdrop-blur-2xl border-r border-outline-variant/10 py-section-padding space-y-element-stack
+        transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+      <div className="px-inner-padding mb-8 flex flex-col gap-1">
+        <span className="font-display-lg text-display-lg text-primary uppercase tracking-widest">KesslerX</span>
+        <span className="font-label-mono text-label-mono text-on-surface-variant/60">Orbital Management</span>
       </div>
-
-      {/* Divider */}
-      <div className="mx-3 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,174,239,0.15), transparent)' }} />
-
-      {/* Navigation */}
-      <nav className="flex-1 py-3 px-2 overflow-y-auto space-y-0.5">
+      <nav className="flex-1 space-y-1">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
+            onClick={onClose}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative ${
+              `px-inner-padding py-3 flex items-center gap-3 transition-all duration-300 relative ${
                 isActive
-                  ? 'text-white'
-                  : 'text-[#94A3B8] hover:text-white'
+                  ? 'bg-primary-container/20 text-primary border-l-4 border-primary translate-x-1'
+                  : 'text-on-surface-variant/70 hover:text-on-surface hover:bg-surface-container-highest/20 hover:backdrop-blur-md'
               }`
-            }
-            style={({ isActive }) =>
-              isActive
-                ? {
-                    background: 'rgba(0, 174, 239, 0.08)',
-                    borderLeft: '3px solid #00AEEF',
-                  }
-                : { borderLeft: '3px solid transparent' }
             }
           >
             {({ isActive }) => (
               <>
-                <item.icon
-                  className="w-5 h-5 flex-shrink-0 transition-all duration-200"
-                  style={isActive ? { color: '#00AEEF', filter: 'drop-shadow(0 0 6px rgba(0,174,239,0.6))' } : {}}
-                />
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-sm font-space font-medium"
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
-                {collapsed && (
-                  <div className="absolute left-full ml-2 px-3 py-1.5 rounded-md text-xs font-space whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50"
-                    style={{ background: '#0B1220', border: '1px solid rgba(0,174,239,0.3)', color: '#fff' }}
-                  >
-                    {item.label}
-                  </div>
+                <span 
+                  className="material-symbols-outlined" 
+                  style={isActive ? { fontVariationSettings: "'FILL' 1" } : {}}
+                >
+                  {item.icon}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-body-md text-body-md">{item.label}</span>
+                  {item.badge && (
+                    <span className="bg-primary/20 text-primary text-[10px] px-1 rounded font-bold uppercase tracking-tighter">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                {item.count && (
+                  <span className="absolute right-4 bg-tertiary-container text-on-tertiary-container text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
+                    {item.count}
+                  </span>
                 )}
               </>
             )}
           </NavLink>
         ))}
       </nav>
-
-      {/* Divider */}
-      <div className="mx-3 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,174,239,0.15), transparent)' }} />
-
-      {/* Bottom Section */}
-      <div className="p-4">
-        {!collapsed && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="status-dot status-dot-success" />
-              <span className="text-xs font-space" style={{ color: '#94A3B8' }}>All Systems Operational</span>
+      <div className="px-inner-padding pt-6 mt-auto">
+        <div className="glass p-4 rounded-xl flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center border border-primary/20">
+            <span className="material-symbols-outlined text-primary text-xl">rocket_launch</span>
+          </div>
+          <div>
+            <div className="text-[11px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              All Systems Clear
             </div>
-            <p className="text-[10px] font-space" style={{ color: '#64748B' }}>KesslerX v2.1</p>
-          </motion.div>
-        )}
-
-        {/* Collapse Button */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="mt-3 w-full flex items-center justify-center py-2 rounded-lg transition-all duration-200 hover:bg-[rgba(0,174,239,0.1)]"
-          style={{ color: '#94A3B8' }}
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
+            <div className="text-[12px] text-on-surface-variant/70">KesslerX v2.1.0</div>
+          </div>
+        </div>
       </div>
-    </motion.aside>
+    </aside>
+    </>
   );
 }

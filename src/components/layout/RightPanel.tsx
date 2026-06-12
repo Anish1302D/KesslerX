@@ -3,7 +3,29 @@ import { alerts } from '../../data/mockData';
 import AlertStack from '../alerts/AlertStack';
 import OrbitalRiskGauge from '../dashboard/OrbitalRiskGauge';
 
+import { useWebSocket } from '../../hooks/useWebSocket';
+import { useMemo } from 'react';
+
 export default function RightPanel() {
+  const { messages } = useWebSocket('/ws/alerts');
+
+  // Convert raw WS messages into alert objects format
+  const liveAlerts = useMemo(() => {
+    return messages.map((msg, idx) => ({
+      id: `live-${idx}`,
+      object_id: 'LIVE-UPDATE',
+      type: 'Collision Vector', // Fallback type
+      severity: msg.data.includes('WARNING') ? 'HIGH' : 'MEDIUM',
+      timestamp: new Date().toISOString(),
+      description: msg.data,
+      probability: null
+    })).reverse(); // Newest first
+  }, [messages]);
+
+  // Merge live alerts with mock alerts
+  const combinedAlerts = useMemo(() => {
+    return [...liveAlerts, ...alerts];
+  }, [liveAlerts]);
   return (
     <motion.aside
       initial={{ x: 30, opacity: 0 }}
@@ -39,10 +61,10 @@ export default function RightPanel() {
             className="text-[9px] font-space px-2 py-0.5 rounded-full"
             style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#FF4D4D', border: '1px solid rgba(255,77,77,0.2)' }}
           >
-            {alerts.length} active
+            {combinedAlerts.length} active
           </span>
         </div>
-        <AlertStack alerts={alerts.slice(0, 4)} />
+        <AlertStack alerts={combinedAlerts.slice(0, 5)} />
       </div>
     </motion.aside>
   );
