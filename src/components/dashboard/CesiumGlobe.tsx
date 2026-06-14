@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { motion } from 'framer-motion';
 import * as satellite from 'satellite.js';
 
@@ -15,11 +15,31 @@ export interface CesiumGlobeRef {
   toggleAutoRotate: () => void;
 }
 
+// Wait for the global Cesium object to be available (loaded by vite-plugin-cesium via script tag)
+function waitForCesium(timeout = 15000): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      const C = (window as any).Cesium;
+      if (C && C.Viewer) {
+        resolve(C);
+      } else if (Date.now() - start > timeout) {
+        reject(new Error('Cesium failed to load within timeout'));
+      } else {
+        setTimeout(check, 100);
+      }
+    };
+    check();
+  });
+}
+
 const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, onSelectObject, filters }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const entitiesRef = useRef<any[]>([]);
   const autoRotateEnabledRef = useRef<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [cesiumReady, setCesiumReady] = useState(false);
 
   useImperativeHandle(ref, () => ({
     zoomIn: () => {
@@ -52,90 +72,103 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
     let isCancelled = false;
 
     const initCesium = async () => {
-      const Cesium = await import('cesium');
-      await import('cesium/Build/Cesium/Widgets/widgets.css');
-
-      if (isCancelled || !containerRef.current) return;
-
-      // Prevent multiple viewers by clearing the container
-      containerRef.current.innerHTML = '';
-
-      const token = import.meta.env.VITE_CESIUM_ION_TOKEN;
-      if (token) {
-        Cesium.Ion.defaultAccessToken = token;
-      }
-
-      viewer = new Cesium.Viewer(containerRef.current, {
-        animation: false,
-        timeline: false,
-        fullscreenButton: false,
-        vrButton: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        baseLayerPicker: false,
-        navigationHelpButton: false,
-        infoBox: false,
-        selectionIndicator: false,
-        creditContainer: document.createElement('div'),
-        skyBox: false,
-        skyAtmosphere: new Cesium.SkyAtmosphere(),
-        contextOptions: {
-          webgl: {
-            alpha: true,
-          },
-        },
-      });
-
-      if (isCancelled) {
-        viewer.destroy();
-        return;
-      }
-
-      (window as any).Cesium = Cesium;
-      viewerRef.current = viewer;
-
-      viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#050816');
-      viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a1628');
-      viewer.scene.globe.showGroundAtmosphere = true;
-      viewer.scene.globe.enableLighting = false; // Disable lighting to prevent the globe from being completely dark
-
-      // Try to add OSM imagery as a fallback if no imagery is loaded
       try {
-        viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-          url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          maximumLevel: 19
-        }));
-      } catch (e) {
-        console.warn("Failed to add OSM imagery fallback", e);
-      }
+        // Wait for global Cesium to be loaded by the <script> tag from vite-plugin-cesium
+        const Cesium = await waitForCesium();
 
-      viewer.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(20, 20, 20000000),
-      });
+        if (isCancelled || !containerRef.current) return;
 
-      const rotate = () => {
-        if (viewer && !viewer.isDestroyed() && autoRotateEnabledRef.current) {
-          viewer.scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, 0.001);
+        // Prevent multiple viewers by clearing the container
+        containerRef.current.innerHTML = '';
+
+        // Set the Ion token - try env var first, fall back to hardcoded token
+        const token = import.meta.env.VITE_CESIUM_ION_TOKEN || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2NjQzNWE3My00YWJmLTQ1YTAtOWVmZS1jMTM1YzRkOGU5MTgiLCJpZCI6NDQzNjc4LCJzdWIiOiJhbmlzaG1vZ2FtIiwiaXNzIjoiaHR0cHM6Ly9hcGkuY2VzaXVtLmNvbSIsImF1ZCI6Iktlc3NsZXJYIiwiaWF0IjoxNzgxMjcyMDUyfQ._xCHPWsHMzcudUf9saBFMRCNK0z-UIgTJYo2KPPLXeA';
+        if (token) {
+          Cesium.Ion.defaultAccessToken = token;
         }
-        animFrameId = requestAnimationFrame(rotate);
-      };
-      animFrameId = requestAnimationFrame(rotate);
 
-      addEntities(Cesium, viewer);
+        viewer = new Cesium.Viewer(containerRef.current, {
+          animation: false,
+          timeline: false,
+          fullscreenButton: false,
+          vrButton: false,
+          geocoder: false,
+          homeButton: false,
+          sceneModePicker: false,
+          baseLayerPicker: false,
+          navigationHelpButton: false,
+          infoBox: false,
+          selectionIndicator: false,
+          creditContainer: document.createElement('div'),
+          skyBox: false,
+          skyAtmosphere: new Cesium.SkyAtmosphere(),
+          contextOptions: {
+            webgl: {
+              alpha: true,
+            },
+          },
+        });
 
-      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-      handler.setInputAction((movement: any) => {
-        const picked = viewer.scene.pick(movement.position);
-        if (Cesium.defined(picked) && picked.id) {
-          const sat = satellites.find((s) => s.NORAD_CAT_ID.toString() === picked.id.id);
-          if (sat && onSelectObject) {
-            onSelectObject(sat);
+        if (isCancelled) {
+          viewer.destroy();
+          return;
+        }
+
+        viewerRef.current = viewer;
+
+        viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#050816');
+        viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a1628');
+        viewer.scene.globe.showGroundAtmosphere = true;
+        viewer.scene.globe.enableLighting = false;
+
+        // Add imagery - try Cesium Ion first (Bing Maps), then fall back to OSM tiles
+        try {
+          const imageryProvider = await Cesium.IonImageryProvider.fromAssetId(2);
+          viewer.imageryLayers.addImageryProvider(imageryProvider);
+        } catch (_e) {
+          try {
+            viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+              url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              maximumLevel: 19
+            }));
+          } catch (_e2) {
+            console.warn("All imagery providers failed, globe will show base color only");
           }
-        } else if (onSelectObject) {
-          onSelectObject(null);
         }
-      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+        viewer.camera.setView({
+          destination: Cesium.Cartesian3.fromDegrees(20, 20, 20000000),
+        });
+
+        const rotate = () => {
+          if (viewer && !viewer.isDestroyed() && autoRotateEnabledRef.current) {
+            viewer.scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, 0.001);
+          }
+          animFrameId = requestAnimationFrame(rotate);
+        };
+        animFrameId = requestAnimationFrame(rotate);
+
+        addEntities(Cesium, viewer);
+
+        const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        handler.setInputAction((movement: any) => {
+          const picked = viewer.scene.pick(movement.position);
+          if (Cesium.defined(picked) && picked.id) {
+            const sat = satellites.find((s) => s.NORAD_CAT_ID.toString() === picked.id.id);
+            if (sat && onSelectObject) {
+              onSelectObject(sat);
+            }
+          } else if (onSelectObject) {
+            onSelectObject(null);
+          }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+        setCesiumReady(true);
+        setError(null);
+      } catch (err: any) {
+        console.error('Failed to initialize Cesium:', err);
+        setError(err.message || 'Failed to load 3D globe');
+      }
     };
 
     const addEntities = (Cesium: any, viewer: any) => {
@@ -221,16 +254,12 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
 
   // Update entity visibility when filters change
   useEffect(() => {
-    console.log("Filters changed in CesiumGlobe:", filters);
-    let hideCount = 0;
     entitiesRef.current.forEach(({ entity, category }) => {
       const shouldShow = filters ? filters[category] !== false : true;
       if (entity.show !== shouldShow) {
         entity.show = shouldShow;
       }
-      if (!shouldShow) hideCount++;
     });
-    console.log(`Visibility updated. Hidden entities count: ${hideCount}`);
   }, [filters]);
 
   return (
@@ -244,6 +273,24 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
         boxShadow: '0 0 30px rgba(0, 174, 239, 0.06)',
       }}
     >
+      {error && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#050816]/90">
+          <div className="text-center p-6">
+            <span className="material-symbols-outlined text-4xl text-error mb-2 block">error</span>
+            <p className="text-error font-body-md">{error}</p>
+            <p className="text-outline text-sm mt-2">Check browser console for details</p>
+          </div>
+        </div>
+      )}
+      {!cesiumReady && !error && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#050816]">
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full border-2 border-t-transparent mx-auto mb-3 border-primary/30"
+              style={{ borderTopColor: 'transparent', animation: 'spin 1s linear infinite' }} />
+            <span className="text-sm font-label-mono text-outline uppercase tracking-widest">Initializing Globe...</span>
+          </div>
+        </div>
+      )}
       <div ref={containerRef} className="w-full h-[500px]" />
 
       <div
