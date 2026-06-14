@@ -22,7 +22,7 @@ class ChatRequest(BaseModel):
 # Setup CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=["*"], # Allow Vercel and local
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -51,6 +51,12 @@ export default function ObjectDetailsPanel({ satelliteData, onClose }: ObjectDet
     }
   }
 
+  // Fallback to directly provided mock data if TLE parsing failed or was missing
+  if (altitude === 'Unknown' && satelliteData?.altitude !== undefined) altitude = satelliteData.altitude.toString();
+  if (velocity === 'Unknown' && satelliteData?.velocity !== undefined) velocity = satelliteData.velocity.toString();
+  if (inclination === 'Unknown' && satelliteData?.inclination !== undefined) inclination = satelliteData.inclination.toString();
+  if (period === 'Unknown' && satelliteData?.period !== undefined) period = satelliteData.period.toString();
+
   // Generate a stable fake collision risk based on ID
   const baseRisk = satelliteData ? (satelliteData.NORAD_CAT_ID % 20) : 0;
   const collisionRisk = satelliteData?.CATEGORY === 'Debris' ? 0 : baseRisk;

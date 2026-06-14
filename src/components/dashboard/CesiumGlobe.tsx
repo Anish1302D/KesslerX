@@ -98,7 +98,16 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
       viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#050816');
       viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a1628');
       viewer.scene.globe.showGroundAtmosphere = true;
-      viewer.scene.globe.enableLighting = true;
+      viewer.scene.globe.enableLighting = false; // Disable lighting to prevent the globe from being completely dark
+
+      // Try to add OSM imagery as a fallback if no imagery is loaded
+      try {
+        viewer.imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider({
+          url: 'https://a.tile.openstreetmap.org/'
+        }));
+      } catch (e) {
+        console.warn("Failed to add OSM imagery fallback", e);
+      }
 
       viewer.camera.setView({
         destination: Cesium.Cartesian3.fromDegrees(20, 20, 20000000),
@@ -133,34 +142,42 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
       entitiesRef.current = [];
 
       satellites.forEach((sat) => {
-        if (!sat.TLE_LINE1 || !sat.TLE_LINE2) return;
+        let position;
+        let name = sat.OBJECT_NAME || sat.name || `Unknown (${sat.NORAD_CAT_ID})`;
+        const category = sat.CATEGORY || sat.type || sat.OBJECT_TYPE || 'Unknown';
 
         try {
-          const satrec = satellite.twoline2satrec(sat.TLE_LINE1, sat.TLE_LINE2);
-          const positionAndVelocity = satellite.propagate(satrec, new Date());
-          if (!positionAndVelocity) return;
-          const positionEci = positionAndVelocity.position;
-          
-          if (!positionEci || typeof positionEci === 'boolean') return;
-          
-          const gmst = satellite.gstime(new Date());
-          const positionGd = satellite.eciToGeodetic(positionEci as satellite.EciVec3<number>, gmst);
-          
-          const longitude = satellite.degreesLong(positionGd.longitude);
-          const latitude  = satellite.degreesLat(positionGd.latitude);
-          const height    = positionGd.height; // in km
+          if (sat.TLE_LINE1 && sat.TLE_LINE2) {
+            const satrec = satellite.twoline2satrec(sat.TLE_LINE1, sat.TLE_LINE2);
+            const positionAndVelocity = satellite.propagate(satrec, new Date());
+            if (!positionAndVelocity || !positionAndVelocity.position) return;
+            
+            const positionEci = positionAndVelocity.position;
+            if (typeof positionEci === 'boolean') return;
+            
+            const gmst = satellite.gstime(new Date());
+            const positionGd = satellite.eciToGeodetic(positionEci as satellite.EciVec3<number>, gmst);
+            
+            const longitude = satellite.degreesLong(positionGd.longitude);
+            const latitude  = satellite.degreesLat(positionGd.latitude);
+            const height    = positionGd.height; // in km
+            
+            position = Cesium.Cartesian3.fromDegrees(longitude, latitude, height * 1000);
+          } else if (sat.lat !== undefined && sat.lon !== undefined && sat.altitude !== undefined) {
+            position = Cesium.Cartesian3.fromDegrees(sat.lon, sat.lat, sat.altitude * 1000);
+          } else {
+            return; // Cannot render without position data
+          }
 
-          const color = getColor(Cesium, sat.CATEGORY);
-          const size = sat.CATEGORY === 'Debris' ? 4 : 6;
-          const name = sat.OBJECT_NAME || `Unknown (${sat.NORAD_CAT_ID})`;
-
-          const isVisible = filters && sat.CATEGORY ? filters[sat.CATEGORY] !== false : true;
+          const color = getColor(Cesium, category);
+          const size = category.toUpperCase() === 'DEBRIS' ? 4 : 6;
+          const isVisible = filters && category ? filters[category] !== false : true;
 
           const entity = viewer.entities.add({
             id: sat.NORAD_CAT_ID.toString(),
             name: name,
             show: isVisible,
-            position: Cesium.Cartesian3.fromDegrees(longitude, latitude, height * 1000),
+            position: position,
             point: {
               pixelSize: size,
               color: color,
@@ -182,9 +199,9 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
             },
           });
 
-          entitiesRef.current.push({ entity, category: sat.CATEGORY });
+          entitiesRef.current.push({ entity, category: category });
         } catch (e) {
-          // Ignore invalid TLEs
+          // Ignore invalid data
         }
       });
     };

@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
+import { satellites as mockSatellites } from '../data/mockData';
 
 export interface SatelliteData {
-  NORAD_CAT_ID: number;
+  NORAD_CAT_ID: number | string;
   OBJECT_NAME: string;
-  TLE_LINE1: string;
-  TLE_LINE2: string;
+  TLE_LINE1?: string;
+  TLE_LINE2?: string;
   OBJECT_TYPE: string;
+  CATEGORY?: string;
+  lat?: number;
+  lon?: number;
+  altitude?: number;
+  [key: string]: any;
 }
 
 export function useSatellites() {
@@ -21,6 +27,15 @@ export function useSatellites() {
         const data = await response.json();
         setSatellites(data.satellites);
       } catch (err) {
+        console.warn('API fetch failed, using mock data fallback', err);
+        const mappedMock = mockSatellites.map(s => ({
+          ...s,
+          NORAD_CAT_ID: s.id,
+          OBJECT_NAME: s.name,
+          OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
+          CATEGORY: s.type,
+        }));
+        setSatellites(mappedMock as any);
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setLoading(false);
