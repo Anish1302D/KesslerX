@@ -72,6 +72,95 @@ export interface CountryData {
 // Satellite Catalog
 // ============================================================
 
+// Seeded pseudo-random number generator for deterministic debris placement
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+// Debris origin prefixes for realistic naming
+const DEBRIS_ORIGINS = [
+  'CZ-2C', 'SL-16', 'COSMOS', 'FENGYUN-1C', 'IRIDIUM-33',
+  'BREEZE-M', 'DELTA-2', 'ARIANE-5', 'H-2A', 'PSLV',
+  'ATLAS-5', 'TITAN-3C', 'PEGASUS', 'TSYKLON-3', 'PROTON-M',
+];
+
+const DEBRIS_COUNTRIES = ['Russia', 'China', 'USA', 'EU', 'India', 'Japan', 'Unknown'];
+
+function generateDebrisField(): Satellite[] {
+  const rand = seededRandom(42);
+  const debris: Satellite[] = [];
+
+  for (let i = 0; i < 120; i++) {
+    const origin = DEBRIS_ORIGINS[Math.floor(rand() * DEBRIS_ORIGINS.length)];
+    const catalogId = 10000 + Math.floor(rand() * 89999);
+    const country = DEBRIS_COUNTRIES[Math.floor(rand() * DEBRIS_COUNTRIES.length)];
+
+    // Realistic altitude distribution: most debris in 400-1200 km LEO band
+    const altBand = rand();
+    let altitude: number;
+    let orbitType: 'LEO' | 'MEO' | 'GEO' | 'HEO';
+    if (altBand < 0.7) {
+      altitude = 350 + rand() * 850;     // 350-1200 km (dense LEO)
+      orbitType = 'LEO';
+    } else if (altBand < 0.85) {
+      altitude = 1200 + rand() * 800;    // 1200-2000 km (upper LEO)
+      orbitType = 'LEO';
+    } else if (altBand < 0.95) {
+      altitude = 2000 + rand() * 18000;  // 2000-20000 km (MEO)
+      orbitType = 'MEO';
+    } else {
+      altitude = 700 + rand() * 500;     // 700-1200 km (SSO band)
+      orbitType = 'LEO';
+    }
+    altitude = Math.round(altitude);
+
+    // Velocity inversely proportional to altitude
+    const velocity = Math.round(27600 - (altitude / 1000) * 400 + (rand() - 0.5) * 200);
+    // Orbital period from Kepler's third law approximation
+    const period = parseFloat((88 + (altitude / 1000) * 15 + rand() * 5).toFixed(1));
+    // Inclination: cluster around common bands (53°, 72°, 82°, 97°)
+    const incBands = [53, 65, 72, 82, 97, 99];
+    const baseInc = incBands[Math.floor(rand() * incBands.length)];
+    const inclination = parseFloat((baseInc + (rand() - 0.5) * 8).toFixed(1));
+    // Collision risk: mostly low but some high
+    const riskRoll = rand();
+    let collisionRisk: number;
+    if (riskRoll < 0.6) collisionRisk = parseFloat((rand() * 2).toFixed(1));        // 0-2% low
+    else if (riskRoll < 0.85) collisionRisk = parseFloat((2 + rand() * 4).toFixed(1)); // 2-6% medium
+    else collisionRisk = parseFloat((6 + rand() * 6).toFixed(1));                      // 6-12% high
+
+    // Random global position
+    const lat = parseFloat(((rand() - 0.5) * 160).toFixed(1));  // -80 to 80
+    const lon = parseFloat(((rand() - 0.5) * 360).toFixed(1));  // -180 to 180
+
+    debris.push({
+      id: `DEB-${String(i + 100).padStart(3, '0')}`,
+      name: `${origin}-DEB-${catalogId}`,
+      type: 'Debris',
+      country,
+      altitude,
+      velocity,
+      period,
+      inclination,
+      collisionRisk,
+      lat,
+      lon,
+      orbitType,
+      status: 'Inactive',
+      launchDate: 'N/A',
+      operator: 'N/A',
+    });
+  }
+
+  return debris;
+}
+
+const generatedDebris = generateDebrisField();
+
 export const satellites: Satellite[] = [
   { id: 'SAT-001', name: 'STARLINK-3021', type: 'Communication', country: 'USA', altitude: 542, velocity: 27540, period: 95.4, inclination: 53.2, collisionRisk: 2.4, lat: 32.5, lon: -78.3, orbitType: 'LEO', status: 'Active', launchDate: '2024-03-15', operator: 'SpaceX' },
   { id: 'SAT-002', name: 'STARLINK-4501', type: 'Communication', country: 'USA', altitude: 550, velocity: 27520, period: 95.6, inclination: 53.0, collisionRisk: 1.8, lat: -15.2, lon: 45.7, orbitType: 'LEO', status: 'Active', launchDate: '2024-06-22', operator: 'SpaceX' },
@@ -95,6 +184,8 @@ export const satellites: Satellite[] = [
   { id: 'SAT-017', name: 'METEOSAT-11', type: 'Weather', country: 'EU', altitude: 35786, velocity: 11068, period: 1436.0, inclination: 0.05, collisionRisk: 0.03, lat: 0.0, lon: 0.0, orbitType: 'GEO', status: 'Active', launchDate: '2015-07-15', operator: 'EUMETSAT' },
   { id: 'SAT-018', name: 'IRIDIUM-154', type: 'Communication', country: 'USA', altitude: 780, velocity: 27000, period: 100.4, inclination: 86.4, collisionRisk: 2.1, lat: 80.2, lon: -120.5, orbitType: 'LEO', status: 'Active', launchDate: '2018-05-22', operator: 'Iridium' },
   { id: 'SAT-019', name: 'SUOMI NPP', type: 'Scientific', country: 'USA', altitude: 824, velocity: 26900, period: 101.4, inclination: 98.7, collisionRisk: 0.7, lat: -25.4, lon: 135.2, orbitType: 'LEO', status: 'Active', launchDate: '2011-10-28', operator: 'NASA/NOAA' },
+  // 120 procedurally generated debris objects
+  ...generatedDebris,
 ];
 
 // ============================================================
