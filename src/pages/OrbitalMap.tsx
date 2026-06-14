@@ -21,6 +21,7 @@ export default function OrbitalMap() {
   const [selectedObject, setSelectedObject] = useState<Satellite | null>(null);
   const [filters, setFilters] = useState(defaultFilters);
   const [showFilters, setShowFilters] = useState(true);
+  const [isUIHidden, setIsUIHidden] = useState(false);
   const globeRef = useRef<CesiumGlobeRef>(null);
 
   // Statistics from real data
@@ -71,8 +72,19 @@ export default function OrbitalMap() {
 
       <ObjectDetailsPanel satelliteData={selectedObject} onClose={() => setSelectedObject(null)} />
 
+      {/* UI Visibility Toggle (Always Visible) */}
+      <button 
+        className="absolute top-6 right-6 z-50 w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90"
+        title={isUIHidden ? "Show UI" : "Hide UI"}
+        onClick={() => setIsUIHidden(!isUIHidden)}
+      >
+        <span className="material-symbols-outlined">
+          {isUIHidden ? "visibility" : "visibility_off"}
+        </span>
+      </button>
+
       {/* Map Control Sidebar */}
-      <div className="absolute left-6 top-6 z-30 w-72 flex flex-col gap-4 max-h-[calc(100vh-100px)] pointer-events-none">
+      <div className={`absolute left-6 top-6 z-30 w-72 flex flex-col gap-4 max-h-[calc(100vh-100px)] pointer-events-none transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         
         {/* Statistics Widget */}
         <div className="glass rounded-xl p-inner-padding border-primary/20 pointer-events-auto">
@@ -146,7 +158,7 @@ export default function OrbitalMap() {
       </div>
 
       {/* Overlay Controls (Bottom Right) */}
-      <div className="absolute bottom-32 right-6 z-30 flex flex-col gap-3">
+      <div className={`absolute bottom-32 right-6 z-30 flex flex-col gap-3 transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <button className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90" title="Auto Rotate" onClick={() => globeRef.current?.toggleAutoRotate()}>
           <span className="material-symbols-outlined">autorenew</span>
         </button>
@@ -161,22 +173,22 @@ export default function OrbitalMap() {
             <span className="material-symbols-outlined">remove</span>
           </button>
         </div>
-        <button className="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:brightness-110 active:scale-90 transition-all" title="Help">
+        <button onClick={() => alert('help_center will be available soon')} className="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:brightness-110 active:scale-90 transition-all" title="Help">
           <span className="material-symbols-outlined">help_center</span>
         </button>
       </div>
       
       {/* Timeline Slider (Bottom Anchor) */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-5xl glass rounded-2xl p-4 flex flex-col gap-4 border border-primary/10">
+      <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-5xl glass rounded-2xl p-4 flex flex-col gap-4 border border-primary/10 transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
+            <button onClick={() => alert('skip_previous will be available soon')} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
               <span className="material-symbols-outlined">skip_previous</span>
             </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors">
+            <button onClick={() => alert('play_arrow will be available soon')} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors">
               <span className="material-symbols-outlined">play_arrow</span>
             </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
+            <button onClick={() => alert('skip_next will be available soon')} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
               <span className="material-symbols-outlined">skip_next</span>
             </button>
           </div>
@@ -207,7 +219,7 @@ export default function OrbitalMap() {
               <span className="material-symbols-outlined text-sm">speed</span>
               <span className="font-label-mono text-[12px]">1.0x</span>
             </div>
-            <button className="px-4 py-1.5 bg-surface-container-highest rounded-lg font-body-md text-body-md hover:bg-surface-container-high transition-colors">
+            <button onClick={() => alert('Export Frame will be available soon')} className="px-4 py-1.5 bg-surface-container-highest rounded-lg font-body-md text-body-md hover:bg-surface-container-high transition-colors">
               Export Frame
             </button>
           </div>

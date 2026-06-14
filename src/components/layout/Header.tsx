@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 
 interface HeaderProps {
   onMenuClick: () => void;
+  onSearchClick?: () => void;
 }
 
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header({ onMenuClick, onSearchClick }: HeaderProps) {
   const [utcTime, setUtcTime] = useState('');
   const [utcDate, setUtcDate] = useState('');
 
@@ -34,12 +35,17 @@ export default function Header({ onMenuClick }: HeaderProps) {
         >
           <span className="material-symbols-outlined">menu</span>
         </button>
-        <div className="relative w-full max-w-xl group hidden md:block">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 group-focus-within:text-primary transition-colors">search</span>
-          <input className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-lg py-2 pl-10 pr-12 text-sm focus:ring-1 focus:ring-primary focus:border-primary transition-all font-label-mono outline-none text-on-surface" placeholder="Search satellites, debris, events, missions..." type="text"/>
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 border border-outline-variant/40 rounded px-1.5 py-0.5 pointer-events-none">
-            <span className="text-[10px] font-bold text-on-surface-variant/50">⌘</span>
-            <span className="text-[10px] font-bold text-on-surface-variant/50">K</span>
+        <div 
+          onClick={onSearchClick}
+          className="relative w-full max-w-xl group hidden md:block cursor-pointer"
+        >
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 group-hover:text-primary transition-colors">search</span>
+          <div className="w-full bg-surface-container-low/50 border border-outline-variant/30 rounded-lg py-2 pl-10 pr-12 text-sm group-hover:ring-1 group-hover:ring-primary group-hover:border-primary transition-all font-label-mono text-on-surface-variant flex items-center">
+            Search satellites, debris, events, missions...
+          </div>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 border border-outline-variant/40 rounded px-1.5 py-0.5 pointer-events-none group-hover:border-primary/40 transition-colors">
+            <span className="text-[10px] font-bold text-on-surface-variant/50 group-hover:text-primary/70">⌘</span>
+            <span className="text-[10px] font-bold text-on-surface-variant/50 group-hover:text-primary/70">K</span>
           </div>
         </div>
       </div>
@@ -49,11 +55,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <div className="text-[10px] text-on-surface-variant/60 font-medium">{utcDate}</div>
         </div>
         <div className="flex items-center gap-4 border-l border-outline-variant/20 pl-6">
-          <button className="relative w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90">
+          <button onClick={() => alert('notifications will be available soon')} className="relative w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90">
             <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
             <span className="absolute top-2 right-2 w-2 h-2 bg-tertiary-container rounded-full border border-background"></span>
           </button>
-          <button className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90">
+          <button onClick={() => alert('hub will be available soon')} className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90">
             <span className="material-symbols-outlined text-on-surface-variant">hub</span>
           </button>
           <div className="flex items-center gap-3 ml-2 hover:bg-surface-container-highest/20 p-1 rounded-full pr-4 transition-all cursor-pointer">

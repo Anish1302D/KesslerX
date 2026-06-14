@@ -11,10 +11,10 @@ export default function SpaceWeather() {
           <p className="text-on-surface-variant font-body-lg max-w-2xl">Real-time telemetry and predictive modeling of solar activity and its specific impact on the orbital drag of Earth-stationed assets.</p>
         </div>
         <div className="flex gap-3">
-          <button className="px-6 py-2 border border-outline-variant text-body-md font-bold rounded-lg hover:bg-surface-container-highest/30 transition-all flex items-center gap-2">
+          <button onClick={() => alert('Archive will be available soon')} className="px-6 py-2 border border-outline-variant text-body-md font-bold rounded-lg hover:bg-surface-container-highest/30 transition-all flex items-center gap-2">
             <span className="material-symbols-outlined text-sm">history</span> Archive
           </button>
-          <button className="px-6 py-2 bg-secondary text-on-secondary font-bold rounded-lg hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-secondary/20">
+          <button onClick={() => alert('Full Report will be available soon')} className="px-6 py-2 bg-secondary text-on-secondary font-bold rounded-lg hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-secondary/20">
             <span className="material-symbols-outlined text-sm">download</span> Full Report
           </button>
         </div>
@@ -95,8 +95,8 @@ export default function SpaceWeather() {
                 <p className="text-on-surface-variant text-[12px]">Predicted storm probability and ionospheric drag impact.</p>
               </div>
               <div className="flex gap-2">
-                <button className="px-3 py-1 bg-surface-container-highest rounded text-[10px] font-bold text-primary">DRAG</button>
-                <button className="px-3 py-1 text-[10px] font-bold text-on-surface-variant">COMM</button>
+                <button onClick={() => alert('DRAG will be available soon')} className="px-3 py-1 bg-surface-container-highest rounded text-[10px] font-bold text-primary">DRAG</button>
+                <button onClick={() => alert('COMM will be available soon')} className="px-3 py-1 text-[10px] font-bold text-on-surface-variant">COMM</button>
               </div>
             </div>
             {/* Simple Vector Chart Placeholder */}
@@ -171,7 +171,7 @@ export default function SpaceWeather() {
                 </div>
               </div>
             </div>
-            <button className="mt-4 text-[11px] font-bold text-primary hover:underline self-start">VIEW ALL ACTIVE IMPACT NOTIFICATIONS →</button>
+            <button onClick={() => alert('View All Active Impact Notifications will be available soon')} className="mt-4 text-[11px] font-bold text-primary hover:underline self-start">VIEW ALL ACTIVE IMPACT NOTIFICATIONS →</button>
           </div>
         </div>
       </div>
@@ -217,7 +217,7 @@ export default function SpaceWeather() {
       </div>
       
       {/* Floating Action Button (FAB) */}
-      <button className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-primary text-on-primary shadow-2xl shadow-primary/40 flex items-center justify-center z-[100] group transition-all hover:scale-110 active:scale-95">
+      <button onClick={() => alert('Set Solar Threshold will be available soon')} className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-primary text-on-primary shadow-2xl shadow-primary/40 flex items-center justify-center z-[100] group transition-all hover:scale-110 active:scale-95">
         <span className="material-symbols-outlined text-3xl">add_alert</span>
         <span className="absolute right-full mr-4 bg-surface-container-highest text-on-surface px-3 py-1 rounded text-[12px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none">SET SOLAR THRESHOLD</span>
       </button>

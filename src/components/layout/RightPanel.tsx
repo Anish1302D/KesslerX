@@ -14,8 +14,9 @@ export default function RightPanel() {
     return messages.map((msg, idx) => ({
       id: `live-${idx}`,
       object_id: 'LIVE-UPDATE',
+      title: 'Live Update',
       type: 'Collision Vector', // Fallback type
-      severity: msg.data.includes('WARNING') ? 'HIGH' : 'MEDIUM',
+      severity: (msg.data.includes('WARNING') ? 'HIGH' : 'MEDIUM') as 'HIGH' | 'MEDIUM' | 'LOW',
       timestamp: new Date().toISOString(),
       description: msg.data,
       probability: null

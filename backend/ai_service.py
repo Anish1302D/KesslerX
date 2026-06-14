@@ -1,18 +1,25 @@
 import logging
 import os
-os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
-import google.generativeai as genai
+logger = logging.getLogger(__name__)
+
+try:
+    os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+    import google.generativeai as genai
+    GENAI_AVAILABLE = True
+except Exception as e:
+    logger.warning(f"Failed to import google.generativeai: {e}")
+    GENAI_AVAILABLE = False
+
 from dotenv import load_dotenv
 
 load_dotenv()
-logger = logging.getLogger(__name__)
 
 # Configure Gemini
 api_key = os.getenv("GEMINI_API_KEY")
-if api_key and api_key != "your_gemini_api_key_here":
+if GENAI_AVAILABLE and api_key and api_key != "your_gemini_api_key_here":
     genai.configure(api_key=api_key)
 else:
-    logger.warning("GEMINI_API_KEY not set properly. AI responses will fail.")
+    logger.warning("GEMINI_API_KEY not set or genai unavailable. AI responses will fail.")
 
 SYSTEM_INSTRUCTION = """
 You are the Kessler AI Copilot, an advanced orbital mechanics engine and space situational awareness AI.
@@ -23,14 +30,17 @@ Respond to the user's queries based on the provided context (if any).
 
 class MockAIService: # Keeping the name MockAIService to avoid changing main.py, but it's actually Gemini now
     def __init__(self):
-        self.model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction=SYSTEM_INSTRUCTION
-        )
-        self.chat_session = self.model.start_chat(history=[])
+        if GENAI_AVAILABLE:
+            self.model = genai.GenerativeModel(
+                model_name="gemini-2.0-flash",
+                system_instruction=SYSTEM_INSTRUCTION
+            )
+            self.chat_session = self.model.start_chat(history=[])
+        else:
+            self.chat_session = None
     
     async def generate_response(self, prompt: str, context: dict = None) -> str:
-        if not api_key or api_key == "your_gemini_api_key_here":
+        if not GENAI_AVAILABLE or not api_key or api_key == "your_gemini_api_key_here":
             return self._get_fallback_response(prompt)
 
         try:

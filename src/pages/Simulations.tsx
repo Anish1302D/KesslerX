@@ -22,12 +22,23 @@ export default function Simulations() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animRef = useRef<number>(0);
+  
+  const magnitudeRef = useRef(magnitude);
+  const debrisRateRef = useRef(debrisRate);
+  const runningRef = useRef(running);
+
+  useEffect(() => { magnitudeRef.current = magnitude; }, [magnitude]);
+  useEffect(() => { debrisRateRef.current = debrisRate; }, [debrisRate]);
+  useEffect(() => { runningRef.current = running; }, [running]);
 
   const initSimulation = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    // Cancel any existing animation frame to prevent multiple loops
+    cancelAnimationFrame(animRef.current);
 
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -89,17 +100,17 @@ export default function Simulations() {
       });
 
       // Generate collision debris when running
-      if (running && Math.random() < magnitude * 0.01) {
+      if (runningRef.current && Math.random() < magnitudeRef.current * 0.01) {
         const collisionAngle = Math.random() * Math.PI * 2;
         const collisionR = earthR + 60 + Math.random() * 80;
-        const count = Math.floor(debrisRate * 0.01 * (1 + Math.random()));
+        const count = Math.floor(debrisRateRef.current * 0.01 * (1 + Math.random()));
         for (let i = 0; i < count; i++) {
-          const spread = (Math.random() - 0.5) * magnitude * 0.5;
+          const spread = (Math.random() - 0.5) * magnitudeRef.current * 0.5;
           particlesRef.current.push({
             x: cx + Math.cos(collisionAngle) * collisionR,
             y: cy + Math.sin(collisionAngle) * collisionR,
-            vx: (Math.random() - 0.5) * magnitude * 0.3 + spread,
-            vy: (Math.random() - 0.5) * magnitude * 0.3 + spread,
+            vx: (Math.random() - 0.5) * magnitudeRef.current * 0.3 + spread,
+            vy: (Math.random() - 0.5) * magnitudeRef.current * 0.3 + spread,
             size: 1 + Math.random() * 1.5,
             color: Math.random() > 0.5 ? '#FF4D4D' : '#FFC107',
             life: 0.5 + Math.random() * 0.5,
@@ -110,20 +121,23 @@ export default function Simulations() {
 
       // Update and draw particles
       particlesRef.current = particlesRef.current.filter((p) => {
-        // Gravity toward center
-        const dx = cx - p.x;
-        const dy = cy - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const grav = 0.02;
-        p.vx += (dx / dist) * grav;
-        p.vy += (dy / dist) * grav;
+        if (runningRef.current) {
+          // Gravity toward center only applies when running to allow pausing
+          const dx = cx - p.x;
+          const dy = cy - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const grav = 0.02;
+          p.vx += (dx / dist) * grav;
+          p.vy += (dy / dist) * grav;
 
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= 0.0005;
-
-        // Check Earth collision
-        if (dist < earthR) return false;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= 0.0005;
+          
+          // Check Earth collision
+          if (dist < earthR) return false;
+        }
+        
         if (p.life <= 0) return false;
         if (p.x < 0 || p.x > rect.width || p.y < 0 || p.y > rect.height) return false;
 
@@ -148,7 +162,7 @@ export default function Simulations() {
     };
 
     animate();
-  }, [running, magnitude, debrisRate]);
+  }, []); // Remove running, magnitude, debrisRate from dependencies
 
   useEffect(() => {
     initSimulation();
@@ -157,10 +171,7 @@ export default function Simulations() {
 
   const reset = () => {
     setRunning(false);
-    cancelAnimationFrame(animRef.current);
-    particlesRef.current = [];
-    setDebrisCount(0);
-    setTimeout(() => initSimulation(), 50);
+    initSimulation();
   };
 
   const applyPreset = (preset: typeof simulationPresets[0]) => {

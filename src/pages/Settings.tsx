@@ -109,7 +109,7 @@ export default function Settings() {
                 <span className="material-symbols-outlined text-primary">database</span>
                 <h2 className="font-headline-md text-headline-md">Orbital Data Sources</h2>
               </div>
-              <button className="bg-primary text-on-primary hover:bg-primary/80 px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(180,197,255,0.15)]">
+              <button onClick={() => alert('add Add Data Source will be available soon')} className="bg-primary text-on-primary hover:bg-primary/80 px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(180,197,255,0.15)]">
                 <span className="material-symbols-outlined">add</span>
                 Add Data Source
               </button>
@@ -147,8 +147,8 @@ export default function Settings() {
                     <td className="p-4 font-label-mono">18,492</td>
                     <td className="p-4 text-on-surface-variant">2023-10-27 12:44:11</td>
                     <td className="p-4 text-right">
-                      <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
-                      <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+                      <button onClick={() => alert('settings will be available soon')} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
+                      <button onClick={() => alert('refresh will be available soon')} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
                     </td>
                   </tr>
 
@@ -171,8 +171,8 @@ export default function Settings() {
                     <td className="p-4 font-label-mono">42,105</td>
                     <td className="p-4 text-on-surface-variant">2023-10-27 12:41:05</td>
                     <td className="p-4 text-right">
-                      <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
-                      <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+                      <button onClick={() => alert('settings will be available soon')} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
+                      <button onClick={() => alert('refresh will be available soon')} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
                     </td>
                   </tr>
 
@@ -195,8 +195,8 @@ export default function Settings() {
                     <td className="p-4 font-label-mono">5,210</td>
                     <td className="p-4 text-on-surface-variant">2023-10-27 10:15:22</td>
                     <td className="p-4 text-right">
-                      <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
-                      <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">play_arrow</span></button>
+                      <button onClick={() => alert('settings will be available soon')} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
+                      <button onClick={() => alert('play_arrow will be available soon')} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">play_arrow</span></button>
                     </td>
                   </tr>
 
@@ -219,8 +219,8 @@ export default function Settings() {
                     <td className="p-4 font-label-mono">948</td>
                     <td className="p-4 text-on-surface-variant">2023-10-26 23:59:59</td>
                     <td className="p-4 text-right">
-                      <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">warning</span></button>
-                      <button className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+                      <button onClick={() => alert('warning will be available soon')} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">warning</span></button>
+                      <button onClick={() => alert('refresh will be available soon')} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
                     </td>
                   </tr>
                 </tbody>
@@ -230,10 +230,10 @@ export default function Settings() {
             <div className="p-4 bg-surface-container-low/50 border-t border-outline-variant/10 flex justify-between items-center">
               <div className="font-label-mono text-label-mono text-on-surface-variant/60">Displaying 4 of 12 registered sources</div>
               <div className="flex gap-2">
-                <button className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">Prev</button>
-                <button className="px-3 py-1 glass rounded bg-primary/10 border-primary/50 transition-all text-xs font-bold uppercase">1</button>
-                <button className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">2</button>
-                <button className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">Next</button>
+                <button onClick={() => alert('Prev will be available soon')} className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">Prev</button>
+                <button onClick={() => alert('1 will be available soon')} className="px-3 py-1 glass rounded bg-primary/10 border-primary/50 transition-all text-xs font-bold uppercase">1</button>
+                <button onClick={() => alert('2 will be available soon')} className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">2</button>
+                <button onClick={() => alert('Next will be available soon')} className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">Next</button>
               </div>
             </div>
           </div>
@@ -263,8 +263,8 @@ export default function Settings() {
                     <div className="text-sm text-on-surface-variant">GZIP compression for incoming telemetry</div>
                   </div>
                   <div className="flex gap-1 p-1 bg-surface-container-highest rounded-lg">
-                    <button className="px-3 py-1 text-xs font-bold uppercase rounded hover:bg-surface-container">Low</button>
-                    <button className="px-3 py-1 text-xs font-bold uppercase rounded bg-primary text-on-primary">High</button>
+                    <button onClick={() => alert('Low will be available soon')} className="px-3 py-1 text-xs font-bold uppercase rounded hover:bg-surface-container">Low</button>
+                    <button onClick={() => alert('High will be available soon')} className="px-3 py-1 text-xs font-bold uppercase rounded bg-primary text-on-primary">High</button>
                   </div>
                 </div>
               </div>
@@ -287,13 +287,14 @@ export default function Settings() {
                     <div className="w-10 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
                   </label>
                 </div>
-                <button className="w-full py-2 border border-outline-variant hover:bg-surface-container-highest rounded-lg font-bold text-sm transition-all">
+                <button onClick={() => alert('Rotate Encryption Keys will be available soon')} className="w-full py-2 border border-outline-variant hover:bg-surface-container-highest rounded-lg font-bold text-sm transition-all">
                   Rotate Encryption Keys
                 </button>
               </div>
             </div>
           </div>
         </section>
+      )}
       {/* Content: General Settings */}
       {activeTab === 'general' && (
         <section className="space-y-6">
@@ -321,8 +322,8 @@ export default function Settings() {
                     <div className="text-sm text-on-surface-variant">Adjust information density of tables and cards</div>
                   </div>
                   <div className="flex gap-1 p-1 bg-surface-container-highest rounded-lg">
-                    <button className="px-3 py-1 text-xs font-bold uppercase rounded bg-primary text-on-primary">Compact</button>
-                    <button className="px-3 py-1 text-xs font-bold uppercase rounded hover:bg-surface-container">Comfortable</button>
+                    <button onClick={() => alert('Compact will be available soon')} className="px-3 py-1 text-xs font-bold uppercase rounded bg-primary text-on-primary">Compact</button>
+                    <button onClick={() => alert('Comfortable will be available soon')} className="px-3 py-1 text-xs font-bold uppercase rounded hover:bg-surface-container">Comfortable</button>
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
@@ -423,7 +424,7 @@ export default function Settings() {
                     <label className="text-xs font-bold text-on-surface-variant uppercase">Password</label>
                     <div className="relative">
                       <input type="password" placeholder="Enter Space-Track Password" value={spaceTrackPassword} onChange={(e) => setSpaceTrackPassword(e.target.value)} className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2.5 text-sm outline-none focus:border-primary transition-colors" />
-                      <button className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-sm">visibility</span></button>
+                      <button onClick={() => alert('visibility will be available soon')} className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-sm">visibility</span></button>
                     </div>
                   </div>
                 </div>
@@ -448,7 +449,7 @@ export default function Settings() {
                   <label className="text-xs font-bold text-on-surface-variant uppercase">Access Token</label>
                   <div className="relative">
                     <input type="password" value={cesiumToken} onChange={(e) => setCesiumToken(e.target.value)} className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2.5 text-sm outline-none focus:border-primary transition-colors font-mono" />
-                    <button className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-sm">visibility</span></button>
+                    <button onClick={() => alert('visibility will be available soon')} className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-sm">visibility</span></button>
                   </div>
                 </div>
                 <div className="flex justify-end pt-2">
@@ -539,7 +540,7 @@ export default function Settings() {
             </div>
 
             <div className="pt-4 flex justify-end">
-              <button className="bg-primary text-on-primary hover:bg-primary/80 px-6 py-2.5 rounded-lg font-bold transition-all">Save Preferences</button>
+              <button onClick={() => alert('Save Preferences will be available soon')} className="bg-primary text-on-primary hover:bg-primary/80 px-6 py-2.5 rounded-lg font-bold transition-all">Save Preferences</button>
             </div>
           </div>
         </section>

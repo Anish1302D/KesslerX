@@ -49,12 +49,16 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
   useEffect(() => {
     let viewer: any = null;
     let animFrameId: number;
+    let isCancelled = false;
 
     const initCesium = async () => {
       const Cesium = await import('cesium');
       await import('cesium/Build/Cesium/Widgets/widgets.css');
 
-      if (!containerRef.current) return;
+      if (isCancelled || !containerRef.current) return;
+
+      // Prevent multiple viewers by clearing the container
+      containerRef.current.innerHTML = '';
 
       const token = import.meta.env.VITE_CESIUM_ION_TOKEN;
       if (token) {
@@ -82,6 +86,11 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
           },
         },
       });
+
+      if (isCancelled) {
+        viewer.destroy();
+        return;
+      }
 
       (window as any).Cesium = Cesium;
       viewerRef.current = viewer;
@@ -129,6 +138,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
         try {
           const satrec = satellite.twoline2satrec(sat.TLE_LINE1, sat.TLE_LINE2);
           const positionAndVelocity = satellite.propagate(satrec, new Date());
+          if (!positionAndVelocity) return;
           const positionEci = positionAndVelocity.position;
           
           if (!positionEci || typeof positionEci === 'boolean') return;
@@ -140,13 +150,16 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
           const latitude  = satellite.degreesLat(positionGd.latitude);
           const height    = positionGd.height; // in km
 
-          const color = getColor(Cesium, sat.OBJECT_TYPE);
-          const size = sat.OBJECT_TYPE === 'DEBRIS' ? 4 : 6;
+          const color = getColor(Cesium, sat.CATEGORY);
+          const size = sat.CATEGORY === 'Debris' ? 4 : 6;
           const name = sat.OBJECT_NAME || `Unknown (${sat.NORAD_CAT_ID})`;
+
+          const isVisible = filters && sat.CATEGORY ? filters[sat.CATEGORY] !== false : true;
 
           const entity = viewer.entities.add({
             id: sat.NORAD_CAT_ID.toString(),
             name: name,
+            show: isVisible,
             position: Cesium.Cartesian3.fromDegrees(longitude, latitude, height * 1000),
             point: {
               pixelSize: size,
@@ -169,7 +182,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
             },
           });
 
-          entitiesRef.current.push(entity);
+          entitiesRef.current.push({ entity, category: sat.CATEGORY });
         } catch (e) {
           // Ignore invalid TLEs
         }
@@ -179,6 +192,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
     initCesium();
 
     return () => {
+      isCancelled = true;
       if (animFrameId) cancelAnimationFrame(animFrameId);
       if (viewer && !viewer.isDestroyed()) {
         viewer.destroy();
@@ -186,6 +200,20 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [satellites]);
+
+  // Update entity visibility when filters change
+  useEffect(() => {
+    console.log("Filters changed in CesiumGlobe:", filters);
+    let hideCount = 0;
+    entitiesRef.current.forEach(({ entity, category }) => {
+      const shouldShow = filters ? filters[category] !== false : true;
+      if (entity.show !== shouldShow) {
+        entity.show = shouldShow;
+      }
+      if (!shouldShow) hideCount++;
+    });
+    console.log(`Visibility updated. Hidden entities count: ${hideCount}`);
+  }, [filters]);
 
   return (
     <motion.div
@@ -227,11 +255,15 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
 
 export default CesiumGlobe;
 
-function getColor(Cesium: any, type: string) {
-  switch (type?.toUpperCase()) {
-    case 'PAYLOAD': return Cesium.Color.fromCssColorString('#00AEEF');
-    case 'ROCKET BODY': return Cesium.Color.fromCssColorString('#FFC107');
-    case 'DEBRIS': return Cesium.Color.fromCssColorString('#FF4D4D').withAlpha(0.6);
+function getColor(Cesium: any, category: string) {
+  switch (category) {
+    case 'Communication': return Cesium.Color.fromCssColorString('#00AEEF');
+    case 'Debris': return Cesium.Color.fromCssColorString('#FF4D4D').withAlpha(0.6);
+    case 'ISS': return Cesium.Color.fromCssColorString('#FFFFFF');
+    case 'Weather': return Cesium.Color.fromCssColorString('#EAB308'); // yellow-500
+    case 'Military': return Cesium.Color.fromCssColorString('#F97316'); // orange-500
+    case 'GPS': return Cesium.Color.fromCssColorString('#10B981'); // emerald-500
+    case 'Scientific': return Cesium.Color.fromCssColorString('#A855F7'); // purple-500
     default: return Cesium.Color.fromCssColorString('#94A3B8');
   }
 }
