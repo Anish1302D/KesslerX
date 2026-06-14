@@ -102,8 +102,9 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
 
       // Try to add OSM imagery as a fallback if no imagery is loaded
       try {
-        viewer.imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider({
-          url: 'https://a.tile.openstreetmap.org/'
+        viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+          url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          maximumLevel: 19
         }));
       } catch (e) {
         console.warn("Failed to add OSM imagery fallback", e);
