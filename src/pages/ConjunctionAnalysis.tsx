@@ -385,8 +385,8 @@ export default function ConjunctionAnalysis() {
                       />
                       <Tooltip
                         contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}
-                        formatter={(value: number) => [`${value.toFixed(2)} km`, 'Distance']}
-                        labelFormatter={(label: number) => `T+${label.toFixed(0)} min`}
+                        formatter={(value: any) => [`${Number(value).toFixed(2)} km`, 'Distance']}
+                        labelFormatter={(label: any) => `T+${Number(label).toFixed(0)} min`}
                       />
                       <Area type="monotone" dataKey="distance_km" stroke={RISK_COLORS[riskLevel]} fill="url(#distGrad)" strokeWidth={2} dot={false} />
                       <ReferenceLine y={result.min_distance_km} stroke="#ef4444" strokeDasharray="5 5" label={{ value: 'TCA', fill: '#ef4444', fontSize: 10 }} />
@@ -463,7 +463,7 @@ export default function ConjunctionAnalysis() {
                     <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
                     <Tooltip
                       contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}
-                      formatter={(value: number) => [`${value.toFixed(4)} km/s`, 'Rel. Velocity']}
+                      formatter={(value: any) => [`${Number(value).toFixed(4)} km/s`, 'Rel. Velocity']}
                     />
                     <Line type="monotone" dataKey="relative_velocity_km_s" stroke="#f59e0b" strokeWidth={2} dot={false} />
                   </LineChart>
