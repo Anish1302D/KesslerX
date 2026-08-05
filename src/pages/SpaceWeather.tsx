@@ -1,4 +1,33 @@
+import { useState, useEffect } from 'react';
+
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+interface WeatherData {
+  kp_index: number;
+  solar_flux: number;
+  solar_wind_speed: number;
+  geomagnetic_storm: string;
+  radiation_belt: string;
+  bz_component: number;
+  proton_density: number;
+  status: string;
+  satellite_drag_impact: string;
+}
+
 export default function SpaceWeather() {
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+
+  useEffect(() => {
+    const fetchWeather = () => {
+      fetch(`${API}/api/space-weather`)
+        .then(r => r.json())
+        .then(data => setWeather(data))
+        .catch(() => {});
+    };
+    fetchWeather();
+    const interval = setInterval(fetchWeather, 30000); // Refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar pb-20">
       {/* Page Header Area */}
@@ -11,10 +40,10 @@ export default function SpaceWeather() {
           <p className="text-on-surface-variant font-body-lg max-w-2xl">Real-time telemetry and predictive modeling of solar activity and its specific impact on the orbital drag of Earth-stationed assets.</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => alert('Archive will be available soon')} className="px-6 py-2 border border-outline-variant text-body-md font-bold rounded-lg hover:bg-surface-container-highest/30 transition-all flex items-center gap-2">
+          <button onClick={() => {}} className="px-6 py-2 border border-outline-variant text-body-md font-bold rounded-lg hover:bg-surface-container-highest/30 transition-all flex items-center gap-2">
             <span className="material-symbols-outlined text-sm">history</span> Archive
           </button>
-          <button onClick={() => alert('Full Report will be available soon')} className="px-6 py-2 bg-secondary text-on-secondary font-bold rounded-lg hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-secondary/20">
+          <button onClick={() => {}} className="px-6 py-2 bg-secondary text-on-secondary font-bold rounded-lg hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-secondary/20">
             <span className="material-symbols-outlined text-sm">download</span> Full Report
           </button>
         </div>
@@ -49,16 +78,16 @@ export default function SpaceWeather() {
             <div className="absolute bottom-inner-padding left-inner-padding right-inner-padding grid grid-cols-2 gap-4">
               <div className="bg-surface-container-highest/40 backdrop-blur-md p-3 rounded-lg border border-outline-variant/10">
                 <div className="text-on-surface-variant font-label-mono text-[10px] uppercase mb-1">Solar Activity</div>
-                <div className="text-headline-sm font-bold text-secondary">MODERATE</div>
+                <div className="text-headline-sm font-bold text-secondary">{weather?.geomagnetic_storm?.toUpperCase() || 'MODERATE'}</div>
                 <div className="h-1 bg-surface-container-low rounded-full mt-2 overflow-hidden">
-                  <div className="h-full bg-secondary w-3/5"></div>
+                  <div className="h-full bg-secondary" style={{ width: `${Math.min(((weather?.solar_flux || 135) / 250) * 100, 100)}%` }}></div>
                 </div>
               </div>
               <div className="bg-surface-container-highest/40 backdrop-blur-md p-3 rounded-lg border border-outline-variant/10">
                 <div className="text-on-surface-variant font-label-mono text-[10px] uppercase mb-1">Kp Index</div>
-                <div className="text-headline-sm font-bold text-emerald-400">5 <span className="text-sm font-normal text-on-surface-variant/60">(Stable)</span></div>
+                <div className="text-headline-sm font-bold text-emerald-400">{weather?.kp_index ?? 5} <span className="text-sm font-normal text-on-surface-variant/60">({(weather?.kp_index ?? 5) <= 3 ? 'Quiet' : (weather?.kp_index ?? 5) <= 5 ? 'Stable' : 'Storm'})</span></div>
                 <div className="h-1 bg-surface-container-low rounded-full mt-2 overflow-hidden">
-                  <div className="h-full bg-emerald-400 w-2/5"></div>
+                  <div className="h-full bg-emerald-400" style={{ width: `${((weather?.kp_index || 5) / 9) * 100}%` }}></div>
                 </div>
               </div>
             </div>
@@ -95,8 +124,8 @@ export default function SpaceWeather() {
                 <p className="text-on-surface-variant text-[12px]">Predicted storm probability and ionospheric drag impact.</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => alert('DRAG will be available soon')} className="px-3 py-1 bg-surface-container-highest rounded text-[10px] font-bold text-primary">DRAG</button>
-                <button onClick={() => alert('COMM will be available soon')} className="px-3 py-1 text-[10px] font-bold text-on-surface-variant">COMM</button>
+                <button onClick={() => {}} className="px-3 py-1 bg-surface-container-highest rounded text-[10px] font-bold text-primary">DRAG</button>
+                <button onClick={() => {}} className="px-3 py-1 text-[10px] font-bold text-on-surface-variant">COMM</button>
               </div>
             </div>
             {/* Simple Vector Chart Placeholder */}
@@ -171,7 +200,7 @@ export default function SpaceWeather() {
                 </div>
               </div>
             </div>
-            <button onClick={() => alert('View All Active Impact Notifications will be available soon')} className="mt-4 text-[11px] font-bold text-primary hover:underline self-start">VIEW ALL ACTIVE IMPACT NOTIFICATIONS →</button>
+            <button onClick={() => {}} className="mt-4 text-[11px] font-bold text-primary hover:underline self-start">VIEW ALL ACTIVE IMPACT NOTIFICATIONS →</button>
           </div>
         </div>
       </div>
@@ -217,7 +246,7 @@ export default function SpaceWeather() {
       </div>
       
       {/* Floating Action Button (FAB) */}
-      <button onClick={() => alert('Set Solar Threshold will be available soon')} className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-primary text-on-primary shadow-2xl shadow-primary/40 flex items-center justify-center z-[100] group transition-all hover:scale-110 active:scale-95">
+      <button onClick={() => {}} className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-primary text-on-primary shadow-2xl shadow-primary/40 flex items-center justify-center z-[100] group transition-all hover:scale-110 active:scale-95">
         <span className="material-symbols-outlined text-3xl">add_alert</span>
         <span className="absolute right-full mr-4 bg-surface-container-highest text-on-surface px-3 py-1 rounded text-[12px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none">SET SOLAR THRESHOLD</span>
       </button>

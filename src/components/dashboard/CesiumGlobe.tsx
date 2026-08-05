@@ -2,6 +2,19 @@ import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 're
 import { motion } from 'framer-motion';
 import * as satellite from 'satellite.js';
 
+// Set CESIUM_BASE_URL before importing Cesium so Workers/Assets can be located
+// vite-plugin-cesium defines CESIUM_BASE_URL via Vite's `define` in dev mode
+if (!(window as any).CESIUM_BASE_URL) {
+  (window as any).CESIUM_BASE_URL = '/cesium/';
+}
+
+import * as CesiumModule from 'cesium';
+
+// Ensure Cesium is available globally for both dev and build modes
+if (!(window as any).Cesium) {
+  (window as any).Cesium = CesiumModule;
+}
+
 interface CesiumGlobeProps {
   satellites: any[];
   onSelectObject?: (sat: any | null) => void;
@@ -101,10 +114,14 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
           selectionIndicator: false,
           creditContainer: document.createElement('div'),
           skyBox: false,
-          skyAtmosphere: new Cesium.SkyAtmosphere(),
+          skyAtmosphere: false,
+          imageryProvider: false as any,
+          requestRenderMode: true,
+          maximumRenderTimeChange: Infinity,
           contextOptions: {
             webgl: {
               alpha: true,
+              preserveDrawingBuffer: true,
             },
           },
         });
@@ -115,6 +132,9 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
         }
 
         viewerRef.current = viewer;
+
+        // Switch to continuous rendering for auto-rotate
+        viewer.scene.requestRenderMode = false;
 
         viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#050816');
         viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a1628');

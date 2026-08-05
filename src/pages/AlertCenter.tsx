@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
+
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 type AlertSeverity = 'critical' | 'warning' | 'info';
 
@@ -22,11 +24,58 @@ const INITIAL_ALERTS: Alert[] = [
   { id: '4', target: 'COSMOS-2251', time: '1h 12m ago', title: 'Debris Cloud Proximity', type: 'Environmental', severity: 'info', status: 'Unacknowledged', altitude: '790 km', velocity: '7.40 km/s' },
 ];
 
+function mapBackendAlert(a: any): Alert {
+  const sevMap: Record<string, AlertSeverity> = { CRITICAL: 'critical', HIGH: 'critical', MEDIUM: 'warning', LOW: 'info' };
+  const ago = a.timestamp ? getTimeAgo(a.timestamp) : 'just now';
+  return {
+    id: 'be-' + (a.id || String(Date.now()) + Math.random().toString(36).slice(2, 6)),
+    target: a.title?.split(':')[1]?.trim() || a.title || 'System',
+    time: ago,
+    title: a.message || a.title || '',
+    type: a.type || 'system',
+    severity: sevMap[a.severity] || 'info',
+    status: a.acknowledged ? 'Acknowledged' : 'Unacknowledged',
+    altitude: '-',
+    velocity: '-',
+  };
+}
+
+function getTimeAgo(ts: string): string {
+  const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+  if (diff < 60) return `${Math.floor(diff)}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
 export default function AlertCenter() {
   const { messages, isConnected } = useWebSocket('/ws/alerts');
   const [alerts, setAlerts] = useState<Alert[]>(INITIAL_ALERTS);
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning'>('all');
-  const [selectedAlertId, setSelectedAlertId] = useState<string>('3');
+  const [selectedAlertId, setSelectedAlertId] = useState<string>('1');
+
+  // Fetch persistent alerts from backend on mount
+  useEffect(() => {
+    fetch(`${API}/api/alerts?limit=50`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.alerts && data.alerts.length > 0) {
+          const backendAlerts = data.alerts.map(mapBackendAlert);
+          setAlerts(prev => [...backendAlerts, ...prev]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Append live WebSocket alerts
+  useEffect(() => {
+    if (messages.length > 0) {
+      const latest = messages[messages.length - 1];
+      if (latest.data) {
+        const mapped = mapBackendAlert(typeof latest.data === 'string' ? { title: latest.data, severity: (latest as any).severity || 'LOW', type: (latest as any).type || 'live' } : latest.data);
+        setAlerts(prev => [mapped, ...prev].slice(0, 100));
+      }
+    }
+  }, [messages]);
 
   const filteredAlerts = alerts.filter(a => {
     if (filter === 'all') return true;
@@ -36,8 +85,12 @@ export default function AlertCenter() {
   // Default to first alert in filtered list if selected alert is not in list
   const selectedAlert = alerts.find(a => a.id === selectedAlertId) || filteredAlerts[0];
 
-  const handleAcknowledge = () => {
+  const handleAcknowledge = async () => {
     if (!selectedAlert) return;
+    // Call backend
+    try {
+      await fetch(`${API}/api/alerts/${selectedAlert.id}/acknowledge`, { method: 'POST' });
+    } catch {}
     setAlerts(alerts.map(a => a.id === selectedAlert.id ? { ...a, status: 'Acknowledged' } : a));
   };
 

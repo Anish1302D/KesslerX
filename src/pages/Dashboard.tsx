@@ -242,7 +242,7 @@ export default function Dashboard() {
                 <span className="text-[10px] font-bold uppercase text-on-surface-variant/60">{isConnected ? 'Receiving Data' : 'Disconnected'}</span>
               </div>
             </div>
-            <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+            <div className="flex-1 space-y-3 overflow-y-auto pr-1 max-h-[300px] custom-scrollbar">
               {alerts.length === 0 && (
                  <div className="flex items-center justify-center h-full text-sm text-on-surface-variant/50 italic">Waiting for incoming telemetry...</div>
               )}

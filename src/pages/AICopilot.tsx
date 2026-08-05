@@ -154,7 +154,7 @@ export default function AICopilot() {
                                 <span className="material-symbols-outlined text-primary">timeline</span>
                                 <h3 className="font-headline-sm text-headline-sm">Predicted Path</h3>
                               </div>
-                              <button onClick={() => alert('fullscreen will be available soon')} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">fullscreen</button>
+                              <button onClick={() => {}} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">fullscreen</button>
                             </div>
                             <div className="h-40 w-full bg-surface-container-low/50 rounded border border-outline-variant/5 relative overflow-hidden">
                               <div className="absolute bottom-2 left-2 flex gap-1">
@@ -167,7 +167,7 @@ export default function AICopilot() {
                                 <div className="font-label-mono text-on-surface-variant text-[10px]">T-MINUS INTERSECT</div>
                                 <div className="font-headline-sm text-primary">04:12:44</div>
                               </div>
-                              <button onClick={() => alert('VIEW TELEMETRY will be available soon')} className="px-3 py-1 border border-primary/40 text-primary font-label-mono text-[11px] rounded hover:bg-primary/10 transition-colors">
+                              <button onClick={() => {}} className="px-3 py-1 border border-primary/40 text-primary font-label-mono text-[11px] rounded hover:bg-primary/10 transition-colors">
                                 VIEW TELEMETRY
                               </button>
                             </div>
@@ -225,8 +225,8 @@ export default function AICopilot() {
                 ></textarea>
               </div>
               <div className="flex items-center gap-2 pb-1">
-                <button onClick={() => alert('attach_file will be available soon')} className="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-colors">attach_file</button>
-                <button onClick={() => alert('mic will be available soon')} className="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-colors">mic</button>
+                <button onClick={() => {}} className="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-colors">attach_file</button>
+                <button onClick={() => {}} className="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-colors">mic</button>
                 <button 
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
@@ -238,13 +238,13 @@ export default function AICopilot() {
             </div>
             
             <div className="mt-4 flex justify-center gap-6">
-              <button onClick={() => alert('bolt QUICK ANALYZE NEAREST NEIGHBORS will be available soon')} className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
+              <button onClick={() => {}} className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">bolt</span> QUICK ANALYZE NEAREST NEIGHBORS
               </button>
-              <button onClick={() => alert('visibility TOGGLE CONSTELLATION OVERLAY will be available soon')} className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
+              <button onClick={() => {}} className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">visibility</span> TOGGLE CONSTELLATION OVERLAY
               </button>
-              <button onClick={() => alert('save EXPORT SESSION TO MISSION LOG will be available soon')} className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
+              <button onClick={() => {}} className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">save</span> EXPORT SESSION TO MISSION LOG
               </button>
             </div>

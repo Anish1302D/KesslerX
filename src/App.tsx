@@ -15,6 +15,8 @@ const Simulations = lazy(() => import('./pages/Simulations'));
 const AlertCenter = lazy(() => import('./pages/AlertCenter'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
+const ConjunctionAnalysis = lazy(() => import('./pages/ConjunctionAnalysis'));
+const GroundStation = lazy(() => import('./pages/GroundStation'));
 
 function PageLoader() {
   return (
@@ -60,10 +62,12 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/orbital-map" element={<OrbitalMap />} />
                 <Route path="/collision-monitor" element={<CollisionMonitor />} />
+                <Route path="/conjunction-analysis" element={<ConjunctionAnalysis />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/space-weather" element={<SpaceWeather />} />
                 <Route path="/ai-copilot" element={<AICopilot />} />
                 <Route path="/simulations" element={<Simulations />} />
+                <Route path="/ground-station" element={<GroundStation />} />
                 <Route path="/alert-center" element={<AlertCenter />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />

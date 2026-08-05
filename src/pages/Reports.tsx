@@ -45,7 +45,7 @@ export default function Reports() {
                 <p className="font-body-md text-body-md text-on-surface-variant/70">Aggregate multi-source orbital data into mission-ready reports.</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => alert('TEMPLATES will be available soon')} className="px-4 py-2 bg-surface-container-highest/50 border border-outline-variant/30 rounded font-label-mono text-label-mono hover:bg-primary/20 transition-all">TEMPLATES</button>
+                <button onClick={() => {}} className="px-4 py-2 bg-surface-container-highest/50 border border-outline-variant/30 rounded font-label-mono text-label-mono hover:bg-primary/20 transition-all">TEMPLATES</button>
               </div>
             </div>
 
@@ -105,7 +105,7 @@ export default function Reports() {
                 <div className="flex items-center gap-2 font-label-mono text-xs text-on-surface-variant/50">
                   <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span> LIVE SYNC
                 </div>
-                <button onClick={() => alert('filter_list will be available soon')} className="material-symbols-outlined text-on-surface-variant hover:text-primary">filter_list</button>
+                <button onClick={() => {}} className="material-symbols-outlined text-on-surface-variant hover:text-primary">filter_list</button>
               </div>
             </div>
 
@@ -136,9 +136,9 @@ export default function Reports() {
                     <td className="px-inner-padding py-4 font-label-mono text-sm">2024.05.21 09:12</td>
                     <td className="px-inner-padding py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => alert('download will be available soon')} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">download</button>
-                        <button onClick={() => alert('visibility will be available soon')} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">visibility</button>
-                        <button onClick={() => alert('delete will be available soon')} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">delete</button>
+                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">download</button>
+                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">visibility</button>
+                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">delete</button>
                       </div>
                     </td>
                   </tr>
@@ -161,7 +161,7 @@ export default function Reports() {
                     </td>
                     <td className="px-inner-padding py-4 font-label-mono text-sm">2024.05.21 12:40</td>
                     <td className="px-inner-padding py-4 text-right">
-                      <button onClick={() => alert('stop_circle will be available soon')} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded opacity-50 cursor-not-allowed">stop_circle</button>
+                      <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded opacity-50 cursor-not-allowed">stop_circle</button>
                     </td>
                   </tr>
 
@@ -181,8 +181,8 @@ export default function Reports() {
                     <td className="px-inner-padding py-4 font-label-mono text-sm">2024.05.18 22:01</td>
                     <td className="px-inner-padding py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => alert('unarchive will be available soon')} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">unarchive</button>
-                        <button onClick={() => alert('visibility will be available soon')} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">visibility</button>
+                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">unarchive</button>
+                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">visibility</button>
                       </div>
                     </td>
                   </tr>
@@ -220,9 +220,9 @@ export default function Reports() {
               <div>
                 <label className="font-label-mono text-[10px] text-on-surface-variant/70 mb-1.5 block uppercase tracking-wider">Output Protocol</label>
                 <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => alert('PDF will be available soon')} className="border border-primary/40 bg-primary/10 text-primary font-label-mono text-[10px] py-2 rounded">PDF</button>
-                  <button onClick={() => alert('JSON will be available soon')} className="border border-outline-variant/30 text-on-surface-variant/60 font-label-mono text-[10px] py-2 rounded hover:bg-surface-container-high transition-all">JSON</button>
-                  <button onClick={() => alert('CSV will be available soon')} className="border border-outline-variant/30 text-on-surface-variant/60 font-label-mono text-[10px] py-2 rounded hover:bg-surface-container-high transition-all">CSV</button>
+                  <button onClick={() => {}} className="border border-primary/40 bg-primary/10 text-primary font-label-mono text-[10px] py-2 rounded">PDF</button>
+                  <button onClick={() => {}} className="border border-outline-variant/30 text-on-surface-variant/60 font-label-mono text-[10px] py-2 rounded hover:bg-surface-container-high transition-all">JSON</button>
+                  <button onClick={() => {}} className="border border-outline-variant/30 text-on-surface-variant/60 font-label-mono text-[10px] py-2 rounded hover:bg-surface-container-high transition-all">CSV</button>
                 </div>
               </div>
               <button 
@@ -266,7 +266,7 @@ export default function Reports() {
                   <div className="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface-variant after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
-              <button onClick={() => alert('add CONFIGURE NEW HOOK will be available soon')} className="w-full border border-outline-variant/30 py-2.5 rounded font-label-mono text-label-mono text-on-surface-variant hover:border-primary/50 hover:text-primary transition-all flex items-center justify-center gap-2">
+              <button onClick={() => {}} className="w-full border border-outline-variant/30 py-2.5 rounded font-label-mono text-label-mono text-on-surface-variant hover:border-primary/50 hover:text-primary transition-all flex items-center justify-center gap-2">
                 <span className="material-symbols-outlined text-sm">add</span>
                 CONFIGURE NEW HOOK
               </button>

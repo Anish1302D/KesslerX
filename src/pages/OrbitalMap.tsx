@@ -173,7 +173,7 @@ export default function OrbitalMap() {
             <span className="material-symbols-outlined">remove</span>
           </button>
         </div>
-        <button onClick={() => alert('help_center will be available soon')} className="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:brightness-110 active:scale-90 transition-all" title="Help">
+        <button onClick={() => {}} className="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:brightness-110 active:scale-90 transition-all" title="Help">
           <span className="material-symbols-outlined">help_center</span>
         </button>
       </div>
@@ -182,13 +182,13 @@ export default function OrbitalMap() {
       <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-5xl glass rounded-2xl p-4 flex flex-col gap-4 border border-primary/10 transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <button onClick={() => alert('skip_previous will be available soon')} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
+            <button onClick={() => {}} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
               <span className="material-symbols-outlined">skip_previous</span>
             </button>
-            <button onClick={() => alert('play_arrow will be available soon')} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors">
+            <button onClick={() => {}} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors">
               <span className="material-symbols-outlined">play_arrow</span>
             </button>
-            <button onClick={() => alert('skip_next will be available soon')} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
+            <button onClick={() => {}} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
               <span className="material-symbols-outlined">skip_next</span>
             </button>
           </div>
@@ -219,7 +219,7 @@ export default function OrbitalMap() {
               <span className="material-symbols-outlined text-sm">speed</span>
               <span className="font-label-mono text-[12px]">1.0x</span>
             </div>
-            <button onClick={() => alert('Export Frame will be available soon')} className="px-4 py-1.5 bg-surface-container-highest rounded-lg font-body-md text-body-md hover:bg-surface-container-high transition-colors">
+            <button onClick={() => {}} className="px-4 py-1.5 bg-surface-container-highest rounded-lg font-body-md text-body-md hover:bg-surface-container-high transition-colors">
               Export Frame
             </button>
           </div>

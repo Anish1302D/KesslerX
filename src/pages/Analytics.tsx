@@ -54,9 +54,9 @@ export default function Analytics() {
                   <p className="text-on-surface-variant text-body-md mt-1">Cumulative object count in LEO (2010 - 2035 Estimated)</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => alert('LEO will be available soon')} className="px-3 py-1 bg-surface-container-highest/50 border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">LEO</button>
-                  <button onClick={() => alert('MEO will be available soon')} className="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">MEO</button>
-                  <button onClick={() => alert('GEO will be available soon')} className="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">GEO</button>
+                  <button onClick={() => {}} className="px-3 py-1 bg-surface-container-highest/50 border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">LEO</button>
+                  <button onClick={() => {}} className="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">MEO</button>
+                  <button onClick={() => {}} className="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">GEO</button>
                 </div>
               </div>
               {/* Placeholder for Chart */}
@@ -157,7 +157,7 @@ export default function Analytics() {
             <div className="col-span-12 lg:col-span-8 glass rounded-xl p-inner-padding">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="font-headline-sm text-headline-sm text-on-surface">Upcoming Close Approaches</h3>
-                <button onClick={() => alert('View All Catalog will be available soon')} className="text-primary text-label-mono hover:underline">View All Catalog</button>
+                <button onClick={() => {}} className="text-primary text-label-mono hover:underline">View All Catalog</button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left font-label-mono text-xs">
@@ -180,7 +180,7 @@ export default function Analytics() {
                       <td className="py-4">0.14 km</td>
                       <td className="py-4 text-error font-bold">9.8e-3</td>
                       <td className="py-4">
-                        <button onClick={() => alert('ALERT will be available soon')} className="px-3 py-1 bg-error/20 text-error rounded-lg hover:brightness-125">ALERT</button>
+                        <button onClick={() => {}} className="px-3 py-1 bg-error/20 text-error rounded-lg hover:brightness-125">ALERT</button>
                       </td>
                     </tr>
                     <tr className="hover:bg-primary/5 transition-colors">
@@ -192,7 +192,7 @@ export default function Analytics() {
                       <td className="py-4">1.22 km</td>
                       <td className="py-4 text-secondary">4.6e-5</td>
                       <td className="py-4">
-                        <button onClick={() => alert('TRACK will be available soon')} className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
+                        <button onClick={() => {}} className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
                       </td>
                     </tr>
                     <tr className="hover:bg-primary/5 transition-colors">
@@ -204,7 +204,7 @@ export default function Analytics() {
                       <td className="py-4">4.80 km</td>
                       <td className="py-4 text-emerald-400">1.2e-7</td>
                       <td className="py-4">
-                        <button onClick={() => alert('TRACK will be available soon')} className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
+                        <button onClick={() => {}} className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
                       </td>
                     </tr>
                   </tbody>
@@ -223,16 +223,16 @@ export default function Analytics() {
         </div>
         <div className="flex-1 relative">
           <input className="w-full bg-surface-container-highest/50 border-none rounded-xl px-4 py-2 text-body-md focus:ring-1 focus:ring-primary/50 placeholder:text-outline/50" placeholder="Ask AI Copilot about orbital congestion trends..." type="text" />
-          <button onClick={() => alert('arrow_forward will be available soon')} className="absolute right-2 top-1.5 p-1 bg-primary text-on-primary rounded transition-transform active:scale-90">
+          <button onClick={() => {}} className="absolute right-2 top-1.5 p-1 bg-primary text-on-primary rounded transition-transform active:scale-90">
             <span className="material-symbols-outlined text-body-lg">arrow_forward</span>
           </button>
         </div>
         <div className="hidden lg:flex items-center gap-4">
-          <button onClick={() => alert('description Generate Report will be available soon')} className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
+          <button onClick={() => {}} className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
             <span className="material-symbols-outlined text-body-md">description</span>
             Generate Report
           </button>
-          <button onClick={() => alert('share Share View will be available soon')} className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
+          <button onClick={() => {}} className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
             <span className="material-symbols-outlined text-body-md">share</span>
             Share View
           </button>

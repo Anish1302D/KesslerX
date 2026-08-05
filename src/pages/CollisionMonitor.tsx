@@ -8,10 +8,10 @@ export default function CollisionMonitor() {
           <p className="text-on-surface-variant/80">Real-time tracking of conjunction events and orbital safety metrics.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => alert('filter_alt Filters will be available soon')} className="px-4 py-2 glass rounded-lg flex items-center gap-2 text-sm hover:bg-surface-container-highest transition-all">
+          <button onClick={() => {}} className="px-4 py-2 glass rounded-lg flex items-center gap-2 text-sm hover:bg-surface-container-highest transition-all">
             <span className="material-symbols-outlined text-sm">filter_alt</span> Filters
           </button>
-          <button onClick={() => alert('add Add Tracking Object will be available soon')} className="px-4 py-2 bg-primary-container text-white rounded-lg flex items-center gap-2 text-sm hover:brightness-110 active:scale-95 transition-all">
+          <button onClick={() => {}} className="px-4 py-2 bg-primary-container text-white rounded-lg flex items-center gap-2 text-sm hover:brightness-110 active:scale-95 transition-all">
             <span className="material-symbols-outlined text-sm">add</span> Add Tracking Object
           </button>
         </div>
@@ -129,7 +129,7 @@ export default function CollisionMonitor() {
               </div>
             </div>
           </div>
-          <button onClick={() => alert('VIEW ALL COLLISION EVENTS will be available soon')} className="w-full p-3 text-xs text-primary font-bold hover:bg-primary/10 transition-all border-t border-outline-variant/10">VIEW ALL COLLISION EVENTS</button>
+          <button onClick={() => {}} className="w-full p-3 text-xs text-primary font-bold hover:bg-primary/10 transition-all border-t border-outline-variant/10">VIEW ALL COLLISION EVENTS</button>
         </div>
 
         {/* 3D Encounter Details View */}
@@ -154,8 +154,8 @@ export default function CollisionMonitor() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => alert('videocam will be available soon')} className="p-2 glass rounded hover:bg-surface-container-highest"><span className="material-symbols-outlined text-sm">videocam</span></button>
-                  <button onClick={() => alert('fullscreen will be available soon')} className="p-2 glass rounded hover:bg-surface-container-highest"><span className="material-symbols-outlined text-sm">fullscreen</span></button>
+                  <button onClick={() => {}} className="p-2 glass rounded hover:bg-surface-container-highest"><span className="material-symbols-outlined text-sm">videocam</span></button>
+                  <button onClick={() => {}} className="p-2 glass rounded hover:bg-surface-container-highest"><span className="material-symbols-outlined text-sm">fullscreen</span></button>
                 </div>
               </div>
               <div className="mt-auto grid grid-cols-3 gap-4">
@@ -224,7 +224,7 @@ export default function CollisionMonitor() {
                   <div className="w-2 h-2 rounded-full bg-error"></div>
                   <span className="text-[10px] text-on-surface-variant uppercase">Critical Density</span>
                 </div>
-                <button onClick={() => alert('Full Analysis will be available soon')} className="text-[10px] text-primary uppercase font-bold hover:underline">Full Analysis</button>
+                <button onClick={() => {}} className="text-[10px] text-primary uppercase font-bold hover:underline">Full Analysis</button>
               </div>
             </div>
           </div>
@@ -241,8 +241,8 @@ export default function CollisionMonitor() {
           <p className="text-xs text-on-surface-variant leading-relaxed">The conjunction event <span className="text-on-surface font-mono">CX-9921-A</span> has reached a risk threshold. Recommend executing a 0.5m/s retrograde burn on STARLINK-3021 at <span className="text-on-surface font-mono">12:55:10 UTC</span> to increase radial separation by 450m.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => alert('Dismiss will be available soon')} className="px-4 py-2 bg-surface-container-highest hover:bg-outline-variant text-white text-xs rounded transition-all">Dismiss</button>
-          <button onClick={() => alert('Execute Advice will be available soon')} className="px-4 py-2 bg-primary-container hover:brightness-110 text-white text-xs rounded font-bold transition-all">Execute Advice</button>
+          <button onClick={() => {}} className="px-4 py-2 bg-surface-container-highest hover:bg-outline-variant text-white text-xs rounded transition-all">Dismiss</button>
+          <button onClick={() => {}} className="px-4 py-2 bg-primary-container hover:brightness-110 text-white text-xs rounded font-bold transition-all">Execute Advice</button>
         </div>
       </div>
     </div>
