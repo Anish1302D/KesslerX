@@ -1,0 +1,23 @@
+# Render Blueprint – KesslerX Backend
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: kesslerx-backend
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: SPACE_TRACK_USERNAME
+        sync: false          # set manually in Render dashboard
+      - key: SPACE_TRACK_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+    healthCheckPath: /api/health
+    autoDeploy: true
