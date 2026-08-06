@@ -46,6 +46,66 @@ function waitForCesium(timeout = 15000): Promise<any> {
   });
 }
 
+// ── SGP4 Propagation Helpers ─────────────────────────────────────
+// Propagate a satellite record to a JS Date, returning geodetic {lon, lat, height}
+function propagateToDate(satrec: satellite.SatRec, date: Date) {
+  const pv = satellite.propagate(satrec, date);
+  if (!pv || !pv.position || typeof pv.position === 'boolean') return null;
+  const gmst = satellite.gstime(date);
+  const gd = satellite.eciToGeodetic(pv.position as satellite.EciVec3<number>, gmst);
+  return {
+    lon: satellite.degreesLong(gd.longitude),
+    lat: satellite.degreesLat(gd.latitude),
+    height: gd.height, // km
+  };
+}
+
+// Build a SampledPositionProperty from TLE over a time window
+function buildSampledPosition(
+  Cesium: any,
+  satrec: satellite.SatRec,
+  startDate: Date,
+  durationMinutes: number,
+  stepSeconds: number,
+) {
+  const property = new Cesium.SampledPositionProperty();
+  property.setInterpolationOptions({
+    interpolationDegree: 5,
+    interpolationAlgorithm: Cesium.LagrangePolynomialApproximation,
+  });
+
+  const steps = Math.floor((durationMinutes * 60) / stepSeconds);
+  for (let i = 0; i <= steps; i++) {
+    const t = new Date(startDate.getTime() + i * stepSeconds * 1000);
+    const pos = propagateToDate(satrec, t);
+    if (!pos) continue;
+    const cesiumTime = Cesium.JulianDate.fromDate(t);
+    const cartesian = Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, pos.height * 1000);
+    property.addSample(cesiumTime, cartesian);
+  }
+
+  return property;
+}
+
+// Build a polyline positions array for the orbital path
+function buildOrbitPath(
+  Cesium: any,
+  satrec: satellite.SatRec,
+  startDate: Date,
+  durationMinutes: number,
+  stepSeconds: number,
+) {
+  const positions: any[] = [];
+  const steps = Math.floor((durationMinutes * 60) / stepSeconds);
+  for (let i = 0; i <= steps; i++) {
+    const t = new Date(startDate.getTime() + i * stepSeconds * 1000);
+    const pos = propagateToDate(satrec, t);
+    if (!pos) continue;
+    positions.push(Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, pos.height * 1000));
+  }
+  return positions;
+}
+
 const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, onSelectObject, filters }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
@@ -100,6 +160,11 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
           Cesium.Ion.defaultAccessToken = token;
         }
 
+        // ── Time window: propagate 180 minutes (2 full LEO orbits) ──
+        const now = new Date();
+        const startJD = Cesium.JulianDate.fromDate(now);
+        const stopJD = Cesium.JulianDate.addMinutes(startJD, 180, new Cesium.JulianDate());
+
         viewer = new Cesium.Viewer(containerRef.current, {
           animation: false,
           timeline: false,
@@ -116,8 +181,6 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
           skyBox: false,
           skyAtmosphere: false,
           imageryProvider: false as any,
-          requestRenderMode: true,
-          maximumRenderTimeChange: Infinity,
           contextOptions: {
             webgl: {
               alpha: true,
@@ -133,7 +196,17 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
 
         viewerRef.current = viewer;
 
-        // Switch to continuous rendering for auto-rotate
+        // ── Configure Cesium clock for accelerated satellite animation ──
+        // At 60x speed: 1 real second = 1 simulated minute
+        // A LEO satellite (90-min orbit) completes a full orbit in ~90 real seconds
+        viewer.clock.startTime = startJD.clone();
+        viewer.clock.stopTime = stopJD.clone();
+        viewer.clock.currentTime = startJD.clone();
+        viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
+        viewer.clock.multiplier = 60;       // 60x speed — satellites visibly move
+        viewer.clock.shouldAnimate = true;   // start animating immediately
+
+        // Continuous rendering needed for clock-driven animation
         viewer.scene.requestRenderMode = false;
 
         viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#050816');
@@ -160,15 +233,18 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
           destination: Cesium.Cartesian3.fromDegrees(20, 20, 20000000),
         });
 
+        // Auto-rotate enabled — globe spins while satellites move along their own orbits
+        autoRotateEnabledRef.current = true;
         const rotate = () => {
           if (viewer && !viewer.isDestroyed() && autoRotateEnabledRef.current) {
-            viewer.scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, 0.001);
+            viewer.scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, 0.0002);
           }
           animFrameId = requestAnimationFrame(rotate);
         };
         animFrameId = requestAnimationFrame(rotate);
 
-        addEntities(Cesium, viewer);
+        // ── Add satellites with real orbital trajectories ──
+        addEntities(Cesium, viewer, now);
 
         const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
         handler.setInputAction((movement: any) => {
@@ -191,47 +267,55 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
       }
     };
 
-    const addEntities = (Cesium: any, viewer: any) => {
+    const addEntities = (Cesium: any, viewer: any, now: Date) => {
       viewer.entities.removeAll();
       entitiesRef.current = [];
 
       satellites.forEach((sat) => {
-        let position;
-        let name = sat.OBJECT_NAME || sat.name || `Unknown (${sat.NORAD_CAT_ID})`;
+        const name = sat.OBJECT_NAME || sat.name || `Unknown (${sat.NORAD_CAT_ID})`;
         const category = sat.CATEGORY || sat.type || sat.OBJECT_TYPE || 'Unknown';
+        const isDebris = category.toUpperCase() === 'DEBRIS';
 
         try {
+          let positionProperty: any = null;
+          let orbitPathPositions: any[] | null = null;
+
           if (sat.TLE_LINE1 && sat.TLE_LINE2) {
             const satrec = satellite.twoline2satrec(sat.TLE_LINE1, sat.TLE_LINE2);
-            const positionAndVelocity = satellite.propagate(satrec, new Date());
-            if (!positionAndVelocity || !positionAndVelocity.position) return;
-            
-            const positionEci = positionAndVelocity.position;
-            if (typeof positionEci === 'boolean') return;
-            
-            const gmst = satellite.gstime(new Date());
-            const positionGd = satellite.eciToGeodetic(positionEci as satellite.EciVec3<number>, gmst);
-            
-            const longitude = satellite.degreesLong(positionGd.longitude);
-            const latitude  = satellite.degreesLat(positionGd.latitude);
-            const height    = positionGd.height; // in km
-            
-            position = Cesium.Cartesian3.fromDegrees(longitude, latitude, height * 1000);
+
+            // Verify TLE is valid by propagating to current time
+            const testPos = propagateToDate(satrec, now);
+            if (!testPos) return;
+
+            // Debris: fewer samples, no orbit path line
+            // Payloads: more samples + orbit path polyline
+            const durationMin = 180; // 2 full LEO orbits
+            const stepSec = isDebris ? 60 : 30;
+
+            positionProperty = buildSampledPosition(Cesium, satrec, now, durationMin, stepSec);
+
+            // Build orbit path polyline for non-debris objects
+            if (!isDebris) {
+              orbitPathPositions = buildOrbitPath(Cesium, satrec, now, durationMin, 60);
+            }
           } else if (sat.lat !== undefined && sat.lon !== undefined && sat.altitude !== undefined) {
-            position = Cesium.Cartesian3.fromDegrees(sat.lon, sat.lat, sat.altitude * 1000);
+            // Fallback: static position for satellites without TLE data
+            positionProperty = Cesium.Cartesian3.fromDegrees(sat.lon, sat.lat, sat.altitude * 1000);
           } else {
             return; // Cannot render without position data
           }
 
           const color = getColor(Cesium, category);
-          const size = category.toUpperCase() === 'DEBRIS' ? 4 : 6;
+          const size = isDebris ? 4 : 6;
           const isVisible = filters && category ? filters[category] !== false : true;
 
-          const entity = viewer.entities.add({
+          // Add the satellite entity with time-varying position
+          // Entity config: time-varying position + trailing path for non-debris
+          const entityConfig: any = {
             id: sat.NORAD_CAT_ID.toString(),
             name: name,
             show: isVisible,
-            position: position,
+            position: positionProperty,
             point: {
               pixelSize: size,
               color: color,
@@ -251,11 +335,41 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
               scaleByDistance: new Cesium.NearFarScalar(1.5e7, 1, 3e7, 0),
               translucencyByDistance: new Cesium.NearFarScalar(1.5e7, 1, 3e7, 0),
             },
-          });
+          };
+
+          // Add a trailing path behind moving satellites (shows where they've been)
+          if (!isDebris && sat.TLE_LINE1) {
+            entityConfig.path = {
+              resolution: 120,                              // sample every 120 sim-seconds
+              material: color.withAlpha(0.4),
+              width: 1.5,
+              leadTime: 2700,                               // 45 min ahead
+              trailTime: 2700,                              // 45 min behind
+            };
+          }
+
+          const entity = viewer.entities.add(entityConfig);
 
           entitiesRef.current.push({ entity, category: category });
-        } catch (e) {
-          // Ignore invalid data
+
+          // Draw the orbit path as a faint polyline
+          if (orbitPathPositions && orbitPathPositions.length > 1) {
+            viewer.entities.add({
+              polyline: {
+                positions: orbitPathPositions,
+                width: 1,
+                material: color.withAlpha(0.25),
+                show: isVisible,
+              },
+              // Store reference for filter toggling
+              properties: {
+                orbitPathFor: sat.NORAD_CAT_ID.toString(),
+                category: category,
+              },
+            });
+          }
+        } catch (_e) {
+          // Ignore invalid TLE data
         }
       });
     };
@@ -280,6 +394,20 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>(({ satellites, 
         entity.show = shouldShow;
       }
     });
+    // Also toggle orbit path polylines
+    if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+      const entities = viewerRef.current.entities.values;
+      for (let i = 0; i < entities.length; i++) {
+        const e = entities[i];
+        if (e.properties && e.properties.category) {
+          const cat = e.properties.category.getValue();
+          const shouldShow = filters ? filters[cat] !== false : true;
+          if (e.polyline) {
+            e.polyline.show = shouldShow;
+          }
+        }
+      }
+    }
   }, [filters]);
 
   return (
