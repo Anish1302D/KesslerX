@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Send, Sparkles, X, ChevronUp } from 'lucide-react';
-import { aiSuggestedPrompts, aiMockResponses } from '../../data/mockData';
+import { aiSuggestedPrompts } from '../../data/mockData';
+
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 interface Message {
   id: string;
@@ -40,17 +42,34 @@ export default function AICopilotBar() {
 
     if (!expanded) setExpanded(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMsg: Message = {
-        id: `msg-${Date.now()}-ai`,
-        role: 'assistant',
-        content: aiMockResponses.default,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-      setIsTyping(false);
-    }, 1500);
+    // Call real AI API
+    (async () => {
+      try {
+        const res = await fetch(`${API}/api/ai/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: msg, context: { page: 'copilot' } }),
+        });
+        const data = await res.json();
+        const aiMsg: Message = {
+          id: `msg-${Date.now()}-ai`,
+          role: 'assistant',
+          content: data.response || 'No response received.',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      } catch {
+        const aiMsg: Message = {
+          id: `msg-${Date.now()}-ai`,
+          role: 'assistant',
+          content: 'KesslerX AI is temporarily unavailable. The backend may be starting up — please try again in a moment.',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      } finally {
+        setIsTyping(false);
+      }
+    })();
   };
 
   return (

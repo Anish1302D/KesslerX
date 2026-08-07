@@ -1,9 +1,82 @@
 import { motion } from 'framer-motion';
-import { closeApproaches } from '../../data/mockData';
+import { useState, useEffect } from 'react';
 import StatusBadge from '../ui/StatusBadge';
 import { Clock, Target } from 'lucide-react';
 
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+interface CloseApproach {
+  id: string;
+  object1: string;
+  object2: string;
+  tca: string;
+  tcaMinutes: number;
+  risk: number;
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+  missDistance: number;
+}
+
+// Fallback close approaches
+const fallbackApproaches: CloseApproach[] = [
+  { id: 'CA-001', object1: 'STARLINK-3021', object2: 'DEBRIS-88172', tca: '12 min', tcaMinutes: 12, risk: 9.8, severity: 'HIGH', missDistance: 142 },
+  { id: 'CA-002', object1: 'ISS (ZARYA)', object2: 'COSMOS-DEB-4421', tca: '47 min', tcaMinutes: 47, risk: 6.7, severity: 'HIGH', missDistance: 380 },
+  { id: 'CA-003', object1: 'ONEWEB-0345', object2: 'DEBRIS-72401', tca: '2h 14min', tcaMinutes: 134, risk: 4.2, severity: 'MEDIUM', missDistance: 890 },
+];
+
+function mapSeverity(risk: string): 'HIGH' | 'MEDIUM' | 'LOW' {
+  if (risk === 'CRITICAL' || risk === 'HIGH') return 'HIGH';
+  if (risk === 'MEDIUM') return 'MEDIUM';
+  return 'LOW';
+}
+
+function formatTCA(tcaStr: string): { display: string; minutes: number } {
+  try {
+    const tcaDate = new Date(tcaStr);
+    const now = new Date();
+    const diffMs = tcaDate.getTime() - now.getTime();
+    const diffMin = Math.max(0, Math.round(diffMs / 60000));
+    if (diffMin < 60) return { display: `${diffMin} min`, minutes: diffMin };
+    const hours = Math.floor(diffMin / 60);
+    const mins = diffMin % 60;
+    return { display: `${hours}h ${mins}min`, minutes: diffMin };
+  } catch {
+    return { display: 'N/A', minutes: 999 };
+  }
+}
+
 export default function CloseApproachTable() {
+  const [approaches, setApproaches] = useState<CloseApproach[]>(fallbackApproaches);
+
+  useEffect(() => {
+    const fetchCollisions = async () => {
+      try {
+        const res = await fetch(`${API}/api/collisions`);
+        if (!res.ok) return;
+        const data = await res.json();
+        // Map backend collision events to CloseApproach format
+        const mapped: CloseApproach[] = (Array.isArray(data) ? data : data.data || []).map((ev: any) => {
+          const { display, minutes } = formatTCA(ev.tca);
+          return {
+            id: ev.id,
+            object1: ev.satellite,
+            object2: ev.object,
+            tca: display,
+            tcaMinutes: minutes,
+            risk: ev.collision_probability * 100,
+            severity: mapSeverity(ev.risk),
+            missDistance: Math.round(ev.miss_distance * 1000), // km to meters
+          };
+        });
+        if (mapped.length > 0) setApproaches(mapped);
+      } catch {
+        // Keep fallback data
+      }
+    };
+    fetchCollisions();
+    const interval = setInterval(fetchCollisions, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -37,7 +110,7 @@ export default function CloseApproachTable() {
             </tr>
           </thead>
           <tbody>
-            {closeApproaches.map((ca, i) => (
+            {approaches.map((ca, i) => (
               <motion.tr
                 key={ca.id}
                 initial={{ opacity: 0 }}
@@ -75,7 +148,7 @@ export default function CloseApproachTable() {
                   <span className="text-xs font-orbitron font-bold" style={{
                     color: ca.risk > 5 ? '#FF4D4D' : ca.risk > 2 ? '#FFC107' : '#00FF99',
                   }}>
-                    {ca.risk}%
+                    {ca.risk.toFixed(1)}%
                   </span>
                 </td>
                 <td className="py-2.5 px-3">

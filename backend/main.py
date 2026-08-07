@@ -44,6 +44,16 @@ class ConjunctionRequest(BaseModel):
 class ManeuverRequest(BaseModel):
     conjunction_data: dict
 
+class TelemetryUpload(BaseModel):
+    latitude: float = 0.0
+    longitude: float = 0.0
+    altitude: float = 0.0
+    battery: float = 100.0
+    temperature: float = 25.0
+    signal: int = -55
+    velocity: float = 0.0
+    orientation: dict = {}
+
 # ============================================================
 # In-memory alert store
 # ============================================================
@@ -543,8 +553,13 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive, wait for incoming messages (if any)
             data = await websocket.receive_text()
+            # Heartbeat: respond to ping with pong
+            if data.strip().lower() == "ping":
+                try:
+                    await websocket.send_text('{"type":"pong"}')
+                except Exception:
+                    pass
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception:
@@ -716,6 +731,67 @@ async def ground_station_history(count: int = 60):
     """Get last N telemetry packets."""
     history = gs_simulator.get_history(count)
     return {"count": len(history), "packets": history}
+
+# ============================================================
+# NEW: GET /api/ground-station/latest
+# ============================================================
+
+@app.get("/api/ground-station/latest")
+async def ground_station_latest():
+    """Get the most recent telemetry packet."""
+    history = gs_simulator.get_history(1)
+    if history:
+        return history[-1]
+    return gs_simulator.get_status()
+
+# ============================================================
+# NEW: POST /api/ground-station/telemetry
+# ============================================================
+
+@app.post("/api/ground-station/telemetry")
+async def ground_station_upload(payload: TelemetryUpload):
+    """Accept a telemetry upload from an external device (e.g. ESP32)."""
+    try:
+        packet = {
+            "packet_id": gs_simulator.packet_count + 1,
+            "packet_type": "external",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "latitude": payload.latitude,
+            "longitude": payload.longitude,
+            "altitude_m": payload.altitude,
+            "temperature_c": payload.temperature,
+            "battery_pct": payload.battery,
+            "signal_dbm": payload.signal,
+            "velocity_m_s": payload.velocity,
+            "heading_deg": payload.orientation.get("heading", 0.0),
+            "pitch_deg": payload.orientation.get("pitch", 0.0),
+            "roll_deg": payload.orientation.get("roll", 0.0),
+            "uptime_seconds": int(time.time() - gs_simulator.start_time),
+            "free_heap_bytes": 200000,
+            "wifi_rssi": payload.signal,
+            "station_id": gs_simulator.station_id,
+        }
+        gs_simulator.packet_count += 1
+        gs_simulator._history.append(packet)
+        if len(gs_simulator._history) > gs_simulator._max_history:
+            gs_simulator._history = gs_simulator._history[-gs_simulator._max_history:]
+
+        # Broadcast to all ground station WebSocket clients
+        message = json.dumps(packet)
+        disconnected = []
+        for ws in gs_connections:
+            try:
+                await ws.send_text(message)
+            except Exception:
+                disconnected.append(ws)
+        for ws in disconnected:
+            if ws in gs_connections:
+                gs_connections.remove(ws)
+
+        return {"status": "received", "packet_id": packet["packet_id"]}
+    except Exception as e:
+        logger.error(f"Telemetry upload error: {e}")
+        return {"status": "error", "message": str(e)}
 
 # ============================================================
 # Startup & Shutdown

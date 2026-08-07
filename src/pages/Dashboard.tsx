@@ -1,12 +1,14 @@
 import { useState, useRef } from 'react';
 import CesiumGlobe from '../components/dashboard/CesiumGlobe';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
-import { useSatellites, useWebsocket } from '../hooks/useKesslerAPI';
-import { satellites as mockSatellites } from '../data/mockData';
+import { useSatellites, useWebsocket, useSpaceWeather, useCongestion, useCollisions } from '../hooks/useKesslerAPI';
 
 export default function Dashboard() {
   const { satellites, loading } = useSatellites();
   const { alerts, isConnected } = useWebsocket();
+  const { data: weather } = useSpaceWeather();
+  const { data: congestion } = useCongestion();
+  const { data: collisions } = useCollisions();
   
   const [selectedSatellite, setSelectedSatellite] = useState<any>(null);
   const globeRef = useRef<any>(null);
@@ -32,7 +34,7 @@ export default function Dashboard() {
       const res = await fetch(`${baseUrl}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: query, context: 'dashboard' })
+        body: JSON.stringify({ prompt: query, context: { page: 'dashboard' } })
       });
       const data = await res.json();
       setChatResponse(data.response);
@@ -111,9 +113,9 @@ export default function Dashboard() {
           </div>
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Collisions</div>
-            <div className="font-stat-lg text-stat-lg font-bold leading-tight">4 <span className="text-xs font-medium text-on-surface-variant/60 ml-1">Next 24h</span></div>
+            <div className="font-stat-lg text-stat-lg font-bold leading-tight">{(collisions as any[]).length || 0} <span className="text-xs font-medium text-on-surface-variant/60 ml-1">Next 24h</span></div>
             <div className="text-[11px] text-orange-500 font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">trending_up</span> 33.33%
+              <span className="material-symbols-outlined text-sm">trending_up</span> Live
             </div>
           </div>
         </div>
@@ -124,19 +126,19 @@ export default function Dashboard() {
           </div>
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Space Weather</div>
-            <div className="font-stat-lg text-stat-lg font-bold leading-tight">Moderate</div>
-            <div className="text-[11px] text-on-surface-variant/60 font-bold">Kp 5 Index</div>
+            <div className="font-stat-lg text-stat-lg font-bold leading-tight">{weather.geomagnetic_storm === 'NONE' ? 'Quiet' : weather.geomagnetic_storm === 'MINOR' ? 'Minor' : weather.geomagnetic_storm === 'MODERATE' ? 'Moderate' : 'Severe'}</div>
+            <div className="text-[11px] text-on-surface-variant/60 font-bold">Kp {weather.kp_index} Index</div>
           </div>
         </div>
         {/* Orbital Congestion */}
-        <div className="glass p-inner-padding rounded-xl flex items-center gap-4 border-l-4 border-l-red-500 glow-error">
-          <div className="w-12 h-12 bg-red-500/10 rounded-lg flex items-center justify-center text-red-500 border border-red-500/20">
+        <div className={`glass p-inner-padding rounded-xl flex items-center gap-4 border-l-4 ${congestion.leo.risk === 'HIGH' ? 'border-l-red-500 glow-error' : 'border-l-yellow-500'}`}>
+          <div className={`w-12 h-12 rounded-lg flex items-center justify-center border ${congestion.leo.risk === 'HIGH' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'}`}>
             <span className="material-symbols-outlined text-3xl">hub</span>
           </div>
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Congestion</div>
-            <div className="font-stat-lg text-stat-lg font-bold text-red-500 leading-tight">High</div>
-            <div className="text-[11px] text-red-500/80 font-bold">72% Density</div>
+            <div className={`font-stat-lg text-stat-lg font-bold leading-tight ${congestion.leo.risk === 'HIGH' ? 'text-red-500' : 'text-yellow-500'}`}>{congestion.leo.risk === 'HIGH' ? 'High' : congestion.leo.risk === 'MEDIUM' ? 'Medium' : 'Low'}</div>
+            <div className={`text-[11px] font-bold ${congestion.leo.risk === 'HIGH' ? 'text-red-500/80' : 'text-on-surface-variant/60'}`}>{Math.round(congestion.leo.density * 100)}% Density</div>
           </div>
         </div>
       </div>
@@ -209,19 +211,19 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider">
                   <span>LEO (Low Earth Orbit)</span>
-                  <span className="text-red-500">78%</span>
+                  <span className={congestion.leo.risk === 'HIGH' ? 'text-red-500' : ''}>{Math.round(congestion.leo.density * 100)}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-surface-container-highest/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-red-500 rounded-full" style={{ width: '78%' }}></div>
+                  <div className={`h-full rounded-full ${congestion.leo.risk === 'HIGH' ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${Math.round(congestion.leo.density * 100)}%` }}></div>
                 </div>
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider">
                   <span>MEO (Medium Earth Orbit)</span>
-                  <span>32%</span>
+                  <span>{Math.round(congestion.meo.density * 100)}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-surface-container-highest/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full" style={{ width: '32%' }}></div>
+                  <div className="h-full bg-primary rounded-full" style={{ width: `${Math.round(congestion.meo.density * 100)}%` }}></div>
                 </div>
               </div>
             </div>
@@ -345,19 +347,19 @@ export default function Dashboard() {
             <div className="flex-1 grid grid-cols-2 gap-y-2 gap-x-2">
               <div>
                 <div className="text-[9px] font-bold text-on-surface-variant/60 uppercase">Solar Activity</div>
-                <div className="text-[10px] font-bold">Moderate</div>
+                <div className="text-[10px] font-bold">{weather.geomagnetic_storm === 'NONE' ? 'Quiet' : weather.geomagnetic_storm}</div>
               </div>
               <div>
                 <div className="text-[9px] font-bold text-on-surface-variant/60 uppercase">Kp Index</div>
-                <div className="text-[10px] font-bold text-yellow-500">5</div>
+                <div className="text-[10px] font-bold text-yellow-500">{weather.kp_index}</div>
               </div>
               <div>
-                <div className="text-[9px] font-bold text-on-surface-variant/60 uppercase">Solar Wind</div>
-                <div className="text-[10px] font-bold text-emerald-400">450 km/s</div>
+                <div className="text-[9px] font-bold text-on-surface-variant/60 uppercase">Solar Flux</div>
+                <div className="text-[10px] font-bold text-emerald-400">{weather.solar_flux} SFU</div>
               </div>
               <div>
-                <div className="text-[9px] font-bold text-on-surface-variant/60 uppercase">Bz</div>
-                <div className="text-[10px] font-bold">-2.1 nT</div>
+                <div className="text-[9px] font-bold text-on-surface-variant/60 uppercase">Radiation</div>
+                <div className="text-[10px] font-bold">{weather.radiation_level}</div>
               </div>
             </div>
           </div>

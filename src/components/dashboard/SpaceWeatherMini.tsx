@@ -1,15 +1,54 @@
 import { motion } from 'framer-motion';
-import { spaceWeather } from '../../data/mockData';
+import { useState, useEffect } from 'react';
 import { Sun, Wind, Zap, Activity } from 'lucide-react';
 
-const items = [
-  { label: 'Solar Activity', value: spaceWeather.solarActivity, icon: Sun, color: '#FFC107' },
-  { label: 'Kp Index', value: `${spaceWeather.kpIndex}/9`, icon: Activity, color: spaceWeather.kpIndex > 4 ? '#FF4D4D' : '#00FF99' },
-  { label: 'Solar Wind', value: `${spaceWeather.solarWind} km/s`, icon: Wind, color: '#00AEEF' },
-  { label: 'Bz Component', value: `${spaceWeather.bz} nT`, icon: Zap, color: spaceWeather.bz < 0 ? '#FF4D4D' : '#00FF99' },
-];
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+interface WeatherState {
+  solarActivity: string;
+  kpIndex: number;
+  solarFlux: number;
+  radiationLevel: string;
+}
+
+const defaultWeather: WeatherState = {
+  solarActivity: 'Moderate',
+  kpIndex: 5,
+  solarFlux: 130,
+  radiationLevel: 'LOW',
+};
 
 export default function SpaceWeatherMini() {
+  const [weather, setWeather] = useState(defaultWeather);
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        const res = await fetch(`${API}/api/space-weather`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setWeather({
+          solarActivity: data.geomagnetic_storm === 'NONE' ? 'Quiet' : data.geomagnetic_storm === 'MINOR' ? 'Minor' : data.geomagnetic_storm === 'MODERATE' ? 'Moderate' : 'Severe',
+          kpIndex: data.kp_index ?? 3,
+          solarFlux: data.solar_flux ?? 130,
+          radiationLevel: data.radiation_level ?? 'LOW',
+        });
+      } catch {
+        // Keep fallback values
+      }
+    };
+    fetchWeather();
+    const interval = setInterval(fetchWeather, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const items = [
+    { label: 'Solar Activity', value: weather.solarActivity, icon: Sun, color: '#FFC107' },
+    { label: 'Kp Index', value: `${weather.kpIndex}/9`, icon: Activity, color: weather.kpIndex > 4 ? '#FF4D4D' : '#00FF99' },
+    { label: 'Solar Flux', value: `${weather.solarFlux} SFU`, icon: Wind, color: '#00AEEF' },
+    { label: 'Radiation', value: weather.radiationLevel, icon: Zap, color: weather.radiationLevel === 'HIGH' ? '#FF4D4D' : '#00FF99' },
+  ];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

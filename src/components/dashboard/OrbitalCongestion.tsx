@@ -1,21 +1,50 @@
 import { motion } from 'framer-motion';
-import { orbitalCongestion } from '../../data/mockData';
+import { useState, useEffect } from 'react';
+
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const colors: Record<string, string> = {
   LEO: '#FF4D4D',
   MEO: '#FFC107',
   GEO: '#00AEEF',
-  HEO: '#00FF99',
 };
 
 const labels: Record<string, string> = {
   LEO: 'Low Earth Orbit',
   MEO: 'Medium Earth Orbit',
   GEO: 'Geostationary Orbit',
-  HEO: 'Highly Elliptical Orbit',
+};
+
+// Fallback data
+const defaultCongestion: Record<string, number> = {
+  LEO: 78,
+  MEO: 32,
+  GEO: 18,
 };
 
 export default function OrbitalCongestion() {
+  const [congestion, setCongestion] = useState(defaultCongestion);
+
+  useEffect(() => {
+    const fetchCongestion = async () => {
+      try {
+        const res = await fetch(`${API}/api/congestion`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setCongestion({
+          LEO: Math.round((data.leo?.density ?? 0.78) * 100),
+          MEO: Math.round((data.meo?.density ?? 0.32) * 100),
+          GEO: Math.round((data.geo?.density ?? 0.18) * 100),
+        });
+      } catch {
+        // Keep fallback values
+      }
+    };
+    fetchCongestion();
+    const interval = setInterval(fetchCongestion, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -28,7 +57,7 @@ export default function OrbitalCongestion() {
       </h3>
 
       <div className="space-y-4">
-        {Object.entries(orbitalCongestion).map(([orbit, value], i) => (
+        {Object.entries(congestion).map(([orbit, value], i) => (
           <div key={orbit}>
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">

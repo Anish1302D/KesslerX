@@ -1,32 +1,48 @@
 import { motion } from 'framer-motion';
-import { alerts } from '../../data/mockData';
 import AlertStack from '../alerts/AlertStack';
 import OrbitalRiskGauge from '../dashboard/OrbitalRiskGauge';
 
 import { useWebSocket } from '../../hooks/useWebSocket';
+import { useStoredAlerts } from '../../hooks/useKesslerAPI';
 import { useMemo } from 'react';
 
 export default function RightPanel() {
   const { messages } = useWebSocket('/ws/alerts');
+  const { data: storedAlertsData } = useStoredAlerts();
 
   // Convert raw WS messages into alert objects format
   const liveAlerts = useMemo(() => {
     return messages.map((msg, idx) => ({
       id: `live-${idx}`,
       object_id: 'LIVE-UPDATE',
-      title: 'Live Update',
-      type: 'Collision Vector', // Fallback type
-      severity: (msg.data.includes('WARNING') ? 'HIGH' : 'MEDIUM') as 'HIGH' | 'MEDIUM' | 'LOW',
-      timestamp: new Date().toISOString(),
-      description: msg.data,
+      title: msg.type || 'Live Update',
+      type: msg.type?.includes('collision') ? 'COLLISION' : msg.type?.includes('weather') ? 'SPACE_WEATHER' : 'DEBRIS',
+      severity: (msg.data?.includes?.('WARNING') || msg.severity === 'HIGH' ? 'HIGH' : msg.severity === 'MEDIUM' ? 'MEDIUM' : 'LOW') as 'HIGH' | 'MEDIUM' | 'LOW',
+      timestamp: msg.timestamp || new Date().toISOString(),
+      description: msg.message || msg.data || '',
       probability: null
-    })).reverse(); // Newest first
+    })).reverse();
   }, [messages]);
 
-  // Merge live alerts with mock alerts
+  // Convert stored backend alerts to display format
+  const backendAlerts = useMemo(() => {
+    return (storedAlertsData?.alerts || []).map(a => ({
+      id: a.id,
+      object_id: a.type,
+      title: a.title,
+      type: a.type === 'conjunction' ? 'COLLISION' : a.type === 'system' ? 'NEW_OBJECT' : 'DEBRIS',
+      severity: (a.severity || 'LOW') as 'HIGH' | 'MEDIUM' | 'LOW',
+      timestamp: a.timestamp,
+      description: a.message,
+      probability: null
+    }));
+  }, [storedAlertsData]);
+
+  // Merge live alerts with backend stored alerts
   const combinedAlerts = useMemo(() => {
-    return [...liveAlerts, ...alerts];
-  }, [liveAlerts]);
+    return [...liveAlerts, ...backendAlerts];
+  }, [liveAlerts, backendAlerts]);
+
   return (
     <motion.aside
       initial={{ x: 30, opacity: 0 }}

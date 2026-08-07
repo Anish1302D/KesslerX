@@ -39,7 +39,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <span className="font-display-lg text-display-lg text-primary uppercase tracking-widest">KesslerX</span>
         <span className="font-label-mono text-label-mono text-on-surface-variant/60">Orbital Management</span>
       </div>
-      <nav className="flex-1 space-y-1">
+      <nav className="flex-1 overflow-y-auto custom-scrollbar space-y-1 pr-1">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
