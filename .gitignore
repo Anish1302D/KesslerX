@@ -26,7 +26,11 @@ npm-debug.log*
 # TypeScript
 *.tsbuildinfo
 
-# Python (backend)
+# SQLite / local databases
+*.db
+*.sqlite
+*.sqlite3
+
 __pycache__/
 *.pyc
 */__pycache__/

@@ -20,6 +20,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 
 from firebase_config import get_firestore, is_firebase_available
+from config import config
+from storage import storage
 
 logger = logging.getLogger(__name__)
 
@@ -245,7 +247,9 @@ class HandoffStore:
         if db:
             docs = db.collection("users").stream()
             return [doc.to_dict() for doc in docs]
-        return list(_mem_users.values())
+        if _mem_users:
+            return list(_mem_users.values())
+        return storage.list_users()
 
     @staticmethod
     def get_user(user_id: str) -> Optional[dict]:
@@ -253,15 +257,20 @@ class HandoffStore:
         if db:
             doc = db.collection("users").document(user_id).get()
             return doc.to_dict() if doc.exists else None
-        return _mem_users.get(user_id)
+        if user_id in _mem_users:
+            return _mem_users[user_id]
+        return storage.get_user(user_id)
 
     @staticmethod
     def save_user(user: dict):
+        uid = user.get("user_id") or user.get("id")
+        user["id"] = uid
+        user["user_id"] = uid
         db = HandoffStore._db()
         if db:
-            db.collection("users").document(user["user_id"]).set(user)
-        else:
-            _mem_users[user["user_id"]] = user
+            db.collection("users").document(uid).set(user)
+        storage.upsert_user(user)
+        _mem_users[uid] = user
 
     # --- Events ---
     @staticmethod
@@ -270,7 +279,9 @@ class HandoffStore:
         if db:
             docs = db.collection("events").stream()
             return [doc.to_dict() for doc in docs]
-        return list(_mem_events.values())
+        if _mem_events:
+            return list(_mem_events.values())
+        return storage.get_events()
 
     @staticmethod
     def get_event(event_id: str) -> Optional[dict]:
@@ -278,15 +289,20 @@ class HandoffStore:
         if db:
             doc = db.collection("events").document(event_id).get()
             return doc.to_dict() if doc.exists else None
-        return _mem_events.get(event_id)
+        if event_id in _mem_events:
+            return _mem_events[event_id]
+        return storage.get_event(event_id)
 
     @staticmethod
     def save_event(event: dict):
+        eid = event.get("event_id") or event.get("id")
+        event["id"] = eid
+        event["event_id"] = eid
         db = HandoffStore._db()
         if db:
-            db.collection("events").document(event["event_id"]).set(event)
-        else:
-            _mem_events[event["event_id"]] = event
+            db.collection("events").document(eid).set(event)
+        storage.upsert_event(event)
+        _mem_events[eid] = event
 
     # --- Handoffs ---
     @staticmethod
@@ -474,8 +490,12 @@ def _add_history_entry(
 # ============================================================
 
 def seed_demo_data():
-    """Seed demo users and events. Safe to call multiple times."""
-    logger.info("Seeding demo data...")
+    """Seed demo users and events. Strictly isolated to demo and test environments. NEVER executed in production."""
+    if config.is_production:
+        logger.info("Production environment active: demo data seeding is strictly disabled.")
+        return
+
+    logger.info("Seeding demo data for non-production environment...")
 
     # Seed users
     for user in DEMO_USERS.values():

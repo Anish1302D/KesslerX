@@ -1,169 +1,211 @@
 """
-KesslerX Ground Station Simulator
-Simulates ESP32 telemetry data for the Ground Station dashboard.
-Generates realistic sensor packets over WebSocket.
+KesslerX Ground Station Device Ingestion Contract & Telemetry Manager.
+Enforces authenticated hardware device registration, sequence verification,
+replay protection, and persistent telemetry ingestion.
+Prevents simulation from running in production mode.
 """
 
-import math
-import random
 import time
 import logging
+from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
-from dataclasses import dataclass, asdict, field
-from typing import List
+from pydantic import BaseModel, Field
+
+from config import config
+from storage import storage
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class TelemetryPacket:
-    """A single ESP32 telemetry frame."""
-    packet_id: int
-    packet_type: str            # "heartbeat", "sensor", "alert"
+class DeviceTelemetryPacket(BaseModel):
+    station_id: str = Field(..., min_length=2, max_length=64)
+    device_token: str = Field(..., min_length=8)
+    sequence_number: int = Field(..., ge=0)
     timestamp: str
-    # GPS
-    latitude: float
-    longitude: float
-    altitude_m: float
-    # Sensors
-    temperature_c: float
-    battery_pct: float
-    signal_dbm: int
-    # Motion
-    velocity_m_s: float
-    heading_deg: float
-    pitch_deg: float
-    roll_deg: float
-    # System
-    uptime_seconds: int
-    free_heap_bytes: int
-    wifi_rssi: int
+    latitude: float = Field(..., ge=-90.0, le=90.0)
+    longitude: float = Field(..., ge=-180.0, le=180.0)
+    altitude_m: float = Field(..., ge=-500.0, le=50000.0)
+    temperature_c: float = Field(..., ge=-50.0, le=100.0)
+    battery_pct: float = Field(..., ge=0.0, le=100.0)
+    signal_dbm: float = Field(..., ge=-140.0, le=20.0)
+    velocity_m_s: float = Field(..., ge=0.0, le=1000.0)
+    heading_deg: float = Field(default=0.0, ge=0.0, le=360.0)
+    pitch_deg: float = Field(default=0.0, ge=-90.0, le=90.0)
+    roll_deg: float = Field(default=0.0, ge=-180.0, le=180.0)
 
 
-class GroundStationSimulator:
-    """Simulates an ESP32 ground station sending telemetry packets."""
-
-    def __init__(
-        self,
-        station_id: str = "KX-GS-01",
-        base_lat: float = 19.0760,     # Mumbai, India
-        base_lon: float = 72.8777,
-        base_alt: float = 14.0,        # meters ASL
-    ):
+class GroundStationManager:
+    def __init__(self, station_id: str = "GS-PRIMARY-01"):
         self.station_id = station_id
-        self.base_lat = base_lat
-        self.base_lon = base_lon
-        self.base_alt = base_alt
+        self.registered_tokens = {
+            "GS-PRIMARY-01": "kesslerx_device_key_primary_secure",
+            "GS-TEST-02": "kesslerx_device_key_test_secure"
+        }
+        self.last_sequence_numbers: Dict[str, int] = {}
+        self.last_packet_time: Optional[float] = None
+        self.last_valid_packet: Optional[Dict[str, Any]] = None
+        self._history: List[Dict[str, Any]] = []
 
-        self.packet_count = 0
-        self.start_time = time.time()
-        self.connected = True
-        self.last_heartbeat = datetime.now(timezone.utc).isoformat()
+    def ingest_packet(self, packet: DeviceTelemetryPacket) -> Dict[str, Any]:
+        """Ingests an authenticated hardware telemetry packet with sequence replay protection."""
+        # 1. Device Token Authentication
+        expected_token = self.registered_tokens.get(packet.station_id)
+        if not expected_token or packet.device_token != expected_token:
+            raise PermissionError(f"Unauthorized device token for station {packet.station_id}")
 
-        # Simulated state
-        self._battery = 100.0
-        self._temperature = 25.0 + random.uniform(-2, 2)
-        self._signal_base = -55  # dBm, strong signal
-        self._drift_angle = 0.0
-        self._history: List[dict] = []
-        self._max_history = 300   # 5 minutes at 1Hz
+        # 2. Sequence Replay Protection
+        last_seq = self.last_sequence_numbers.get(packet.station_id, -1)
+        if packet.sequence_number <= last_seq:
+            raise ValueError(f"Sequence replay rejected: received {packet.sequence_number}, last was {last_seq}")
 
-    def generate_packet(self) -> dict:
-        """Generate a single telemetry packet with realistic sensor drift."""
-        self.packet_count += 1
-        now = datetime.now(timezone.utc)
-        uptime = int(time.time() - self.start_time)
+        self.last_sequence_numbers[packet.station_id] = packet.sequence_number
+        self.last_packet_time = time.time()
 
-        # Simulate GPS drift (small wander around base position)
-        self._drift_angle += random.uniform(-0.05, 0.05)
-        drift_r = random.uniform(0, 0.0001)  # ~10m max drift
-        lat = self.base_lat + drift_r * math.cos(self._drift_angle)
-        lon = self.base_lon + drift_r * math.sin(self._drift_angle)
-        alt = self.base_alt + random.uniform(-0.5, 0.5)
-
-        # Temperature: slow sinusoidal drift + noise
-        time_factor = time.time() / 600.0  # 10-minute cycle
-        self._temperature = 25.0 + 5.0 * math.sin(time_factor) + random.uniform(-0.3, 0.3)
-
-        # Battery: slow drain (0.01% per packet, roughly 2.7h to drain)
-        self._battery = max(0, self._battery - random.uniform(0.005, 0.015))
-
-        # Signal strength: fluctuate around base
-        signal = self._signal_base + random.randint(-8, 8)
-
-        # Motion (stationary station with vibrations)
-        velocity = random.uniform(0, 0.3)   # near zero, wind vibration
-        heading = random.uniform(0, 360)
-        pitch = random.uniform(-2, 2)
-        roll = random.uniform(-2, 2)
-
-        # System metrics
-        free_heap = random.randint(180000, 220000)
-        wifi_rssi = signal
-
-        # Determine packet type
-        if self.packet_count % 30 == 0:
-            ptype = "heartbeat"
-        elif self._battery < 15 or self._temperature > 40:
-            ptype = "alert"
-        else:
-            ptype = "sensor"
-
-        packet = TelemetryPacket(
-            packet_id=self.packet_count,
-            packet_type=ptype,
-            timestamp=now.isoformat(),
-            latitude=round(lat, 6),
-            longitude=round(lon, 6),
-            altitude_m=round(alt, 1),
-            temperature_c=round(self._temperature, 1),
-            battery_pct=round(self._battery, 1),
-            signal_dbm=signal,
-            velocity_m_s=round(velocity, 2),
-            heading_deg=round(heading, 1),
-            pitch_deg=round(pitch, 1),
-            roll_deg=round(roll, 1),
-            uptime_seconds=uptime,
-            free_heap_bytes=free_heap,
-            wifi_rssi=wifi_rssi,
-        )
-
-        packet_dict = asdict(packet)
-        packet_dict["station_id"] = self.station_id
-
-        # Update heartbeat time
-        if ptype == "heartbeat":
-            self.last_heartbeat = now.isoformat()
-
-        # Store in history
-        self._history.append(packet_dict)
-        if len(self._history) > self._max_history:
-            self._history = self._history[-self._max_history:]
-
-        return packet_dict
-
-    def get_status(self) -> dict:
-        """Get current ground station status summary."""
-        return {
-            "station_id": self.station_id,
-            "connected": self.connected,
-            "packet_count": self.packet_count,
-            "last_heartbeat": self.last_heartbeat,
-            "uptime_seconds": int(time.time() - self.start_time),
-            "battery_pct": round(self._battery, 1),
-            "temperature_c": round(self._temperature, 1),
-            "latitude": round(self.base_lat, 6),
-            "longitude": round(self.base_lon, 6),
-            "altitude_m": round(self.base_alt, 1),
+        now = datetime.now(timezone.utc).isoformat()
+        clean_packet = {
+            "station_id": packet.station_id,
+            "sequence_number": packet.sequence_number,
+            "timestamp": packet.timestamp or now,
+            "latitude": round(packet.latitude, 6),
+            "longitude": round(packet.longitude, 6),
+            "altitude_m": round(packet.altitude_m, 2),
+            "temperature_c": round(packet.temperature_c, 2),
+            "battery_pct": round(packet.battery_pct, 1),
+            "signal_dbm": round(packet.signal_dbm, 1),
+            "velocity_m_s": round(packet.velocity_m_s, 2),
+            "heading_deg": round(packet.heading_deg, 2),
+            "pitch_deg": round(packet.pitch_deg, 2),
+            "roll_deg": round(packet.roll_deg, 2),
+            "source": "hardware_device",
+            "mode": "observed",
+            "ingested_at": now
         }
 
-    def get_history(self, count: int = 60) -> List[dict]:
-        """Get the last N telemetry packets."""
+        self.last_valid_packet = clean_packet
+        # Store in durable SQLite
+        try:
+            with storage._get_sqlite_conn() as conn:
+                conn.cursor().execute("""
+                    INSERT INTO ground_station_telemetry (
+                        packet_id, station_id, timestamp, latitude, longitude, altitude_m,
+                        temperature_c, battery_pct, signal_dbm, velocity_m_s, heading_deg,
+                        pitch_deg, roll_deg, uptime_seconds, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    packet.sequence_number,
+                    packet.station_id,
+                    clean_packet["timestamp"],
+                    clean_packet["latitude"],
+                    clean_packet["longitude"],
+                    clean_packet["altitude_m"],
+                    clean_packet["temperature_c"],
+                    clean_packet["battery_pct"],
+                    clean_packet["signal_dbm"],
+                    clean_packet["velocity_m_s"],
+                    clean_packet["heading_deg"],
+                    clean_packet["pitch_deg"],
+                    clean_packet["roll_deg"],
+                    int(time.time()),
+                    now
+                ))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Error persisting telemetry packet: {e}")
+
+        self._history.append(clean_packet)
+        if len(self._history) > 200:
+            self._history.pop(0)
+
+        config.update_provider_status("ground_station", configured=True, status="online", success=True)
+        return clean_packet
+
+    def get_history(self, count: int = 60) -> List[Dict[str, Any]]:
+        """Returns the last count telemetry packets."""
         return self._history[-count:]
 
-    def reset(self):
-        """Reset the simulator."""
-        self.packet_count = 0
-        self.start_time = time.time()
-        self._battery = 100.0
-        self._history.clear()
+    def get_status(self) -> Dict[str, Any]:
+        """Returns station connectivity status."""
+        now = time.time()
+        is_online = (self.last_packet_time is not None) and (now - self.last_packet_time < 30.0)
+        telemetry = self.last_valid_packet or {}
+
+        if is_online and self.last_valid_packet:
+            return {
+                "station_id": self.station_id,
+                "connected": True,
+                "status": "ONLINE",
+                "packet_count": len(self._history),
+                "battery_pct": telemetry.get("battery_pct", 100.0),
+                "temperature_c": telemetry.get("temperature_c", 25.0),
+                "mode": "observed",
+                "source": "hardware_device",
+                "last_seen": datetime.fromtimestamp(self.last_packet_time, tz=timezone.utc).isoformat(),
+                "telemetry": self.last_valid_packet,
+                "warnings": []
+            }
+        
+        # If in Demo or Test environment, can provide isolated demo packet
+        if config.is_demo or config.is_test:
+            return {
+                "station_id": self.station_id,
+                "connected": True,
+                "status": "DEMO_SIMULATION",
+                "packet_count": len(self._history),
+                "battery_pct": telemetry.get("battery_pct", 98.2),
+                "temperature_c": telemetry.get("temperature_c", 24.5),
+                "mode": "simulated",
+                "source": "demo",
+                "last_seen": datetime.now(timezone.utc).isoformat(),
+                "telemetry": {
+                    "latitude": 34.0522,
+                    "longitude": -118.2437,
+                    "altitude_m": 120.0,
+                    "temperature_c": 24.5,
+                    "battery_pct": 98.2,
+                    "signal_dbm": -68.0,
+                    "velocity_m_s": 0.0,
+                    "heading_deg": 182.0,
+                    "pitch_deg": 0.2,
+                    "roll_deg": -0.1
+                },
+                "warnings": ["Demo simulation only — no physical ground station attached."]
+            }
+
+        # Production state when no hardware is attached
+        return {
+            "station_id": self.station_id,
+            "connected": False,
+            "status": "NO_HARDWARE_CONNECTED",
+            "packet_count": 0,
+            "battery_pct": 0.0,
+            "temperature_c": 0.0,
+            "mode": "fallback",
+            "source": "none",
+            "last_seen": None,
+            "telemetry": None,
+            "warnings": ["No authenticated ground-station telemetry available. Connect authenticated device to /api/ground-station/telemetry."]
+        }
+
+    def generate_demo_packet(self) -> Dict[str, Any]:
+        """Strictly for demo environment when APP_ENV=demo."""
+        now = datetime.now(timezone.utc).isoformat()
+        return {
+            "station_id": self.station_id,
+            "packet_id": int(time.time()),
+            "timestamp": now,
+            "latitude": 34.0522,
+            "longitude": -118.2437,
+            "altitude_m": 120.0,
+            "temperature_c": 25.0,
+            "battery_pct": 95.0,
+            "signal_dbm": -72.0,
+            "velocity_m_s": 0.0,
+            "source": "demo",
+            "mode": "simulated"
+        }
+
+
+# Global ground station manager
+gs_manager = GroundStationManager()
+# Alias for backwards compatibility
+gs_simulator = gs_manager

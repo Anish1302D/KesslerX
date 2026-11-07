@@ -8,8 +8,10 @@ import {
   type HandoffUser, type HandoffEvent, type Handoff, type TimelineEntry,
   type HandoffCreatePayload, DEFAULT_DEMO_USERS, DEFAULT_DEMO_EVENTS,
 } from '../data/handoffTypes';
+import { isDemoModeActive } from './useKesslerAPI';
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 
 // ============================================================
 // Generic fetch helper
@@ -42,19 +44,24 @@ async function handoffFetch<T>(
 // ============================================================
 
 export function useUsers() {
-  const [users, setUsers] = useState<HandoffUser[]>(DEFAULT_DEMO_USERS);
-  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<HandoffUser[]>(() => isDemoModeActive() ? DEFAULT_DEMO_USERS : []);
+  const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
       const data = await handoffFetch<{ users: HandoffUser[] }>(`${API}/api/users`);
-      if (mountedRef.current && Array.isArray(data.users) && data.users.length > 0) {
+      if (mountedRef.current && Array.isArray(data.users)) {
         setUsers(data.users);
       }
     } catch (err) {
-      console.warn('Failed to fetch users, using default demo users:', err);
-      if (mountedRef.current) setUsers(DEFAULT_DEMO_USERS);
+      if (isDemoModeActive()) {
+        console.warn('Failed to fetch users, using default demo users:', err);
+        if (mountedRef.current) setUsers(DEFAULT_DEMO_USERS);
+      } else {
+        console.error('Failed to fetch users in production mode:', err);
+        if (mountedRef.current) setUsers([]);
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -66,13 +73,18 @@ export function useUsers() {
     const fetchUsers = async () => {
       try {
         const data = await handoffFetch<{ users: HandoffUser[] }>(`${API}/api/users`);
-        if (!isCancelled && Array.isArray(data.users) && data.users.length > 0) {
+        if (!isCancelled && Array.isArray(data.users)) {
           setUsers(data.users);
         }
       } catch (err) {
         if (!isCancelled) {
-          console.warn('Failed to fetch users, using default demo users:', err);
-          setUsers(DEFAULT_DEMO_USERS);
+          if (isDemoModeActive()) {
+            console.warn('Failed to fetch users, using default demo users:', err);
+            setUsers(DEFAULT_DEMO_USERS);
+          } else {
+            console.error('Failed to fetch users in production mode:', err);
+            setUsers([]);
+          }
         }
       } finally {
         if (!isCancelled) setLoading(false);
@@ -89,19 +101,24 @@ export function useUsers() {
 }
 
 export function useEvents() {
-  const [events, setEvents] = useState<HandoffEvent[]>(DEFAULT_DEMO_EVENTS);
-  const [loading, setLoading] = useState(false);
+  const [events, setEvents] = useState<HandoffEvent[]>(() => isDemoModeActive() ? DEFAULT_DEMO_EVENTS : []);
+  const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
       const data = await handoffFetch<{ events: HandoffEvent[] }>(`${API}/api/events`);
-      if (mountedRef.current && Array.isArray(data.events) && data.events.length > 0) {
+      if (mountedRef.current && Array.isArray(data.events)) {
         setEvents(data.events);
       }
     } catch (err) {
-      console.warn('Failed to fetch events, using default demo events:', err);
-      if (mountedRef.current) setEvents(DEFAULT_DEMO_EVENTS);
+      if (isDemoModeActive()) {
+        console.warn('Failed to fetch events, using default demo events:', err);
+        if (mountedRef.current) setEvents(DEFAULT_DEMO_EVENTS);
+      } else {
+        console.error('Failed to fetch events in production mode:', err);
+        if (mountedRef.current) setEvents([]);
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -113,13 +130,18 @@ export function useEvents() {
     const fetchEvents = async () => {
       try {
         const data = await handoffFetch<{ events: HandoffEvent[] }>(`${API}/api/events`);
-        if (!isCancelled && Array.isArray(data.events) && data.events.length > 0) {
+        if (!isCancelled && Array.isArray(data.events)) {
           setEvents(data.events);
         }
       } catch (err) {
         if (!isCancelled) {
-          console.warn('Failed to fetch events, using default demo events:', err);
-          setEvents(DEFAULT_DEMO_EVENTS);
+          if (isDemoModeActive()) {
+            console.warn('Failed to fetch events, using default demo events:', err);
+            setEvents(DEFAULT_DEMO_EVENTS);
+          } else {
+            console.error('Failed to fetch events in production mode:', err);
+            setEvents([]);
+          }
         }
       } finally {
         if (!isCancelled) setLoading(false);
@@ -137,9 +159,9 @@ export function useEvents() {
 
 export function useEvent(eventId: string) {
   const [event, setEvent] = useState<HandoffEvent | null>(() => {
-    return DEFAULT_DEMO_EVENTS.find(e => e.event_id === eventId) || null;
+    return isDemoModeActive() ? (DEFAULT_DEMO_EVENTS.find(e => e.event_id === eventId) || null) : null;
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -150,9 +172,14 @@ export function useEvent(eventId: string) {
         setEvent(data);
       }
     } catch (err) {
-      console.warn(`Failed to fetch event ${eventId}, using demo fallback:`, err);
-      const fallback = DEFAULT_DEMO_EVENTS.find(e => e.event_id === eventId);
-      if (mountedRef.current && fallback) setEvent(fallback);
+      if (isDemoModeActive()) {
+        console.warn(`Failed to fetch event ${eventId}, using demo fallback:`, err);
+        const fallback = DEFAULT_DEMO_EVENTS.find(e => e.event_id === eventId);
+        if (mountedRef.current && fallback) setEvent(fallback);
+      } else {
+        console.error(`Failed to fetch event ${eventId} in production:`, err);
+        if (mountedRef.current) setEvent(null);
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -170,9 +197,14 @@ export function useEvent(eventId: string) {
         }
       } catch (err) {
         if (!isCancelled) {
-          console.warn(`Failed to fetch event ${eventId}, using demo fallback:`, err);
-          const fallback = DEFAULT_DEMO_EVENTS.find(e => e.event_id === eventId);
-          if (fallback) setEvent(fallback);
+          if (isDemoModeActive()) {
+            console.warn(`Failed to fetch event ${eventId}, using demo fallback:`, err);
+            const fallback = DEFAULT_DEMO_EVENTS.find(e => e.event_id === eventId);
+            if (fallback) setEvent(fallback);
+          } else {
+            console.error(`Failed to fetch event ${eventId} in production:`, err);
+            setEvent(null);
+          }
         }
       } finally {
         if (!isCancelled) setLoading(false);

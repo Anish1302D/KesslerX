@@ -13,6 +13,7 @@ import math
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field
+from storage import storage
 
 DISCLAIMER_TEXT = "Decision support only — human approval required. Not a flight command system."
 
@@ -106,7 +107,16 @@ def evaluate_intent_negotiation(
     """
     Generate all 6 deterministic options for the Intent-to-Action Negotiator,
     evaluating trade-offs across fuel, risk, downtime, and tracking uncertainty.
+    Retrieves authoritative server-side event data when event_id exists.
     """
+    if event_id:
+        db_event = storage.get_event(event_id)
+        if db_event:
+            obj_a_name = db_event.get("satellite") or obj_a_name
+            obj_b_name = db_event.get("object") or obj_b_name
+            current_miss_km = float(db_event.get("miss_distance", current_miss_km))
+            collision_probability = float(db_event.get("collision_probability", collision_probability))
+            tca_utc = db_event.get("tca") or tca_utc
     try:
         tca_dt = datetime.fromisoformat(tca_utc.replace("Z", "+00:00"))
         now_dt = datetime.now(timezone.utc)

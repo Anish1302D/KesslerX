@@ -1,15 +1,15 @@
 import asyncio
-from ai_service import MockAIService
+import pytest
+from ai_service import AIService
 
+@pytest.mark.anyio
 async def test_key():
-    try:
-        service = MockAIService()
-        print('Service initialized. Sending test prompt...')
-        response = await service.generate_response('Hello! This is a test. Please reply with "Key is working."')
-        print('Response from Gemini:', response)
-    except Exception as e:
-        print('Error:', e)
+    service = AIService()
+    response = await service.generate_response('Hello! This is a test. Please reply with "Key is working."')
+    assert response is not None
+    assert response.answer != ""
 
 if __name__ == "__main__":
     asyncio.run(test_key())
+
 

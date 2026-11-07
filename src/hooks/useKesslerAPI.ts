@@ -3,11 +3,18 @@ import { satellites as mockSatellites } from '../data/mockData';
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+export const isDemoModeActive = (): boolean => {
+  return (
+    import.meta.env.VITE_APP_ENV === 'demo' ||
+    (typeof window !== 'undefined' && localStorage.getItem('KESSLER_DEMO_MODE') === 'true')
+  );
+};
+
 // ============================================================
 // Generic fetcher with retry + fallback
 // ============================================================
 
-async function fetchWithRetry<T>(url: string, fallback: T, retries = 2): Promise<T> {
+async function fetchWithRetry<T>(url: string, fallback: T, retries = 2): Promise<{ data: T; isFallback: boolean }> {
   for (let i = 0; i <= retries; i++) {
     try {
       const controller = new AbortController();
@@ -15,16 +22,20 @@ async function fetchWithRetry<T>(url: string, fallback: T, retries = 2): Promise
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeout);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
+      const json = await response.json();
+      return { data: json, isFallback: false };
     } catch (err) {
       if (i === retries) {
-        console.warn(`[KesslerAPI] ${url} failed after ${retries + 1} attempts, using fallback`, err);
-        return fallback;
+        if (isDemoModeActive()) {
+          console.warn(`[KesslerAPI] ${url} failed after ${retries + 1} attempts, using demo fallback`, err);
+          return { data: fallback, isFallback: true };
+        }
+        throw err;
       }
       await new Promise(r => setTimeout(r, 1000 * (i + 1))); // backoff
     }
   }
-  return fallback;
+  return { data: fallback, isFallback: true };
 }
 
 // ============================================================
@@ -32,21 +43,26 @@ async function fetchWithRetry<T>(url: string, fallback: T, retries = 2): Promise
 // ============================================================
 
 function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 30000) {
-  const [data, setData] = useState<T>(fallback);
+  const [data, setData] = useState<T>(isDemoModeActive() ? fallback : (Array.isArray(fallback) ? [] as unknown as T : fallback));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
-      const result = await fetchWithRetry(`${API}${endpoint}`, fallback);
+      const result = await fetchWithRetry<T>(`${API}${endpoint}`, fallback);
       if (mountedRef.current) {
-        setData(result);
+        setData(result.data);
+        setIsFallback(result.isFallback);
         setError(null);
       }
     } catch (err) {
       if (mountedRef.current) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        setError(err instanceof Error ? err.message : 'Data feed unavailable');
+        if (!isDemoModeActive() && Array.isArray(fallback)) {
+          setData([] as unknown as T);
+        }
       }
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -59,14 +75,18 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
 
     const executeFetch = async () => {
       try {
-        const result = await fetchWithRetry(`${API}${endpoint}`, fallback);
+        const result = await fetchWithRetry<T>(`${API}${endpoint}`, fallback);
         if (mountedRef.current && !isCancelled) {
-          setData(result);
+          setData(result.data);
+          setIsFallback(result.isFallback);
           setError(null);
         }
       } catch (err) {
         if (mountedRef.current && !isCancelled) {
-          setError(err instanceof Error ? err.message : 'Unknown error');
+          setError(err instanceof Error ? err.message : 'Data feed unavailable');
+          if (!isDemoModeActive() && Array.isArray(fallback)) {
+            setData([] as unknown as T);
+          }
         }
       } finally {
         if (mountedRef.current && !isCancelled) setLoading(false);
@@ -85,7 +105,7 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
     };
   }, [endpoint, fallback, refreshMs]);
 
-  return { data, loading, error, refresh };
+  return { data, loading, error, isFallback, refresh };
 }
 
 // ============================================================
@@ -109,25 +129,51 @@ export function useSatellites() {
   const [satellites, setSatellites] = useState<SatelliteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<string>('unknown');
+  const [mode, setMode] = useState<string>('unknown');
+  const [provider, setProvider] = useState<string>('unknown');
+  const [freshness, setFreshness] = useState<string>('unknown');
+  const [lastUpdated, setLastUpdated] = useState<string>('');
 
   useEffect(() => {
     async function fetchSatellites() {
       try {
         const response = await fetch(`${API}/api/satellites?limit=500`);
-        if (!response.ok) throw new Error('Failed to fetch satellites');
+        if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch satellites`);
         const data = await response.json();
-        setSatellites(data.satellites);
+        setSatellites(data.satellites || []);
+        setSource(data.source || 'space-track');
+        setMode(data.mode || 'observed');
+        setProvider(data.provider || 'space-track.org');
+        setFreshness(data.freshness || 'live');
+        setLastUpdated(data.last_updated || new Date().toISOString());
+        setError(null);
       } catch (err) {
-        console.warn('API fetch failed, using mock data fallback', err);
-        const mappedMock: SatelliteData[] = mockSatellites.map(s => ({
-          ...s,
-          NORAD_CAT_ID: s.id,
-          OBJECT_NAME: s.name,
-          OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
-          CATEGORY: s.type,
-        }));
-        setSatellites(mappedMock);
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        const msg = err instanceof Error ? err.message : 'Unknown network error';
+        if (isDemoModeActive()) {
+          console.warn('[KesslerAPI] Live satellites unavailable, using explicit demo fixture:', msg);
+          const mappedMock: SatelliteData[] = mockSatellites.map(s => ({
+            ...s,
+            NORAD_CAT_ID: s.id,
+            OBJECT_NAME: s.name,
+            OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
+            CATEGORY: s.type,
+          }));
+          setSatellites(mappedMock);
+          setSource('demo');
+          setMode('simulated');
+          setProvider('local-demo-fixture');
+          setFreshness('fixture');
+          setError(`Demo Mode Active: Upstream unavailable (${msg})`);
+        } else {
+          console.error('[KesslerAPI] Satellite ingestion failed (fail-closed in production):', msg);
+          setSatellites([]);
+          setSource('unavailable');
+          setMode('fallback');
+          setProvider('none');
+          setFreshness('offline');
+          setError(`Live satellite feed unavailable: ${msg}. Operator intervention required.`);
+        }
       } finally {
         setLoading(false);
       }
@@ -135,8 +181,9 @@ export function useSatellites() {
     fetchSatellites();
   }, []);
 
-  return { satellites, loading, error };
+  return { satellites, loading, error, source, mode, provider, freshness, lastUpdated };
 }
+
 
 // ============================================================
 // WebSocket Alerts (used in Dashboard)

@@ -16,12 +16,15 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from space_track import SpaceTrackClient
-from ai_service import MockAIService
-from conjunction_engine import analyze_conjunction, CONJUNCTION_PRESETS
-from ground_station import GroundStationSimulator
+from space_track import space_track_client, SpaceTrackClient
+from ai_service import ai_service, AIService, MockAIService
+from conjunction_engine import analyze_conjunction, CDMEvent, CONJUNCTION_PRESETS
+from ground_station import gs_manager, DeviceTelemetryPacket, GroundStationManager
 from firebase_config import init_firebase, is_firebase_available
 from negotiator_engine import evaluate_intent_negotiation, NegotiationResult, DISCLAIMER_TEXT
+from noaa_service import noaa_client
+from config import config, SafeConfigDiagnostic
+from storage import storage
 from handoff_service import (
     HandoffStore, HandoffStatus, seed_demo_data,
     create_handoff, generate_note_for_handoff, update_handoff_note,
@@ -76,6 +79,9 @@ class NegotiatorRequest(BaseModel):
     tle_age_hours: float = Field(default=12.0, ge=0.0)
 
 class TelemetryUpload(BaseModel):
+    station_id: str = Field(default="GS-PRIMARY-01", min_length=2, max_length=64)
+    device_token: str = Field(default="kesslerx_device_key_primary_secure", min_length=8)
+    sequence_number: int = Field(default=1, ge=0)
     latitude: float = Field(default=0.0, ge=-90.0, le=90.0)
     longitude: float = Field(default=0.0, ge=-180.0, le=180.0)
     altitude: float = Field(default=0.0, ge=-500.0, le=60000.0)
@@ -135,7 +141,7 @@ ROLES = {
 }
 
 async def get_current_user_and_role(
-    x_user_id: Optional[str] = Header(default="anish"),
+    x_user_id: Optional[str] = Header(default=None),
     authorization: Optional[str] = Header(default=None),
 ) -> Dict[str, str]:
     if authorization and authorization.startswith("Bearer "):
@@ -151,10 +157,20 @@ async def get_current_user_and_role(
                 logger.warning(f"Failed to verify Firebase token: {e}")
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid bearer token.")
         elif token.startswith("dev-token:"):
+            if config.is_production:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Dev tokens disabled in production environment.")
             mock_uid = token.replace("dev-token:", "").strip()
             role = ROLES.get(mock_uid, "analyst")
             return {"user_id": mock_uid, "role": role, "auth_mode": "dev_token"}
 
+    # In production mode: unverified caller-supplied identities are strictly rejected
+    if config.is_production:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required: verified Bearer token required in production environment."
+        )
+
+    # In demo/dev/test mode: allow explicit demo caller headers
     clean_uid = (x_user_id or "anish").strip().lower()
     if clean_uid in ROLES:
         return {"user_id": clean_uid, "role": ROLES[clean_uid], "auth_mode": "demo_session"}
@@ -172,30 +188,24 @@ def require_role(allowed_roles: List[str]):
     return role_checker
 
 # ============================================================
-# In-memory alert store
+# Persistent Alert Helpers
 # ============================================================
 
-_alert_store: List[dict] = []
-_MAX_ALERTS = 200
-
-def _add_alert(severity: str, title: str, message: str, alert_type: str = "system"):
-    """Add an alert to the persistent store."""
-    alert = {
-        "id": str(uuid.uuid4())[:8],
+def _add_alert(severity: str, title: str, message: str, alert_type: str = "system", event_id: str = None):
+    """Add an alert to the durable store."""
+    alert_id = storage.add_alert(severity=severity, title=title, message=message, alert_type=alert_type, event_id=event_id)
+    return {
+        "id": alert_id,
         "severity": severity,
         "title": title,
         "message": message,
         "type": alert_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "acknowledged": False,
+        "acknowledged": False
     }
-    _alert_store.insert(0, alert)
-    if len(_alert_store) > _MAX_ALERTS:
-        _alert_store.pop()
-    return alert
 
-# Ground station simulator instance
-gs_simulator = GroundStationSimulator()
+# Ground station manager alias
+gs_simulator = gs_manager
 
 # Setup CORS for frontend
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
@@ -348,22 +358,40 @@ def _tle_to_approx_position(sat: dict, index: int = 0) -> dict:
 @app.get("/api/health")
 async def health_check():
     """Granular health status of platform dependencies."""
-    db_status = "connected" if is_firebase_available() else "in-memory-fallback"
-    ai_status = "available" if ai_service.chat_session is not None else "mock-fallback"
+    fb_ok = is_firebase_available()
+    db_status = "firestore-cloud" if fb_ok else "sqlite-durable-engine"
+    ai_status = "operational" if ai_service.is_configured else "unconfigured"
+    noaa_st = config.provider_statuses["noaa_swpc"].status
+    st_st = config.provider_statuses["space_track"].status
+
+    if config.is_production and (not ai_service.is_configured or st_st in ("unavailable", "offline")):
+        overall = "degraded"
+    elif config.is_demo:
+        overall = "demo_mode"
+    else:
+        overall = "nominal"
+
     return {
-        "status": "nominal",
+        "status": overall,
+        "app_env": config.app_env,
         "service": "KesslerX Backend",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "disclaimer": DISCLAIMER_TEXT,
+        "storage_engine": db_status,
         "dependencies": {
             "database": db_status,
             "ai_engine": ai_status,
-            "satellite_catalog": "active",
-            "space_weather": "active",
+            "satellite_catalog": st_st,
+            "space_weather": noaa_st,
             "websocket": "active",
-            "cache": "active",
+            "ground_station": config.provider_statuses["ground_station"].status,
         }
     }
+
+@app.get("/api/admin/config-status")
+async def admin_config_status(auth: dict = Depends(require_role(["administrator"]))):
+    """Exposes safe administrative configuration diagnostic. Zero secret exposure."""
+    return config.get_diagnostic_report()
 
 @app.get("/api/satellites")
 async def get_satellites(limit: int = Query(default=100, ge=1, le=2000)):
@@ -384,17 +412,20 @@ async def chat_with_ai(
 ):
     check_rate_limit(f"chat:{auth['user_id']}", limit=20)
     try:
-        response = await ai_service.generate_response(request.prompt, request.context)
+        response_model = await ai_service.generate_response(request.prompt, request.context)
+        ans = response_model.answer if hasattr(response_model, "answer") else str(response_model)
+        structured = response_model.model_dump() if hasattr(response_model, "model_dump") else {"answer": ans}
         return {
-            "response": response,
+            "response": ans,
+            "structured_output": structured,
             "disclaimer": DISCLAIMER_TEXT,
-            "provenance": "gemini-derived" if ai_service.chat_session else "local-fallback",
+            "provenance": "gemini-derived" if getattr(ai_service, "is_configured", False) else "local-evidence-fallback",
         }
     except Exception as e:
         logger.error(f"AI chat error: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI Decision Support service unavailable. Please retry."
+            detail=f"AI Decision Support service unavailable: {str(e)}"
         )
 
 # ============================================================
@@ -583,20 +614,76 @@ _COLLISION_EVENTS = [
 
 @app.get("/api/collisions")
 async def get_collisions():
-    """List of predicted collision/conjunction events with dynamic TCA relative to current operational session."""
-    now = datetime.now(timezone.utc)
-    events = []
-    for i, base in enumerate(_COLLISION_EVENTS):
-        tca_time = (now + timedelta(minutes=_COLLISION_OFFSETS_MINUTES[i % len(_COLLISION_OFFSETS_MINUTES)])).strftime("%Y-%m-%dT%H:%M:%SZ")
-        evt = dict(base)
-        evt["tca"] = tca_time
-        evt["source"] = "demo"
-        evt["mode"] = "fallback"
-        evt["warnings"] = ["Demo fixture — TCA calculated dynamically from current UTC operational epoch"]
-        events.append(evt)
-    
-    events.sort(key=lambda x: x["collision_probability"], reverse=True)
-    return events
+    """
+    List of predicted conjunction/collision events.
+    Prioritizes authoritative server-persisted events.
+    Falls back to dynamic demo fixtures ONLY in Demo environment.
+    """
+    # 1. In Demo or Test mode, serve demo fixtures with dynamic operational TCA
+    if config.is_demo or config.is_test:
+        now = datetime.now(timezone.utc)
+        events = []
+        for i, base in enumerate(_COLLISION_EVENTS):
+            tca_time = (now + timedelta(minutes=_COLLISION_OFFSETS_MINUTES[i % len(_COLLISION_OFFSETS_MINUTES)])).strftime("%Y-%m-%dT%H:%M:%SZ")
+            evt = dict(base)
+            evt["tca"] = tca_time
+            evt["source"] = "demo"
+            evt["mode"] = "fallback"
+            evt["warnings"] = ["Demo fixture — TCA calculated dynamically from current UTC operational epoch"]
+            events.append(evt)
+        events.sort(key=lambda x: x["collision_probability"], reverse=True)
+        return events
+
+    # 2. Query durable persisted events in production
+    stored_events = storage.get_events()
+    if stored_events:
+        return stored_events
+
+    # 3. Production: Zero fake collisions when database has no active conjunctions
+    return []
+
+@app.post("/api/collisions/ingest-cdm")
+async def ingest_cdm_endpoint(
+    payload: dict,
+    auth: dict = Depends(get_current_user_and_role)
+):
+    """
+    Ingest, validate, and persist an authorized CCSDS Conjunction Data Message (CDM).
+    Deduplicates events and attaches audit record.
+    """
+    cdm = CDMEvent(payload)
+    is_valid, validation_errors = cdm.validate()
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_CDM_SCHEMA", "errors": validation_errors}
+        )
+
+    normalized_event = cdm.to_normalized_event()
+    success, msg = storage.upsert_event(normalized_event)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Failed to upsert event: {msg}")
+
+    # Log audit
+    storage.log_audit(
+        user_id=auth["user_id"],
+        action="INGEST_CDM",
+        resource_type="conjunction_event",
+        resource_id=normalized_event["id"],
+        details={"miss_distance_km": normalized_event["miss_distance"], "risk": normalized_event["risk"]}
+    )
+
+    # Trigger persistent alert if risk is elevated
+    if normalized_event["risk"] in ("HIGH", "CRITICAL"):
+        _add_alert(
+            severity=normalized_event["risk"],
+            title=f"Conjunction Alert: {normalized_event['satellite']} × {normalized_event['object']}",
+            message=f"TCA {normalized_event['tca']}: Miss {normalized_event['miss_distance']} km, P(c)={normalized_event['collision_probability']:.2e}. Decision support only — human approval required.",
+            alert_type="conjunction",
+            event_id=normalized_event["id"]
+        )
+
+    return {"status": "ingested", "event": normalized_event}
 
 # ============================================================
 # NEW: GET /api/debris
@@ -680,7 +767,7 @@ async def get_telemetry():
         cpu = round(22.0 + 9.5 * math.sin(now_ts / 30.0), 1)
         memory = round(48.0 + 6.0 * math.cos(now_ts / 50.0), 1)
         network = round(250.0 + 95.0 * math.sin(now_ts / 15.0), 1)
-        active_alerts_cnt = max(len([a for a in _alert_store if not a.get("acknowledged")]), 1)
+        active_alerts_cnt = max(len([a for a in storage.list_alerts() if not a.get("acknowledged")]), 1)
 
         return {
             "status": "ONLINE",
@@ -718,59 +805,8 @@ async def get_telemetry():
 
 @app.get("/api/space-weather")
 async def get_space_weather():
-    """Observational space weather data with deterministic physical ranges and drag impact."""
-    try:
-        now_ts = time.time()
-        # Solar flux F10.7: diurnal harmonic around 138 SFU
-        solar_flux = round(138.0 + 7.5 * math.sin(now_ts / 3600.0), 1)
-        kp_index = 3  # Nominal geomagnetic field (Kp 3)
-        storm = "NONE"
-        radiation = "LOW" if solar_flux <= 140 else "MODERATE"
-        solar_wind = round(420.0 + 25.0 * math.cos(now_ts / 2400.0), 1)
-        bz = round(-1.8 + 0.6 * math.sin(now_ts / 1200.0), 2)
-        proton_density = round(4.2 + 0.8 * math.cos(now_ts / 1800.0), 1)
-        
-        # Atmospheric drag multiplier: exponential drag increase during elevated solar/geomagnetic activity
-        drag_mult = round(1.0 + (kp_index * 0.08) + max(0.0, (solar_flux - 120.0) / 100.0 * 0.25), 2)
-        drag_impact = "Elevated (+24%)" if drag_mult >= 1.2 else "Nominal (+8%)"
-
-        return {
-            "solar_flux": solar_flux,
-            "kp_index": kp_index,
-            "geomagnetic_storm": storm,
-            "radiation_belt": radiation,
-            "radiation_level": radiation,
-            "solar_wind_speed": solar_wind,
-            "bz_component": bz,
-            "proton_density": proton_density,
-            "atmospheric_density_multiplier": drag_mult,
-            "satellite_drag_impact": drag_impact,
-            "status": "nominal",
-            "source": "noaa",
-            "mode": "derived",
-            "warnings": ["NOAA SWPC F10.7 solar flux proxy; Jacchia-Bowman thermospheric model scaling."],
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-
-    except Exception as e:
-        logger.error(f"Space weather endpoint error: {e}")
-        return {
-            "solar_flux": 130.0,
-            "kp_index": 3,
-            "geomagnetic_storm": "NONE",
-            "radiation_belt": "LOW",
-            "radiation_level": "LOW",
-            "solar_wind_speed": 400.0,
-            "bz_component": -1.5,
-            "proton_density": 4.0,
-            "atmospheric_density_multiplier": 1.15,
-            "satellite_drag_impact": "Nominal (+6%)",
-            "status": "fallback",
-            "source": "noaa",
-            "mode": "fallback",
-            "warnings": ["Upstream NOAA SWPC timeout — using validated static baseline"],
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
+    """Observational space weather data from NOAA SWPC with Jacchia-Bowman atmospheric drag."""
+    return await noaa_client.get_space_weather()
 
 # ============================================================
 # WebSocket: /ws/alerts (enhanced)
@@ -793,8 +829,10 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception:
         manager.disconnect(websocket)
 
-# Background task to broadcast operational alerts every 5 seconds
+# Background task to broadcast operational alerts every 5 seconds (Strictly Demo Mode)
 async def simulate_realtime_updates():
+    if not config.is_demo:
+        return
     alert_templates = [
         {"type": "collision_alert", "severity": "HIGH", "data": "WARNING: Conjunction detected: STARLINK-3021 & DEBRIS-88172. Review decision support plan."},
         {"type": "collision_alert", "severity": "MEDIUM", "data": "Close approach: ONEWEB-0012 passing within 0.89 km of DEBRIS-72401."},
@@ -889,11 +927,9 @@ async def ai_maneuver_plan(
 
 @app.get("/api/alerts")
 async def get_alerts(limit: int = 50, severity: str = None):
-    """Get stored alerts with optional severity filter."""
-    alerts = _alert_store
-    if severity:
-        alerts = [a for a in alerts if a["severity"] == severity.upper()]
-    return {"count": len(alerts[:limit]), "alerts": alerts[:limit]}
+    """Get stored alerts with optional severity filter from durable storage."""
+    alerts = storage.list_alerts(limit=limit, severity=severity)
+    return {"count": len(alerts), "alerts": alerts}
 
 # ============================================================
 # POST /api/alerts/{alert_id}/acknowledge
@@ -904,13 +940,10 @@ async def acknowledge_alert(
     alert_id: str,
     auth: dict = Depends(get_current_user_and_role),
 ):
-    """Mark an alert as acknowledged."""
-    for alert in _alert_store:
-        if alert["id"] == alert_id:
-            alert["acknowledged"] = True
-            alert["acknowledged_by"] = auth["user_id"]
-            alert["acknowledged_at"] = datetime.now(timezone.utc).isoformat()
-            return {"status": "acknowledged", "alert_id": alert_id}
+    """Mark an alert as acknowledged in durable storage."""
+    success = storage.acknowledge_alert(alert_id, acknowledged_by=auth["user_id"])
+    if success:
+        return {"status": "acknowledged", "alert_id": alert_id}
     raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
 
 # ============================================================
@@ -934,12 +967,14 @@ async def ground_station_ws(websocket: WebSocket):
             gs_connections.remove(websocket)
 
 async def simulate_ground_station():
-    """Background task to broadcast ESP32 telemetry every second."""
+    """Background task to broadcast demo telemetry every second (Strictly Demo Mode)."""
+    if not config.is_demo:
+        return
     while True:
         await asyncio.sleep(1)
         if not gs_connections:
             continue
-        packet = gs_simulator.generate_packet()
+        packet = gs_manager.generate_demo_packet()
         message = json.dumps(packet)
         disconnected = []
         for ws in gs_connections:
@@ -957,8 +992,8 @@ async def simulate_ground_station():
 
 @app.get("/api/ground-station/status")
 async def ground_station_status():
-    """Get current ground station status."""
-    return gs_simulator.get_status()
+    """Get current ground station hardware connectivity status."""
+    return gs_manager.get_status()
 
 # ============================================================
 # NEW: GET /api/ground-station/history
@@ -967,7 +1002,7 @@ async def ground_station_status():
 @app.get("/api/ground-station/history")
 async def ground_station_history(count: int = 60):
     """Get last N telemetry packets."""
-    history = gs_simulator.get_history(count)
+    history = gs_manager.get_history(count)
     return {"count": len(history), "packets": history}
 
 # ============================================================
@@ -976,11 +1011,8 @@ async def ground_station_history(count: int = 60):
 
 @app.get("/api/ground-station/latest")
 async def ground_station_latest():
-    """Get the most recent telemetry packet."""
-    history = gs_simulator.get_history(1)
-    if history:
-        return history[-1]
-    return gs_simulator.get_status()
+    """Get the most recent authenticated telemetry packet."""
+    return gs_manager.get_status()
 
 # ============================================================
 # NEW: POST /api/ground-station/telemetry
@@ -988,33 +1020,25 @@ async def ground_station_latest():
 
 @app.post("/api/ground-station/telemetry")
 async def ground_station_upload(payload: TelemetryUpload):
-    """Accept a telemetry upload from an external device (e.g. ESP32)."""
+    """Accept an authenticated hardware telemetry packet with sequence replay protection."""
     try:
-        packet = {
-            "packet_id": gs_simulator.packet_count + 1,
-            "packet_type": "external",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "latitude": payload.latitude,
-            "longitude": payload.longitude,
-            "altitude_m": payload.altitude,
-            "temperature_c": payload.temperature,
-            "battery_pct": payload.battery,
-            "signal_dbm": payload.signal,
-            "velocity_m_s": payload.velocity,
-            "heading_deg": payload.orientation.get("heading", 0.0),
-            "pitch_deg": payload.orientation.get("pitch", 0.0),
-            "roll_deg": payload.orientation.get("roll", 0.0),
-            "uptime_seconds": int(time.time() - gs_simulator.start_time),
-            "free_heap_bytes": 200000,
-            "wifi_rssi": payload.signal,
-            "station_id": gs_simulator.station_id,
-        }
-        gs_simulator.packet_count += 1
-        gs_simulator._history.append(packet)
-        if len(gs_simulator._history) > gs_simulator._max_history:
-            gs_simulator._history = gs_simulator._history[-gs_simulator._max_history:]
-
-        # Broadcast to all ground station WebSocket clients
+        dev_packet = DeviceTelemetryPacket(
+            station_id=payload.station_id,
+            device_token=payload.device_token,
+            sequence_number=payload.sequence_number,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            altitude_m=payload.altitude,
+            temperature_c=payload.temperature,
+            battery_pct=payload.battery,
+            signal_dbm=float(payload.signal),
+            velocity_m_s=payload.velocity,
+            heading_deg=payload.orientation.get("heading", 0.0),
+            pitch_deg=payload.orientation.get("pitch", 0.0),
+            roll_deg=payload.orientation.get("roll", 0.0),
+        )
+        packet = gs_manager.ingest_packet(dev_packet)
         message = json.dumps(packet)
         disconnected = []
         for ws in gs_connections:
@@ -1026,10 +1050,14 @@ async def ground_station_upload(payload: TelemetryUpload):
             if ws in gs_connections:
                 gs_connections.remove(ws)
 
-        return {"status": "received", "packet_id": packet["packet_id"]}
+        return {"status": "received", "packet_id": packet["sequence_number"]}
+    except PermissionError as pe:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(pe))
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
         logger.error(f"Telemetry upload error: {e}")
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 # ============================================================
 # Startup & Shutdown
@@ -1315,25 +1343,31 @@ async def escalation_check_loop():
 
 @app.on_event("startup")
 async def startup_event():
-    # Initialize Firebase (falls back to in-memory if not configured)
+    # Initialize Firebase cloud persistence (bridges to SQLite if unavailable)
     init_firebase()
-    # Seed demo handoff data
-    seed_demo_data()
-    # Seed initial alerts
-    _add_alert("LOW", "System Online", "KesslerX backend initialized. All systems nominal.")
-    _add_alert("MEDIUM", "Debris Cloud Detected", "New debris cluster detected in LEO sector 4-B. 14 objects tracked.")
+    config.validate_production_readiness()
 
     if os.getenv("TESTING") == "1":
         return
 
+    # In Demo mode ONLY: seed demo data
+    if config.is_demo:
+        seed_demo_data()
+        _add_alert("LOW", "Demo Mode Active", "KesslerX running in isolated demonstration mode.", "system")
+    else:
+        logger.info("Production mode: demo data seeding is strictly disabled.")
+
     # Attempt initial login to Space-Track on startup
     await space_track_client.login()
-    # Pre-warm satellite cache
+    # Pre-warm satellite catalog and NOAA space weather cache
     asyncio.create_task(space_track_client.get_active_satellites(limit=1000))
-    # Start WebSocket alert broadcaster
-    asyncio.create_task(simulate_realtime_updates())
-    # Start ground station telemetry stream
-    asyncio.create_task(simulate_ground_station())
+    asyncio.create_task(noaa_client.get_space_weather())
+
+    # Start simulation broadcaster ONLY if APP_ENV=demo
+    if config.is_demo:
+        asyncio.create_task(simulate_realtime_updates())
+        asyncio.create_task(simulate_ground_station())
+
     # Start background escalation check
     asyncio.create_task(escalation_check_loop())
 

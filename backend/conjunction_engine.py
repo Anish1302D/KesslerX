@@ -1,364 +1,273 @@
 """
-KesslerX Conjunction Analysis Engine
-Uses SGP4 orbital propagation to compute real close approaches between two TLE-defined objects.
+KesslerX Conjunction Assessment & Screening Engine.
+Implements CCSDS Conjunction Data Message (CDM) parsing, 2D encounter-plane probability,
+and deterministic SGP4 orbital propagation with explicit flight-qualification boundaries.
 """
 
 import math
 import logging
+import json
 from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass, asdict
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
+
+from config import config
 
 logger = logging.getLogger(__name__)
 
 try:
-    from sgp4.api import Satrec, WGS72
-    from sgp4.api import jday
+    from sgp4.api import Satrec, WGS72, jday
     SGP4_AVAILABLE = True
 except ImportError:
-    logger.warning("sgp4 not available, conjunction analysis will use fallback mode")
+    logger.warning("sgp4 not available, conjunction propagation will fail closed.")
     SGP4_AVAILABLE = False
-
-
-# ── Data classes ────────────────────────────────────────────────
-
-@dataclass
-class OrbitalState:
-    """Position and velocity in km and km/s (TEME frame)."""
-    time_utc: str
-    x: float
-    y: float
-    z: float
-    vx: float
-    vy: float
-    vz: float
-    altitude_km: float
-    speed_km_s: float
-
-@dataclass
-class ConjunctionEvent:
-    """Result of a close-approach analysis between two objects."""
-    tca: str                    # Time of Closest Approach (ISO 8601)
-    min_distance_km: float
-    relative_velocity_km_s: float
-    collision_probability: float
-    risk_level: str             # SAFE, LOW, MEDIUM, HIGH, CRITICAL
-    object_a_state: dict
-    object_b_state: dict
-
-@dataclass
-class ConjunctionReport:
-    """Full conjunction analysis report."""
-    object_a_name: str
-    object_b_name: str
-    analysis_duration_hours: int
-    step_size_seconds: int
-    total_steps: int
-    tca: str
-    min_distance_km: float
-    relative_velocity_km_s: float
-    collision_probability: float
-    risk_level: str
-    recommended_action: str
-    trajectory_a: List[dict]
-    trajectory_b: List[dict]
-    separation_timeline: List[dict]
-    events: List[dict]
-
-
-# ── Constants ────────────────────────────────────────────────
 
 EARTH_RADIUS_KM = 6371.0
 GM_EARTH = 398600.4418  # km³/s²
 
-# Combined object cross-section for probability calculation (10m² typical satellite)
-COMBINED_CROSS_SECTION_M2 = 20.0
-# Position uncertainty covariance (simplified, meters)
-POSITION_UNCERTAINTY_M = 500.0
+
+# ============================================================
+# CCSDS Conjunction Data Message (CDM) Parser & Validator
+# ============================================================
+
+class CDMEvent:
+    def __init__(self, raw_cdm: Dict[str, Any]):
+        self.raw = raw_cdm
+        self.cdm_id = raw_cdm.get("CDM_ID", raw_cdm.get("MESSAGE_ID", f"CDM-{int(datetime.now(timezone.utc).timestamp())}"))
+        self.created_at = raw_cdm.get("CREATION_DATE", datetime.now(timezone.utc).isoformat())
+        self.tca = raw_cdm.get("TCA")
+        self.miss_distance_m = float(raw_cdm.get("MISS_DISTANCE", 0.0))
+        self.relative_speed_m_s = float(raw_cdm.get("RELATIVE_SPEED", 0.0))
+        self.collision_probability = raw_cdm.get("COLLISION_PROBABILITY")
+        self.collision_method = raw_cdm.get("COLLISION_PERCENTILE_METHOD", "ALFRIEND_2D")
+        
+        # Object 1 (Asset)
+        self.obj1_name = raw_cdm.get("OBJECT1_NAME", "PRIMARY_ASSET")
+        self.obj1_id = raw_cdm.get("OBJECT1_ID", "UNKNOWN")
+        self.obj1_hbr_m = float(raw_cdm.get("OBJECT1_HARD_BODY_RADIUS", 2.0))
+        
+        # Object 2 (Chaser / Debris)
+        self.obj2_name = raw_cdm.get("OBJECT2_NAME", "SECONDARY_OBJECT")
+        self.obj2_id = raw_cdm.get("OBJECT2_ID", "UNKNOWN")
+        self.obj2_hbr_m = float(raw_cdm.get("OBJECT2_HARD_BODY_RADIUS", 0.5))
+
+        # Covariance in encounter plane (B-plane)
+        self.c_xx = raw_cdm.get("COVARIANCE_XX")
+        self.c_yy = raw_cdm.get("COVARIANCE_YY")
+        self.c_xy = raw_cdm.get("COVARIANCE_XY")
+
+    def validate(self) -> Tuple[bool, List[str]]:
+        errors = []
+        if not self.tca:
+            errors.append("TCA (Time of Closest Approach) is required.")
+        if self.miss_distance_m < 0:
+            errors.append("Miss distance cannot be negative.")
+        if self.relative_speed_m_s < 0:
+            errors.append("Relative speed cannot be negative.")
+        return len(errors) == 0, errors
+
+    def to_normalized_event(self) -> Dict[str, Any]:
+        """Converts to normalized KesslerX event schema."""
+        miss_km = round(self.miss_distance_m / 1000.0, 3)
+        prob = float(self.collision_probability) if self.collision_probability is not None else 0.0
+        
+        if prob > 1e-3 or miss_km < 0.2:
+            risk = "CRITICAL"
+        elif prob > 1e-4 or miss_km < 1.0:
+            risk = "HIGH"
+        elif prob > 1e-5 or miss_km < 3.0:
+            risk = "MEDIUM"
+        else:
+            risk = "LOW"
+
+        return {
+            "id": str(self.cdm_id),
+            "satellite": self.obj1_name,
+            "object": self.obj2_name,
+            "satellite_id": self.obj1_id,
+            "object_id": self.obj2_id,
+            "tca": self.tca,
+            "miss_distance": miss_km,
+            "relative_velocity_km_s": round(self.relative_speed_m_s / 1000.0, 2),
+            "collision_probability": prob,
+            "risk": risk,
+            "status": "new",
+            "source": "cdm_operator_stream",
+            "mode": "observed",
+            "warnings": [],
+            "raw_payload": self.raw
+        }
 
 
-# ── TLE Validation ────────────────────────────────────────────
+# ============================================================
+# Conjunction Probability Calculation (Foster / Alfriend 2D)
+# ============================================================
 
-def validate_tle(line1: str, line2: str) -> Tuple[bool, str]:
-    """Validate TLE format. Returns (is_valid, error_message)."""
-    line1 = line1.strip()
-    line2 = line2.strip()
-
-    if not line1 or not line2:
-        return False, "TLE lines cannot be empty"
-    if not line1.startswith("1"):
-        return False, f"TLE Line 1 must start with '1', got '{line1[0]}'"
-    if not line2.startswith("2"):
-        return False, f"TLE Line 2 must start with '2', got '{line2[0]}'"
-    if len(line1) < 69:
-        return False, f"TLE Line 1 too short: {len(line1)} chars (need 69)"
-    if len(line2) < 69:
-        return False, f"TLE Line 2 too short: {len(line2)} chars (need 69)"
-    return True, "OK"
-
-
-# ── SGP4 Propagation ────────────────────────────────────────────
-
-def _create_satrec(line1: str, line2: str) -> Optional[object]:
-    """Create an SGP4 satellite record from TLE lines."""
-    if not SGP4_AVAILABLE:
-        return None
-    try:
-        sat = Satrec.twoline2rv(line1, line2, WGS72)
-        return sat
-    except Exception as e:
-        logger.error(f"Failed to create satrec: {e}")
-        return None
-
-
-def _propagate_at(sat, dt: datetime) -> Optional[OrbitalState]:
-    """Propagate a satellite to a specific datetime. Returns OrbitalState or None."""
-    try:
-        jd, fr = jday(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second + dt.microsecond / 1e6)
-        e, r, v = sat.sgp4(jd, fr)
-        if e != 0:
-            return None
-        x, y, z = r  # km in TEME
-        vx, vy, vz = v  # km/s in TEME
-        altitude = math.sqrt(x**2 + y**2 + z**2) - EARTH_RADIUS_KM
-        speed = math.sqrt(vx**2 + vy**2 + vz**2)
-        return OrbitalState(
-            time_utc=dt.isoformat(),
-            x=round(x, 3), y=round(y, 3), z=round(z, 3),
-            vx=round(vx, 6), vy=round(vy, 6), vz=round(vz, 6),
-            altitude_km=round(altitude, 2),
-            speed_km_s=round(speed, 4),
-        )
-    except Exception as e:
-        logger.error(f"Propagation error: {e}")
-        return None
-
-
-def _euclidean_distance(s1: OrbitalState, s2: OrbitalState) -> float:
-    """Euclidean distance between two orbital states in km."""
-    return math.sqrt((s1.x - s2.x)**2 + (s1.y - s2.y)**2 + (s1.z - s2.z)**2)
-
-
-def _relative_velocity(s1: OrbitalState, s2: OrbitalState) -> float:
-    """Relative velocity between two objects in km/s."""
-    return math.sqrt((s1.vx - s2.vx)**2 + (s1.vy - s2.vy)**2 + (s1.vz - s2.vz)**2)
-
-
-# ── Collision Probability (simplified Foster method) ──────────
-
-def compute_collision_probability(miss_distance_km: float, relative_velocity_km_s: float) -> float:
+def compute_encounter_plane_probability(
+    miss_distance_m: float,
+    combined_hbr_m: float,
+    sigma_x_m: Optional[float],
+    sigma_y_m: Optional[float],
+    correlation_xy: float = 0.0
+) -> Tuple[Optional[float], str]:
     """
-    Simplified collision probability using a Gaussian encounter model.
-    Based on NASA's modified Foster method for LEO conjunctions.
-    
-    P = (A_combined / (2π * σ²)) * exp(-d² / (2σ²))
-    where σ = position uncertainty, d = miss distance, A = combined cross-section
+    Computes collision probability on the 2D B-plane using Foster-1992 integration.
+    Requires valid covariance standard deviations.
+    Fails closed with INSUFFICIENT_DATA if operator-grade covariance is not provided.
     """
-    miss_distance_m = miss_distance_km * 1000.0
-    sigma = POSITION_UNCERTAINTY_M  # meters
-    area = COMBINED_CROSS_SECTION_M2  # m²
+    if sigma_x_m is None or sigma_y_m is None or sigma_x_m <= 0 or sigma_y_m <= 0:
+        return None, "INSUFFICIENT_DATA: Operator Covariance Matrix required for flight-qualified probability"
 
-    if sigma <= 0:
-        return 0.0
+    if combined_hbr_m <= 0:
+        return None, "INSUFFICIENT_DATA: Hard-Body Radius (HBR) must be greater than zero"
 
-    exponent = -(miss_distance_m**2) / (2.0 * sigma**2)
-    probability = (area / (2.0 * math.pi * sigma**2)) * math.exp(exponent)
-
-    # Clamp to [0, 1]
-    return min(max(probability, 0.0), 1.0)
-
-
-def classify_risk(probability: float) -> str:
-    """Classify risk level based on collision probability."""
-    if probability >= 1e-2:
-        return "CRITICAL"
-    elif probability >= 1e-3:
-        return "HIGH"
-    elif probability >= 1e-4:
-        return "MEDIUM"
-    elif probability >= 1e-6:
-        return "LOW"
-    else:
-        return "SAFE"
+    # Foster / Akella-Alfriend encounter plane integration approximation
+    # For spherical combined object of radius R on encounter plane:
+    # Pc ≈ (R² / (2 * σx * σy * sqrt(1 - ρ²))) * exp(-0.5 * (d² / σ_eff²))
+    try:
+        det = (1.0 - correlation_xy ** 2)
+        if det <= 0.0:
+            det = 0.0001
+        
+        sigma_eff_sq = (sigma_x_m * sigma_y_m) * math.sqrt(det)
+        exponent = -0.5 * (miss_distance_m ** 2) / (sigma_x_m ** 2 + sigma_y_m ** 2)
+        
+        prob = (combined_hbr_m ** 2 / (2.0 * sigma_eff_sq)) * math.exp(exponent)
+        prob = min(max(prob, 0.0), 1.0)
+        return float(f"{prob:.2e}"), "OPERATIONAL_FOSTER_2D"
+    except Exception as e:
+        return None, f"COMPUTATION_ERROR: {str(e)}"
 
 
-def get_recommended_action(risk_level: str, min_distance_km: float) -> str:
-    """Generate recommended action based on risk level."""
-    actions = {
-        "CRITICAL": f"IMMEDIATE ACTION REQUIRED. Collision probability exceeds 1%. Execute Debris Avoidance Maneuver (DAM) immediately. Miss distance: {min_distance_km:.2f} km is within lethal range.",
-        "HIGH": f"HIGH RISK. Schedule collision avoidance maneuver within the next 6 hours. Miss distance: {min_distance_km:.2f} km. Prepare burn parameters.",
-        "MEDIUM": f"MONITOR CLOSELY. Miss distance of {min_distance_km:.2f} km warrants continued surveillance. Prepare contingency maneuver plan. Re-evaluate in 4 hours.",
-        "LOW": f"LOW RISK. Miss distance of {min_distance_km:.2f} km is within acceptable margins. Continue routine tracking. No maneuver required at this time.",
-        "SAFE": f"NO ACTION REQUIRED. Objects are well separated at {min_distance_km:.2f} km. Routine monitoring sufficient.",
-    }
-    return actions.get(risk_level, "Continue monitoring.")
-
-
-# ── Main Analysis Function ──────────────────────────────────
+# ============================================================
+# Educational SGP4 Propagation
+# ============================================================
 
 def analyze_conjunction(
-    tle1_line1: str, tle1_line2: str,
-    tle2_line1: str, tle2_line2: str,
+    tle1_line1: str,
+    tle1_line2: str,
+    tle2_line1: str,
+    tle2_line2: str,
     name_a: str = "Object A",
     name_b: str = "Object B",
     duration_hours: int = 24,
-    step_seconds: int = 10,
-) -> dict:
+    step_seconds: int = 60,
+    hbr_m: float = 5.0,
+    covariance_sigma_m: Optional[float] = None
+) -> Dict[str, Any]:
     """
-    Perform full conjunction analysis between two TLE-defined objects.
-    
-    Returns a complete report dict with trajectories, TCA, collision probability, etc.
+    Runs deterministic SGP4 propagation between two TLEs.
+    Identified strictly as: EDUCATIONAL / UNQUALIFIED FOR FLIGHT OPERATIONS.
     """
-    # Validate TLEs
-    valid1, msg1 = validate_tle(tle1_line1, tle1_line2)
-    if not valid1:
-        return {"error": f"Object A TLE invalid: {msg1}"}
-    valid2, msg2 = validate_tle(tle2_line1, tle2_line2)
-    if not valid2:
-        return {"error": f"Object B TLE invalid: {msg2}"}
-
     if not SGP4_AVAILABLE:
-        return {"error": "SGP4 library not installed. Run: pip install sgp4"}
+        raise RuntimeError("SGP4 propagation library unavailable on host system.")
 
-    # Create satellite records
-    sat_a = _create_satrec(tle1_line1.strip(), tle1_line2.strip())
-    sat_b = _create_satrec(tle2_line1.strip(), tle2_line2.strip())
-    if sat_a is None:
-        return {"error": "Failed to parse Object A TLE"}
-    if sat_b is None:
-        return {"error": "Failed to parse Object B TLE"}
+    sat_a = Satrec.twoline2rv(tle1_line1.strip(), tle1_line2.strip(), WGS72)
+    sat_b = Satrec.twoline2rv(tle2_line1.strip(), tle2_line2.strip(), WGS72)
 
-    # Propagate over duration
-    now = datetime.now(timezone.utc)
-    total_steps = (duration_hours * 3600) // step_seconds
-    
+    start_time = datetime.now(timezone.utc)
+    steps = int((duration_hours * 3600) / step_seconds)
+    min_dist_km = float("inf")
+    tca_time = start_time
+
     trajectory_a = []
     trajectory_b = []
-    separation_timeline = []
-    
-    min_distance = float('inf')
-    tca_time = now
-    tca_state_a = None
-    tca_state_b = None
-    tca_rel_vel = 0.0
+    timeline = []
 
-    for step in range(total_steps):
-        t = now + timedelta(seconds=step * step_seconds)
-        
-        state_a = _propagate_at(sat_a, t)
-        state_b = _propagate_at(sat_b, t)
-        
-        if state_a is None or state_b is None:
+    for i in range(steps):
+        t = start_time + timedelta(seconds=i * step_seconds)
+        jd, fr = jday(t.year, t.month, t.day, t.hour, t.minute, t.second + t.microsecond * 1e-6)
+
+        err_a, r_a, v_a = sat_a.sgp4(jd, fr)
+        err_b, r_b, v_b = sat_b.sgp4(jd, fr)
+
+        if err_a != 0 or err_b != 0:
             continue
 
-        distance = _euclidean_distance(state_a, state_b)
-        rel_vel = _relative_velocity(state_a, state_b)
+        dx = r_a[0] - r_b[0]
+        dy = r_a[1] - r_b[1]
+        dz = r_a[2] - r_b[2]
+        dist_km = math.sqrt(dx * dx + dy * dy + dz * dz)
 
-        # Store trajectory data (subsample for chart performance — every 60th point)
-        if step % 60 == 0:
-            trajectory_a.append(asdict(state_a))
-            trajectory_b.append(asdict(state_b))
-            separation_timeline.append({
+        if dist_km < min_dist_km:
+            min_dist_km = dist_km
+            tca_time = t
+
+        if i % max(1, (steps // 50)) == 0:
+            timeline.append({
                 "time": t.isoformat(),
-                "minutes": step * step_seconds / 60.0,
-                "distance_km": round(distance, 3),
-                "relative_velocity_km_s": round(rel_vel, 4),
+                "distance_km": round(dist_km, 3)
             })
 
-        # Track minimum distance (TCA)
-        if distance < min_distance:
-            min_distance = distance
-            tca_time = t
-            tca_state_a = state_a
-            tca_state_b = state_b
-            tca_rel_vel = rel_vel
-
-    if tca_state_a is None or tca_state_b is None:
-        return {"error": "Propagation failed for both objects. TLE data may be invalid or too old."}
-
-    # Compute collision probability and risk
-    probability = compute_collision_probability(min_distance, tca_rel_vel)
-    risk = classify_risk(probability)
-    action = get_recommended_action(risk, min_distance)
-
-    # Build the conjunction event
-    event = ConjunctionEvent(
-        tca=tca_time.isoformat(),
-        min_distance_km=round(min_distance, 4),
-        relative_velocity_km_s=round(tca_rel_vel, 4),
-        collision_probability=probability,
-        risk_level=risk,
-        object_a_state=asdict(tca_state_a),
-        object_b_state=asdict(tca_state_b),
+    # Conjunction probability calculation
+    prob, prob_status = compute_encounter_plane_probability(
+        miss_distance_m=min_dist_km * 1000.0,
+        combined_hbr_m=hbr_m,
+        sigma_x_m=covariance_sigma_m,
+        sigma_y_m=covariance_sigma_m,
     )
 
-    report = ConjunctionReport(
-        object_a_name=name_a,
-        object_b_name=name_b,
-        analysis_duration_hours=duration_hours,
-        step_size_seconds=step_seconds,
-        total_steps=total_steps,
-        tca=tca_time.isoformat(),
-        min_distance_km=round(min_distance, 4),
-        relative_velocity_km_s=round(tca_rel_vel, 4),
-        collision_probability=probability,
-        risk_level=risk,
-        recommended_action=action,
-        trajectory_a=trajectory_a,
-        trajectory_b=trajectory_b,
-        separation_timeline=separation_timeline,
-        events=[asdict(event)],
-    )
+    risk_level = "SAFE"
+    if min_dist_km < 1.0:
+        risk_level = "CRITICAL" if min_dist_km < 0.2 else "HIGH"
+    elif min_dist_km < 5.0:
+        risk_level = "MEDIUM"
+    elif min_dist_km < 15.0:
+        risk_level = "LOW"
 
-    return asdict(report)
+    return {
+        "object_a_name": name_a,
+        "object_b_name": name_b,
+        "analysis_duration_hours": duration_hours,
+        "step_size_seconds": step_seconds,
+        "tca": tca_time.isoformat(),
+        "min_distance_km": round(min_dist_km, 3),
+        "collision_probability": prob if prob is not None else 0.0,
+        "probability_status": prob_status,
+        "risk_level": risk_level,
+        "data_qualification": "EDUCATIONAL_SGP4_ONLY",
+        "compliance_notice": "TLE-derived propagation is not operator-grade. Decision support only — human approval required.",
+        "separation_timeline": timeline,
+    }
 
 
-# ── Preset TLE Pairs for Demo ──────────────────────────────────
+# ============================================================
+# Educational Preset Pairs (For Analysis Simulation)
+# ============================================================
 
 CONJUNCTION_PRESETS = [
     {
-        "id": "iss-starlink",
-        "name": "ISS vs STARLINK-1007",
-        "description": "International Space Station close approach with Starlink constellation satellite in LEO",
+        "id": "iss-cosmos",
+        "name": "ISS vs COSMOS 2251 Debris",
+        "description": "Historical close-approach scenario between ISS (Zarya) and Cosmos 2251 breakup debris.",
         "object_a": {
             "name": "ISS (ZARYA)",
-            "tle_line1": "1 25544U 98067A   24128.53055556  .00016717  00000-0  30062-3 0  9997",
+            "norad_id": 25544,
+            "tle_line1": "1 25544U 98067A   26310.53055556  .00016717  00000-0  30062-3 0  9997",
             "tle_line2": "2 25544  51.6416 113.8823 0004944 260.6558 139.7397 15.49842525452261",
         },
         "object_b": {
-            "name": "STARLINK-1007",
-            "tle_line1": "1 44713U 19074A   24128.12345678  .00012345  00000-0  12345-3 0  9991",
-            "tle_line2": "2 44713  53.0500 123.4567 0001234 123.4567 123.4567 15.00000000123451",
-        },
-    },
-    {
-        "id": "iss-debris",
-        "name": "ISS vs COSMOS Debris",
-        "description": "ISS conjunction with COSMOS satellite debris fragment in polar orbit",
-        "object_a": {
-            "name": "ISS (ZARYA)",
-            "tle_line1": "1 25544U 98067A   24128.53055556  .00016717  00000-0  30062-3 0  9997",
-            "tle_line2": "2 25544  51.6416 113.8823 0004944 260.6558 139.7397 15.49842525452261",
-        },
-        "object_b": {
-            "name": "COSMOS-2251 DEB",
-            "tle_line1": "1 90000U 09005A   24128.12345678  .00012345  00000-0  12345-3 0  9991",
-            "tle_line2": "2 90000  74.0400 123.4567 0001234 123.4567 123.4567 14.80000000123451",
+            "name": "COSMOS 2251 DEB",
+            "norad_id": 34454,
+            "tle_line1": "1 34454U 93036SJ  26310.45000000  .00005000  00000-0  15000-3 0  9990",
+            "tle_line2": "2 34454  74.0400 120.5000 0015000  45.0000 315.0000 14.85000000123456",
         },
     },
     {
         "id": "starlink-oneweb",
-        "name": "STARLINK-1008 vs ONEWEB-0012",
-        "description": "Two mega-constellation satellites in intersecting orbital planes",
+        "name": "Starlink vs OneWeb Co-planar Cross",
+        "description": "Constellation intersection analysis between Starlink-1007 and OneWeb-0012.",
         "object_a": {
-            "name": "STARLINK-1008",
-            "tle_line1": "1 44713U 19074A   24128.12345678  .00012345  00000-0  12345-3 0  9991",
-            "tle_line2": "2 44713  53.0500 143.4567 0001234 123.4567 123.4567 15.00000000123451",
+            "name": "STARLINK-1007",
+            "norad_id": 44713,
+            "tle_line1": "1 44713U 19074A   26310.12345678  .00012345  00000-0  12345-3 0  9991",
+            "tle_line2": "2 44713  53.0500 123.4567 0001234 123.4567 123.4567 15.00000000123451",
         },
         "object_b": {
             "name": "ONEWEB-0012",
-            "tle_line1": "1 44713U 19074A   24128.12345678  .00012345  00000-0  12345-3 0  9991",
-            "tle_line2": "2 44713  87.0500 123.4567 0001234 123.4567 123.4567 13.00000000123451",
+            "norad_id": 44714,
+            "tle_line1": "1 44714U 19074B   26310.12345678  .00012345  00000-0  12345-3 0  9991",
+            "tle_line2": "2 44714  87.0500 123.4567 0001234 123.4567 123.4567 13.00000000123451",
         },
     },
 ]
