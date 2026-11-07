@@ -13,7 +13,6 @@ import type { Handoff } from '../data/handoffTypes';
 function HandoffCard({ handoff, onAction }: { handoff: Handoff; onAction: () => void }) {
   const navigate = useNavigate();
   const { currentUser } = useCurrentUser();
-  const [showActions, setShowActions] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
   const [clarifyMsg, setClarifyMsg] = useState('');
   const [rejectReason, setRejectReason] = useState('Unavailable');
@@ -31,8 +30,8 @@ function HandoffCard({ handoff, onAction }: { handoff: Handoff; onAction: () => 
     try {
       await acceptHandoff(handoff.handoff_id, currentUser!.user_id);
       onAction();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Accept failed');
     } finally {
       setActionLoading('');
     }
@@ -45,8 +44,8 @@ function HandoffCard({ handoff, onAction }: { handoff: Handoff; onAction: () => 
     try {
       await requestClarification(handoff.handoff_id, currentUser!.user_id, clarifyMsg);
       onAction();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Clarification request failed');
     } finally {
       setActionLoading('');
     }
@@ -58,8 +57,8 @@ function HandoffCard({ handoff, onAction }: { handoff: Handoff; onAction: () => 
     try {
       await rejectHandoff(handoff.handoff_id, currentUser!.user_id, rejectReason);
       onAction();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Rejection failed');
     } finally {
       setActionLoading('');
     }
@@ -143,7 +142,7 @@ function HandoffCard({ handoff, onAction }: { handoff: Handoff; onAction: () => 
 
       {/* Actions */}
       <div className="p-4 border-t border-outline-variant/10">
-        {!showActions && !showClarify && !showReject ? (
+        {!showClarify && !showReject ? (
           <div className="flex gap-2">
             <button
               onClick={handleAccept}

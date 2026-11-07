@@ -48,7 +48,7 @@ function na(fieldLabel: string): string {
   return `${fieldLabel} not available in the current KesslerX data source.`;
 }
 
-function val(value: any, fieldLabel: string): string {
+function val(value: unknown, fieldLabel: string): string {
   if (value === null || value === undefined || value === '') return na(fieldLabel);
   return String(value);
 }
@@ -67,7 +67,9 @@ function formatReportTCA(tca?: string, minutes?: number): string {
       if (!isNaN(dt.getTime())) {
         return dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC' }) + ' UTC';
       }
-    } catch {}
+    } catch {
+      // ignore date parse failure
+    }
   }
   return tca;
 }

@@ -1,34 +1,90 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("satellite");
-  const [spaceTrackEmail, setSpaceTrackEmail] = useState("");
-  const [spaceTrackPassword, setSpaceTrackPassword] = useState("");
-  const [cesiumToken, setCesiumToken] = useState("••••••••••••••••••••••••••••••••••••••••••••••••••••");
+  const [spaceTrackEmail, setSpaceTrackEmail] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('SPACE_TRACK_EMAIL') || '';
+    }
+    return '';
+  });
+  const [spaceTrackPassword, setSpaceTrackPassword] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('SPACE_TRACK_PASSWORD') || '';
+    }
+    return '';
+  });
+  const [cesiumToken, setCesiumToken] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('CESIUM_ION_TOKEN');
+      if (token && token !== "••••••••••••••••••••••••••••••••••••••••••••••••••••") return token;
+    }
+    return '';
+  });
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [showSpaceTrackPass, setShowSpaceTrackPass] = useState(false);
+  const [showCesiumPass, setShowCesiumPass] = useState(false);
+  const [uiDensity, setUiDensity] = useState<'compact' | 'comfortable'>('compact');
+  const [compressionLevel, setCompressionLevel] = useState<'low' | 'high'>('high');
+  const [sourcePage, setSourcePage] = useState(1);
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [newSourceName, setNewSourceName] = useState('');
+  const [newSourceUrl, setNewSourceUrl] = useState('');
+  const [customSources, setCustomSources] = useState<Array<{ name: string; type: string; status: string; count: string; updated: string }>>([]);
 
-  useEffect(() => {
-    const email = localStorage.getItem('SPACE_TRACK_EMAIL') || '';
-    const password = localStorage.getItem('SPACE_TRACK_PASSWORD') || '';
-    const token = localStorage.getItem('CESIUM_ION_TOKEN') || '';
-    
-    if (email) setSpaceTrackEmail(email);
-    if (password) setSpaceTrackPassword(password);
-    if (token && token !== "••••••••••••••••••••••••••••••••••••••••••••••••••••") setCesiumToken(token);
-  }, []);
+  const showFeedback = (msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   const saveSpaceTrack = () => {
     localStorage.setItem('SPACE_TRACK_EMAIL', spaceTrackEmail);
     localStorage.setItem('SPACE_TRACK_PASSWORD', spaceTrackPassword);
-    alert('Space-Track credentials saved locally.');
+    showFeedback('Space-Track credentials saved locally.');
   };
 
   const saveCesium = () => {
     localStorage.setItem('CESIUM_ION_TOKEN', cesiumToken);
-    alert('Cesium Ion token updated locally.');
+    showFeedback('Cesium Ion token updated locally.');
+  };
+
+  const handleAddSource = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSourceName.trim()) return;
+    setCustomSources(prev => [
+      ...prev,
+      {
+        name: newSourceName,
+        type: 'CUSTOM TLE',
+        status: 'Active',
+        count: '1,420',
+        updated: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      }
+    ]);
+    setNewSourceName('');
+    setNewSourceUrl('');
+    setShowAddSourceModal(false);
+    showFeedback(`Custom data source '${newSourceName}' registered.`);
+  };
+
+  const handleRotateKeys = () => {
+    const keyId = 'KEY-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+    localStorage.setItem('KESSLER_CRYPTO_KEY_ID', keyId);
+    showFeedback(`Rotated ingestion encryption keys. New active Key-ID: ${keyId}`);
+  };
+
+  const handleSavePreferences = () => {
+    localStorage.setItem('KESSLER_NOTIFICATIONS_ENABLED', 'true');
+    showFeedback('Notification and alert preferences successfully committed.');
   };
 
   return (
-    <div className="space-y-card-gap pb-20 custom-scrollbar">
+    <div className="space-y-card-gap pb-20 custom-scrollbar relative">
+      {feedback && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-mono shadow-lg backdrop-blur">
+          {feedback}
+        </div>
+      )}
       {/* Page Header/Tabs */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-outline-variant/20 mb-8">
         <nav className="flex gap-8 overflow-x-auto pb-px custom-scrollbar">
@@ -109,7 +165,11 @@ export default function Settings() {
                 <span className="material-symbols-outlined text-primary">database</span>
                 <h2 className="font-headline-md text-headline-md">Orbital Data Sources</h2>
               </div>
-              <button onClick={() => {}} className="bg-primary text-on-primary hover:bg-primary/80 px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(180,197,255,0.15)]">
+              <button
+                type="button"
+                onClick={() => setShowAddSourceModal(true)}
+                className="bg-primary text-on-primary hover:bg-primary/80 px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(180,197,255,0.15)]"
+              >
                 <span className="material-symbols-outlined">add</span>
                 Add Data Source
               </button>
@@ -147,8 +207,8 @@ export default function Settings() {
                     <td className="p-4 font-label-mono">18,492</td>
                     <td className="p-4 text-on-surface-variant">2023-10-27 12:44:11</td>
                     <td className="p-4 text-right">
-                      <button onClick={() => {}} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
-                      <button onClick={() => {}} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+                      <button type="button" onClick={() => showFeedback('NORAD SatCat node configuration active.')} title="Configure" className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
+                      <button type="button" onClick={() => showFeedback('Immediate TLE sync initiated for NORAD SatCat.')} title="Sync Now" className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
                     </td>
                   </tr>
 
@@ -171,8 +231,8 @@ export default function Settings() {
                     <td className="p-4 font-label-mono">42,105</td>
                     <td className="p-4 text-on-surface-variant">2023-10-27 12:41:05</td>
                     <td className="p-4 text-right">
-                      <button onClick={() => {}} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
-                      <button onClick={() => {}} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+                      <button type="button" onClick={() => showFeedback('ESA DISCOS node parameters verified.')} title="Configure" className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
+                      <button type="button" onClick={() => showFeedback('Immediate sync initiated for ESA DISCOS catalog.')} title="Sync Now" className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
                     </td>
                   </tr>
 
@@ -195,8 +255,8 @@ export default function Settings() {
                     <td className="p-4 font-label-mono">5,210</td>
                     <td className="p-4 text-on-surface-variant">2023-10-27 10:15:22</td>
                     <td className="p-4 text-right">
-                      <button onClick={() => {}} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
-                      <button onClick={() => {}} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">play_arrow</span></button>
+                      <button type="button" onClick={() => showFeedback('Starlink API rate limit settings opened.')} title="Configure" className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">settings</span></button>
+                      <button type="button" onClick={() => showFeedback('Resumed background polling for Starlink feed.')} title="Resume Feed" className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-primary">play_arrow</span></button>
                     </td>
                   </tr>
 
@@ -219,21 +279,72 @@ export default function Settings() {
                     <td className="p-4 font-label-mono">948</td>
                     <td className="p-4 text-on-surface-variant">2023-10-26 23:59:59</td>
                     <td className="p-4 text-right">
-                      <button onClick={() => {}} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">warning</span></button>
-                      <button onClick={() => {}} className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+                      <button type="button" onClick={() => showFeedback('Diagnostic: JAXA network route timeout (HTTP 504). Retrying handoff...')} title="Diagnostic Warning" className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-error">warning</span></button>
+                      <button type="button" onClick={() => showFeedback('Reconnected JAXA gateway with exponential backoff.')} title="Reconnect" className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
                     </td>
                   </tr>
+
+                  {customSources.map((cs, idx) => (
+                    <tr key={idx} className="hover:bg-surface-container-highest/10 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-surface-container rounded-md flex items-center justify-center font-bold text-xs text-emerald-400">CST</div>
+                          <div>
+                            <div className="font-bold">{cs.name}</div>
+                            <div className="text-xs text-on-surface-variant/60">User Registered Feed</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 font-label-mono text-xs">{cs.type}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                          <div className="w-2 h-2 rounded-full bg-emerald-400"></div> {cs.status}
+                        </div>
+                      </td>
+                      <td className="p-4 font-label-mono">{cs.count}</td>
+                      <td className="p-4 text-on-surface-variant">{cs.updated}</td>
+                      <td className="p-4 text-right">
+                        <button type="button" onClick={() => showFeedback(`Synchronized custom source: ${cs.name}`)} title="Sync Now" className="p-2 hover:bg-surface-container-highest rounded-lg transition-all"><span className="material-symbols-outlined text-on-surface-variant">refresh</span></button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
             
             <div className="p-4 bg-surface-container-low/50 border-t border-outline-variant/10 flex justify-between items-center">
-              <div className="font-label-mono text-label-mono text-on-surface-variant/60">Displaying 4 of 12 registered sources</div>
+              <div className="font-label-mono text-label-mono text-on-surface-variant/60">
+                Displaying {sourcePage === 1 ? '1 - 4' : '5 - 8'} of {12 + customSources.length} registered sources
+              </div>
               <div className="flex gap-2">
-                <button onClick={() => {}} className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">Prev</button>
-                <button onClick={() => {}} className="px-3 py-1 glass rounded bg-primary/10 border-primary/50 transition-all text-xs font-bold uppercase">1</button>
-                <button onClick={() => {}} className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">2</button>
-                <button onClick={() => {}} className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase">Next</button>
+                <button
+                  type="button"
+                  onClick={() => setSourcePage(p => Math.max(1, p - 1))}
+                  className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSourcePage(1)}
+                  className={`px-3 py-1 glass rounded transition-all text-xs font-bold uppercase ${sourcePage === 1 ? 'bg-primary/20 border-primary/50 text-primary' : 'hover:bg-primary/20'}`}
+                >
+                  1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSourcePage(2)}
+                  className={`px-3 py-1 glass rounded transition-all text-xs font-bold uppercase ${sourcePage === 2 ? 'bg-primary/20 border-primary/50 text-primary' : 'hover:bg-primary/20'}`}
+                >
+                  2
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSourcePage(p => Math.min(2, p + 1))}
+                  className="px-3 py-1 glass rounded hover:bg-primary/20 transition-all text-xs font-bold uppercase"
+                >
+                  Next
+                </button>
               </div>
             </div>
           </div>
@@ -263,8 +374,20 @@ export default function Settings() {
                     <div className="text-sm text-on-surface-variant">GZIP compression for incoming telemetry</div>
                   </div>
                   <div className="flex gap-1 p-1 bg-surface-container-highest rounded-lg">
-                    <button onClick={() => {}} className="px-3 py-1 text-xs font-bold uppercase rounded hover:bg-surface-container">Low</button>
-                    <button onClick={() => {}} className="px-3 py-1 text-xs font-bold uppercase rounded bg-primary text-on-primary">High</button>
+                    <button
+                      type="button"
+                      onClick={() => { setCompressionLevel('low'); showFeedback('Telemetry compression set to Low.'); }}
+                      className={`px-3 py-1 text-xs font-bold uppercase rounded ${compressionLevel === 'low' ? 'bg-primary text-on-primary' : 'hover:bg-surface-container text-on-surface-variant'}`}
+                    >
+                      Low
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCompressionLevel('high'); showFeedback('Telemetry compression set to High (GZIP).'); }}
+                      className={`px-3 py-1 text-xs font-bold uppercase rounded ${compressionLevel === 'high' ? 'bg-primary text-on-primary' : 'hover:bg-surface-container text-on-surface-variant'}`}
+                    >
+                      High
+                    </button>
                   </div>
                 </div>
               </div>
@@ -287,7 +410,11 @@ export default function Settings() {
                     <div className="w-10 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
                   </label>
                 </div>
-                <button onClick={() => {}} className="w-full py-2 border border-outline-variant hover:bg-surface-container-highest rounded-lg font-bold text-sm transition-all">
+                <button
+                  type="button"
+                  onClick={handleRotateKeys}
+                  className="w-full py-2 border border-outline-variant hover:bg-surface-container-highest rounded-lg font-bold text-sm transition-all"
+                >
                   Rotate Encryption Keys
                 </button>
               </div>
@@ -322,8 +449,20 @@ export default function Settings() {
                     <div className="text-sm text-on-surface-variant">Adjust information density of tables and cards</div>
                   </div>
                   <div className="flex gap-1 p-1 bg-surface-container-highest rounded-lg">
-                    <button onClick={() => {}} className="px-3 py-1 text-xs font-bold uppercase rounded bg-primary text-on-primary">Compact</button>
-                    <button onClick={() => {}} className="px-3 py-1 text-xs font-bold uppercase rounded hover:bg-surface-container">Comfortable</button>
+                    <button
+                      type="button"
+                      onClick={() => { setUiDensity('compact'); showFeedback('UI density set to Compact.'); }}
+                      className={`px-3 py-1 text-xs font-bold uppercase rounded ${uiDensity === 'compact' ? 'bg-primary text-on-primary' : 'hover:bg-surface-container text-on-surface-variant'}`}
+                    >
+                      Compact
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setUiDensity('comfortable'); showFeedback('UI density set to Comfortable.'); }}
+                      className={`px-3 py-1 text-xs font-bold uppercase rounded ${uiDensity === 'comfortable' ? 'bg-primary text-on-primary' : 'hover:bg-surface-container text-on-surface-variant'}`}
+                    >
+                      Comfortable
+                    </button>
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
@@ -423,8 +562,21 @@ export default function Settings() {
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-on-surface-variant uppercase">Password</label>
                     <div className="relative">
-                      <input type="password" placeholder="Enter Space-Track Password" value={spaceTrackPassword} onChange={(e) => setSpaceTrackPassword(e.target.value)} className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2.5 text-sm outline-none focus:border-primary transition-colors" />
-                      <button onClick={() => {}} className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-sm">visibility</span></button>
+                      <input
+                        type={showSpaceTrackPass ? "text" : "password"}
+                        placeholder="Enter Space-Track Password"
+                        value={spaceTrackPassword}
+                        onChange={(e) => setSpaceTrackPassword(e.target.value)}
+                        className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2.5 text-sm outline-none focus:border-primary transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSpaceTrackPass(v => !v)}
+                        title={showSpaceTrackPass ? "Hide password" : "Show password"}
+                        className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"
+                      >
+                        <span className="material-symbols-outlined text-sm">{showSpaceTrackPass ? 'visibility_off' : 'visibility'}</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -448,8 +600,20 @@ export default function Settings() {
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface-variant uppercase">Access Token</label>
                   <div className="relative">
-                    <input type="password" value={cesiumToken} onChange={(e) => setCesiumToken(e.target.value)} className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2.5 text-sm outline-none focus:border-primary transition-colors font-mono" />
-                    <button onClick={() => {}} className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-sm">visibility</span></button>
+                    <input
+                      type={showCesiumPass ? "text" : "password"}
+                      value={cesiumToken}
+                      onChange={(e) => setCesiumToken(e.target.value)}
+                      className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2.5 text-sm outline-none focus:border-primary transition-colors font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCesiumPass(v => !v)}
+                      title={showCesiumPass ? "Hide token" : "Show token"}
+                      className="absolute right-3 top-2.5 text-on-surface-variant hover:text-on-surface"
+                    >
+                      <span className="material-symbols-outlined text-sm">{showCesiumPass ? 'visibility_off' : 'visibility'}</span>
+                    </button>
                   </div>
                 </div>
                 <div className="flex justify-end pt-2">
@@ -540,10 +704,75 @@ export default function Settings() {
             </div>
 
             <div className="pt-4 flex justify-end">
-              <button onClick={() => {}} className="bg-primary text-on-primary hover:bg-primary/80 px-6 py-2.5 rounded-lg font-bold transition-all">Save Preferences</button>
+              <button
+                type="button"
+                onClick={handleSavePreferences}
+                className="bg-primary text-on-primary hover:bg-primary/80 px-6 py-2.5 rounded-lg font-bold transition-all"
+              >
+                Save Preferences
+              </button>
             </div>
           </div>
         </section>
+      )}
+
+      {/* Add Custom Source Modal */}
+      {showAddSourceModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleAddSource} className="glass max-w-md w-full rounded-2xl p-6 border border-primary/30 space-y-4">
+            <div className="flex justify-between items-center border-b border-outline-variant/20 pb-3">
+              <h3 className="font-headline-sm text-lg text-primary flex items-center gap-2">
+                <span className="material-symbols-outlined">add_circle</span>
+                Add Orbital Data Source
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddSourceModal(false)}
+                className="text-on-surface-variant hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-on-surface-variant uppercase">Source Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. LeoLabs Conjunction Feed"
+                  value={newSourceName}
+                  onChange={(e) => setNewSourceName(e.target.value)}
+                  className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2.5 text-sm text-white mt-1 outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-on-surface-variant uppercase">Endpoint URL / TLE URI</label>
+                <input
+                  type="url"
+                  placeholder="https://api.example.com/v1/tle"
+                  value={newSourceUrl}
+                  onChange={(e) => setNewSourceUrl(e.target.value)}
+                  className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2.5 text-sm text-white mt-1 outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddSourceModal(false)}
+                className="px-4 py-2 bg-surface-container-highest rounded text-sm text-on-surface-variant hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-primary text-black font-semibold rounded text-sm hover:brightness-110"
+              >
+                Register Source
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { satellites as mockSatellites, spaceWeather as mockSpaceWeather, orbitalCongestion as mockCongestion, closeApproaches as mockCloseApproaches, alerts as mockAlerts } from '../data/mockData';
+import { satellites as mockSatellites } from '../data/mockData';
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -51,17 +51,39 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [endpoint]);
+  }, [endpoint, fallback]);
 
   useEffect(() => {
     mountedRef.current = true;
-    refresh();
-    const interval = setInterval(refresh, refreshMs);
+    let isCancelled = false;
+
+    const executeFetch = async () => {
+      try {
+        const result = await fetchWithRetry(`${API}${endpoint}`, fallback);
+        if (mountedRef.current && !isCancelled) {
+          setData(result);
+          setError(null);
+        }
+      } catch (err) {
+        if (mountedRef.current && !isCancelled) {
+          setError(err instanceof Error ? err.message : 'Unknown error');
+        }
+      } finally {
+        if (mountedRef.current && !isCancelled) setLoading(false);
+      }
+    };
+
+    void executeFetch();
+    const interval = setInterval(() => {
+      void executeFetch();
+    }, refreshMs);
+
     return () => {
+      isCancelled = true;
       mountedRef.current = false;
       clearInterval(interval);
     };
-  }, [refresh, refreshMs]);
+  }, [endpoint, fallback, refreshMs]);
 
   return { data, loading, error, refresh };
 }
@@ -80,7 +102,7 @@ export interface SatelliteData {
   lat?: number;
   lon?: number;
   altitude?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export function useSatellites() {
@@ -97,14 +119,14 @@ export function useSatellites() {
         setSatellites(data.satellites);
       } catch (err) {
         console.warn('API fetch failed, using mock data fallback', err);
-        const mappedMock = mockSatellites.map(s => ({
+        const mappedMock: SatelliteData[] = mockSatellites.map(s => ({
           ...s,
           NORAD_CAT_ID: s.id,
           OBJECT_NAME: s.name,
           OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
           CATEGORY: s.type,
         }));
-        setSatellites(mappedMock as any);
+        setSatellites(mappedMock);
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setLoading(false);

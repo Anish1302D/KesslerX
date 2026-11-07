@@ -3,7 +3,7 @@
 // Real-time search across pages, live satellites, conjunction events & tools
 // ============================================================
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSatellites } from '../../hooks/useKesslerAPI';
@@ -66,9 +66,9 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
     // Real Satellites from active catalog
     satellites.forEach(sat => {
-      const name = sat.OBJECT_NAME || sat.name || `Object ${sat.NORAD_CAT_ID}`;
-      const norad = sat.NORAD_CAT_ID?.toString() || sat.id || '';
-      const cat = sat.CATEGORY || sat.OBJECT_TYPE || 'SATELLITE';
+      const name = String(sat.OBJECT_NAME || sat.name || `Object ${sat.NORAD_CAT_ID}`);
+      const norad = String(sat.NORAD_CAT_ID || sat.id || '');
+      const cat = String(sat.CATEGORY || sat.OBJECT_TYPE || 'SATELLITE');
       items.push({
         id: `sat-${norad || name}`,
         title: name,
@@ -107,20 +107,23 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
   useEffect(() => {
     if (isOpen) {
-      setQuery('');
-      setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 80);
+      const timer = setTimeout(() => {
+        setQuery('');
+        setSelectedIndex(0);
+        inputRef.current?.focus();
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
-  const handleSelect = (item: SearchItem) => {
+  const handleSelect = useCallback((item: SearchItem) => {
     if (item.action) {
       item.action();
     } else if (item.path) {
       navigate(item.path);
     }
     onClose();
-  };
+  }, [navigate, onClose]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -146,7 +149,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filteredData, selectedIndex, onClose]);
+  }, [isOpen, filteredData, selectedIndex, onClose, handleSelect]);
 
   if (!isOpen) return null;
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Send, Sparkles, X, ChevronUp } from 'lucide-react';
 import { aiSuggestedPrompts } from '../../data/mockData';
@@ -25,12 +25,13 @@ export default function AICopilotBar() {
     }
   }, [messages]);
 
-  const handleSend = (text?: string) => {
+  const handleSend = useCallback((text?: string) => {
     const msg = text || input.trim();
     if (!msg) return;
 
+    const msgId = `msg-${Date.now()}`;
     const userMsg: Message = {
-      id: `msg-${Date.now()}`,
+      id: msgId,
       role: 'user',
       content: msg,
       timestamp: new Date(),
@@ -39,18 +40,16 @@ export default function AICopilotBar() {
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
-
-    if (!expanded) setExpanded(true);
+    setExpanded(true);
 
     // Call real AI API
-    (async () => {
-      try {
-        const res = await fetch(`${API}/api/ai/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: msg, context: { page: 'copilot' } }),
-        });
-        const data = await res.json();
+    fetch(`${API}/api/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: msg, context: { page: 'copilot' } }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
         const aiMsg: Message = {
           id: `msg-${Date.now()}-ai`,
           role: 'assistant',
@@ -58,7 +57,8 @@ export default function AICopilotBar() {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, aiMsg]);
-      } catch {
+      })
+      .catch(() => {
         const aiMsg: Message = {
           id: `msg-${Date.now()}-ai`,
           role: 'assistant',
@@ -66,11 +66,11 @@ export default function AICopilotBar() {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, aiMsg]);
-      } finally {
+      })
+      .finally(() => {
         setIsTyping(false);
-      }
-    })();
-  };
+      });
+  }, [input]);
 
   return (
     <div className="relative z-40 flex-shrink-0">

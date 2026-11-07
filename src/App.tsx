@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Suspense, lazy, useState, useEffect } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
+import GlobalProvenanceBanner from './components/layout/GlobalProvenanceBanner';
 import SearchModal from './components/ui/SearchModal';
 import { UserProvider } from './components/handoff/UserContext';
 
@@ -58,6 +59,7 @@ export default function App() {
           
           <main className="flex-1 flex flex-col overflow-hidden relative z-0">
             <Header onMenuClick={() => setIsSidebarOpen(true)} onSearchClick={() => setIsSearchOpen(true)} />
+            <GlobalProvenanceBanner />
             
             <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
             

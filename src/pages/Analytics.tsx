@@ -1,9 +1,82 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ProvenanceBadge from '../components/ui/ProvenanceBadge';
+
 export default function Analytics() {
+  const navigate = useNavigate();
+  const [selectedOrbit, setSelectedOrbit] = useState<'LEO' | 'MEO' | 'GEO'>('LEO');
+  const [aiQuery, setAiQuery] = useState('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const orbitMetrics = {
+    LEO: {
+      satellites: '12,457',
+      debris: '39,812',
+      risk: '37',
+      bars: [10, 15, 12, 22, 35, 48, 55, 65, 82],
+      projectionYear: '2025: 42,100',
+    },
+    MEO: {
+      satellites: '1,840',
+      debris: '4,210',
+      risk: '8',
+      bars: [5, 8, 9, 12, 16, 20, 24, 28, 33],
+      projectionYear: '2025: 4,600',
+    },
+    GEO: {
+      satellites: '980',
+      debris: '2,940',
+      risk: '5',
+      bars: [3, 4, 6, 8, 11, 14, 17, 19, 22],
+      projectionYear: '2025: 3,100',
+    },
+  };
+
+  const currentData = orbitMetrics[selectedOrbit];
+
+  const handleAiSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!aiQuery.trim()) return;
+    navigate('/copilot');
+  };
+
+  const handleShareView = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast('Analytics dashboard view URL copied to clipboard.');
+    } catch {
+      showToast('View URL ready for dispatch.');
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col min-w-0 relative">
       {/* Scrollable Dashboard Content */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar z-10 pb-20">
+      <div className="flex-1 overflow-y-auto custom-scrollbar z-10 pb-24">
         <div className="space-y-card-gap">
+          {/* Header & Provenance */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="font-headline-md text-headline-md text-on-surface">Orbital Congestion & Safety Analytics</h2>
+              <p className="font-body-md text-on-surface-variant/70 text-xs mt-1">Multi-regime population modeling and collision frequency trends.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <ProvenanceBadge source="space-track" mode="derived" warnings={['Analytical extrapolation based on 30-day ephemeris covariance']} />
+            </div>
+          </div>
+
+          {toastMessage && (
+            <div className="p-2.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs animate-fade-in flex items-center justify-between">
+              <span>{toastMessage}</span>
+              <button type="button" onClick={() => setToastMessage(null)} className="text-emerald-400 hover:text-white">✕</button>
+            </div>
+          )}
+
           {/* Header Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-card-gap mb-8">
             <div className="glass p-inner-padding rounded-xl relative overflow-hidden group">
@@ -12,24 +85,24 @@ export default function Analytics() {
                 <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">rocket</span>
                 <span className="text-emerald-400 font-label-mono text-[10px]">+2.35%</span>
               </div>
-              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">Active Satellites</p>
-              <p className="font-stat-lg text-stat-lg text-primary mt-1">12,457</p>
+              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">Active Satellites ({selectedOrbit})</p>
+              <p className="font-stat-lg text-stat-lg text-primary mt-1">{currentData.satellites}</p>
             </div>
             <div className="glass p-inner-padding rounded-xl relative overflow-hidden">
               <div className="flex justify-between items-start mb-2">
                 <span className="material-symbols-outlined text-secondary bg-secondary/10 p-2 rounded-lg">bubble_chart</span>
                 <span className="text-emerald-400 font-label-mono text-[10px]">+1.89%</span>
               </div>
-              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">Tracked Debris</p>
-              <p className="font-stat-lg text-stat-lg text-secondary mt-1">39,812</p>
+              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">Tracked Debris ({selectedOrbit})</p>
+              <p className="font-stat-lg text-stat-lg text-secondary mt-1">{currentData.debris}</p>
             </div>
             <div className="glass p-inner-padding rounded-xl relative overflow-hidden">
               <div className="flex justify-between items-start mb-2">
                 <span className="material-symbols-outlined text-error bg-error/10 p-2 rounded-lg">warning</span>
                 <span className="text-error font-label-mono text-[10px]">+12.1%</span>
               </div>
-              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">High Risk Objects</p>
-              <p className="font-stat-lg text-stat-lg text-error neon-text-error mt-1">37</p>
+              <p className="text-on-surface-variant text-label-mono uppercase tracking-widest">High Risk Objects ({selectedOrbit})</p>
+              <p className="font-stat-lg text-stat-lg text-error neon-text-error mt-1">{currentData.risk}</p>
             </div>
             <div className="glass p-inner-padding rounded-xl relative overflow-hidden">
               <div className="flex justify-between items-start mb-2">
@@ -49,33 +122,49 @@ export default function Analytics() {
                 <div>
                   <h3 className="font-headline-sm text-headline-sm text-primary flex items-center gap-2">
                     <span className="material-symbols-outlined">insights</span>
-                    Debris Growth Projection
+                    Debris Growth Projection ({selectedOrbit})
                   </h3>
-                  <p className="text-on-surface-variant text-body-md mt-1">Cumulative object count in LEO (2010 - 2035 Estimated)</p>
+                  <p className="text-on-surface-variant text-body-md mt-1">Cumulative object count in {selectedOrbit} (2010 - 2035 Estimated)</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => {}} className="px-3 py-1 bg-surface-container-highest/50 border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">LEO</button>
-                  <button onClick={() => {}} className="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">MEO</button>
-                  <button onClick={() => {}} className="px-3 py-1 bg-transparent border border-outline-variant/30 rounded text-label-mono text-[10px] hover:bg-primary/20 transition-all">GEO</button>
+                  {(['LEO', 'MEO', 'GEO'] as const).map((orbit) => (
+                    <button
+                      key={orbit}
+                      type="button"
+                      onClick={() => setSelectedOrbit(orbit)}
+                      className={`px-3 py-1 rounded text-label-mono text-[10px] transition-all ${
+                        selectedOrbit === orbit
+                          ? 'bg-primary/20 border border-primary text-primary font-bold'
+                          : 'bg-surface-container-highest/30 border border-outline-variant/30 text-on-surface-variant hover:bg-primary/10'
+                      }`}
+                    >
+                      {orbit}
+                    </button>
+                  ))}
                 </div>
               </div>
-              {/* Placeholder for Chart */}
+              {/* Chart visualization */}
               <div className="h-[300px] w-full relative">
                 <div className="absolute inset-0 flex items-end gap-1 px-4">
-                  {/* Simulated Chart Bars */}
-                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[10%] rounded-t-sm"></div>
-                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[15%] rounded-t-sm"></div>
-                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[12%] rounded-t-sm"></div>
-                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[22%] rounded-t-sm"></div>
-                  <div className="flex-1 bg-primary/20 border-t border-primary/40 h-[35%] rounded-t-sm"></div>
-                  <div className="flex-1 bg-primary/40 border-t-2 border-primary h-[48%] rounded-t-sm relative group">
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-surface-container-high p-2 rounded border border-primary/30 opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
-                      <p className="text-label-mono text-[10px]">2024: 39,812</p>
+                  {currentData.bars.map((heightPercent, idx) => (
+                    <div
+                      key={idx}
+                      style={{ height: `${heightPercent}%` }}
+                      className={`flex-1 rounded-t-sm transition-all duration-500 ${
+                        idx === 5
+                          ? 'bg-primary/40 border-t-2 border-primary relative group'
+                          : idx > 5
+                          ? 'bg-primary/20 border-t border-primary/40 border-dashed'
+                          : 'bg-primary/20 border-t border-primary/40'
+                      }`}
+                    >
+                      {idx === 5 && (
+                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-surface-container-high p-2 rounded border border-primary/30 opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none whitespace-nowrap">
+                          <p className="text-label-mono text-[10px]">{currentData.projectionYear}</p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex-1 bg-primary/30 border-t border-primary/50 h-[55%] rounded-t-sm border-dashed"></div>
-                  <div className="flex-1 bg-primary/20 border-t border-primary/30 h-[65%] rounded-t-sm border-dashed"></div>
-                  <div className="flex-1 bg-primary/10 border-t border-primary/20 h-[82%] rounded-t-sm border-dashed"></div>
+                  ))}
                 </div>
                 {/* Axis Labels */}
                 <div className="absolute bottom-[-24px] w-full flex justify-between text-outline text-label-mono px-4">
@@ -93,7 +182,11 @@ export default function Analytics() {
                   Debris Density Map
                 </h3>
                 <div className="aspect-video relative rounded border border-outline-variant/10 overflow-hidden group">
-                  <img className="w-full h-full object-cover grayscale brightness-50 group-hover:scale-110 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhbECmngyPSIEEb014nOGDhhlWTiy0NvQ5-aZsFMxhFdWH-SqPl5xfttUmEV6qfc5g8a3k2khMu3hGnimyG8hQ0UIzMDYh04Gti5T4zgBX3DWl1E9Wwl3v5j2pTMFXI8jVRwWmKv44qIfAcY_vA4GKdbixwbITfBCHIkq0nmnj2TdL3L45JGblYmBC2w9XAg9N8c0DMTnPtQbE3EFvQgUEZxh1rwKhxNI36cVL_yzu3yLKRHguEYWdY3_IntkCwgjQgFtZLA1uDaU" />
+                  <img
+                    alt="Orbital density map"
+                    className="w-full h-full object-cover grayscale brightness-50 group-hover:scale-110 transition-transform duration-700"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhbECmngyPSIEEb014nOGDhhlWTiy0NvQ5-aZsFMxhFdWH-SqPl5xfttUmEV6qfc5g8a3k2khMu3hGnimyG8hQ0UIzMDYh04Gti5T4zgBX3DWl1E9Wwl3v5j2pTMFXI8jVRwWmKv44qIfAcY_vA4GKdbixwbITfBCHIkq0nmnj2TdL3L45JGblYmBC2w9XAg9N8c0DMTnPtQbE3EFvQgUEZxh1rwKhxNI36cVL_yzu3yLKRHguEYWdY3_IntkCwgjQgFtZLA1uDaU"
+                  />
                   <div className="absolute inset-0 bg-secondary/5 mix-blend-overlay"></div>
                   <div className="absolute bottom-2 left-2 flex items-center gap-2 px-2 py-1 bg-black/40 backdrop-blur rounded">
                     <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
@@ -102,7 +195,7 @@ export default function Analytics() {
                 </div>
                 <div className="mt-4 flex justify-between text-[10px] font-label-mono text-outline">
                   <span>LOW DENSITY</span>
-                  <div className="w-32 h-1 bg-gradient-to-right from-blue-500 via-yellow-500 to-red-500 mt-1.5 rounded-full"></div>
+                  <div className="w-32 h-1 bg-gradient-to-r from-blue-500 via-yellow-500 to-red-500 mt-1.5 rounded-full"></div>
                   <span>CRITICAL</span>
                 </div>
               </div>
@@ -156,15 +249,25 @@ export default function Analytics() {
 
             <div className="col-span-12 lg:col-span-8 glass rounded-xl p-inner-padding">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="font-headline-sm text-headline-sm text-on-surface">Upcoming Close Approaches</h3>
-                <button onClick={() => {}} className="text-primary text-label-mono hover:underline">View All Catalog</button>
+                <div>
+                  <h3 className="font-headline-sm text-headline-sm text-on-surface">Upcoming Close Approaches</h3>
+                  <p className="text-xs text-on-surface-variant/70 font-mono">Decision support only — human flight director approval required.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/conjunction')}
+                  className="text-primary text-label-mono text-xs hover:underline flex items-center gap-1"
+                >
+                  View Conjunction Assessment
+                  <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left font-label-mono text-xs">
                   <thead>
                     <tr className="text-outline border-b border-outline-variant/10">
                       <th className="pb-3 font-medium uppercase">Object Name</th>
-                      <th className="pb-3 font-medium uppercase">TCA</th>
+                      <th className="pb-3 font-medium uppercase">TCA Window</th>
                       <th className="pb-3 font-medium uppercase">Distance (km)</th>
                       <th className="pb-3 font-medium uppercase">Probability</th>
                       <th className="pb-3 font-medium uppercase">Action</th>
@@ -176,11 +279,17 @@ export default function Analytics() {
                         <span className="material-symbols-outlined text-primary scale-75">satellite_alt</span>
                         STARLINK-3021
                       </td>
-                      <td className="py-4">12:57:44 UTC</td>
+                      <td className="py-4 font-mono text-amber-400">T + 12h 57m (UTC)</td>
                       <td className="py-4">0.14 km</td>
                       <td className="py-4 text-error font-bold">9.8e-3</td>
                       <td className="py-4">
-                        <button onClick={() => {}} className="px-3 py-1 bg-error/20 text-error rounded-lg hover:brightness-125">ALERT</button>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/alerts')}
+                          className="px-3 py-1 bg-error/20 text-error rounded-lg hover:brightness-125 transition-all text-xs font-bold"
+                        >
+                          ALERT
+                        </button>
                       </td>
                     </tr>
                     <tr className="hover:bg-primary/5 transition-colors">
@@ -188,11 +297,20 @@ export default function Analytics() {
                         <span className="material-symbols-outlined text-secondary scale-75">category</span>
                         DEBRIS-88172
                       </td>
-                      <td className="py-4">13:12:05 UTC</td>
+                      <td className="py-4 font-mono">T + 13h 12m (UTC)</td>
                       <td className="py-4">1.22 km</td>
                       <td className="py-4 text-secondary">4.6e-5</td>
                       <td className="py-4">
-                        <button onClick={() => {}} className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            showToast('Tracking DEBRIS-88172 in orbital tracking pipeline.');
+                            navigate('/');
+                          }}
+                          className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary transition-all text-xs"
+                        >
+                          TRACK
+                        </button>
                       </td>
                     </tr>
                     <tr className="hover:bg-primary/5 transition-colors">
@@ -200,11 +318,20 @@ export default function Analytics() {
                         <span className="material-symbols-outlined text-primary scale-75">satellite_alt</span>
                         GPS IIF-11
                       </td>
-                      <td className="py-4">15:45:30 UTC</td>
+                      <td className="py-4 font-mono">T + 15h 45m (UTC)</td>
                       <td className="py-4">4.80 km</td>
                       <td className="py-4 text-emerald-400">1.2e-7</td>
                       <td className="py-4">
-                        <button onClick={() => {}} className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary">TRACK</button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            showToast('Tracking GPS IIF-11 in orbital tracking pipeline.');
+                            navigate('/');
+                          }}
+                          className="px-3 py-1 bg-surface-container-highest text-on-surface-variant rounded-lg hover:text-primary transition-all text-xs"
+                        >
+                          TRACK
+                        </button>
                       </td>
                     </tr>
                   </tbody>
@@ -216,28 +343,49 @@ export default function Analytics() {
       </div>
 
       {/* AI Copilot Quick Bar */}
-      <div className="absolute bottom-0 left-0 right-0 px-container-margin py-3 bg-surface-container-low/80 backdrop-blur-md border-t border-outline-variant/10 flex items-center gap-4 z-40">
-        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary relative">
+      <form
+        onSubmit={handleAiSubmit}
+        className="absolute bottom-0 left-0 right-0 px-container-margin py-3 bg-surface-container-low/95 backdrop-blur-md border-t border-outline-variant/10 flex items-center gap-4 z-40"
+      >
+        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary relative shrink-0">
           <span className="material-symbols-outlined">smart_toy</span>
           <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary border-2 border-surface-container-low rounded-full"></span>
         </div>
         <div className="flex-1 relative">
-          <input className="w-full bg-surface-container-highest/50 border-none rounded-xl px-4 py-2 text-body-md focus:ring-1 focus:ring-primary/50 placeholder:text-outline/50" placeholder="Ask AI Copilot about orbital congestion trends..." type="text" />
-          <button onClick={() => {}} className="absolute right-2 top-1.5 p-1 bg-primary text-on-primary rounded transition-transform active:scale-90">
+          <input
+            className="w-full bg-surface-container-highest/50 border-none rounded-xl px-4 py-2 text-body-md focus:ring-1 focus:ring-primary/50 placeholder:text-outline/50 outline-none text-white text-sm"
+            placeholder="Ask AI Copilot about orbital congestion trends..."
+            type="text"
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+          />
+          <button
+            type="submit"
+            className="absolute right-2 top-1.5 p-1 bg-primary text-black rounded transition-transform active:scale-90"
+            title="Dispatch query to Kessler Copilot"
+          >
             <span className="material-symbols-outlined text-body-lg">arrow_forward</span>
           </button>
         </div>
-        <div className="hidden lg:flex items-center gap-4">
-          <button onClick={() => {}} className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
+        <div className="hidden lg:flex items-center gap-4 shrink-0">
+          <button
+            type="button"
+            onClick={() => navigate('/reports')}
+            className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors text-xs"
+          >
             <span className="material-symbols-outlined text-body-md">description</span>
             Generate Report
           </button>
-          <button onClick={() => {}} className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors">
+          <button
+            type="button"
+            onClick={handleShareView}
+            className="flex items-center gap-2 text-label-mono text-outline hover:text-primary transition-colors text-xs"
+          >
             <span className="material-symbols-outlined text-body-md">share</span>
             Share View
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

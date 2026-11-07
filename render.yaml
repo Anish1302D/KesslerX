@@ -21,5 +21,9 @@ services:
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
+      - key: FRONTEND_ORIGIN
+        value: "https://kessler-x.vercel.app"
+      - key: ALLOWED_ORIGINS
+        value: "https://kessler-x.vercel.app,http://localhost:5173,http://localhost:3000"
     healthCheckPath: /api/health
     autoDeploy: true

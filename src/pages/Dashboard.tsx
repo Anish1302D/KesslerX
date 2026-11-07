@@ -1,5 +1,7 @@
-import { useState, useRef } from 'react';
-import CesiumGlobe from '../components/dashboard/CesiumGlobe';
+import { useState, useRef, useMemo } from 'react';
+import CesiumGlobe, { CesiumGlobeRef } from '../components/dashboard/CesiumGlobe';
+import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
+import { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
 import { useSatellites, useWebsocket, useSpaceWeather, useCongestion, useCollisions } from '../hooks/useKesslerAPI';
 import { useEvents, useUsers } from '../hooks/useHandoffAPI';
@@ -16,9 +18,35 @@ export default function Dashboard() {
   const { users } = useUsers();
   const { currentUser } = useCurrentUser();
   
-  const [selectedSatellite, setSelectedSatellite] = useState<any>(null);
+  const [selectedSatellite, setSelectedSatellite] = useState<SatelliteItem | null>(null);
   const [showDashboardReportModal, setShowDashboardReportModal] = useState(false);
-  const globeRef = useRef<any>(null);
+  const globeRef = useRef<CesiumGlobeRef>(null);
+
+  // Functional map filters
+  const [showSatellites, setShowSatellites] = useState(true);
+  const [showDebris, setShowDebris] = useState(true);
+  const [orbitLayer, setOrbitLayer] = useState<'ALL' | 'LEO' | 'MEO' | 'GEO'>('ALL');
+
+  const activeFilters = useMemo(() => ({
+    Communication: showSatellites,
+    Weather: showSatellites,
+    Military: showSatellites,
+    GPS: showSatellites,
+    Scientific: showSatellites,
+    ISS: showSatellites,
+    Debris: showDebris,
+  }), [showSatellites, showDebris]);
+
+  const filteredSatellites = useMemo(() => {
+    if (orbitLayer === 'ALL') return satellites;
+    return satellites.filter((sat) => {
+      const alt = sat.altitude || 500;
+      if (orbitLayer === 'LEO') return alt < 2000;
+      if (orbitLayer === 'MEO') return alt >= 2000 && alt < 35000;
+      if (orbitLayer === 'GEO') return alt >= 35000;
+      return true;
+    });
+  }, [satellites, orbitLayer]);
 
   // Stats
   const activeCount = satellites.filter(s => s.OBJECT_TYPE === 'PAYLOAD').length;
@@ -45,7 +73,7 @@ export default function Dashboard() {
       });
       const data = await res.json();
       setChatResponse(data.response);
-    } catch (e) {
+    } catch {
       setChatResponse("Error: Unable to connect to KesslerX AI.");
     } finally {
       setIsChatLoading(false);
@@ -120,7 +148,7 @@ export default function Dashboard() {
           </div>
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Collisions</div>
-            <div className="font-stat-lg text-stat-lg font-bold leading-tight">{(collisions as any[]).length || 0} <span className="text-xs font-medium text-on-surface-variant/60 ml-1">Next 24h</span></div>
+            <div className="font-stat-lg text-stat-lg font-bold leading-tight">{Array.isArray(collisions) ? collisions.length : 0} <span className="text-xs font-medium text-on-surface-variant/60 ml-1">Next 24h</span></div>
             <div className="text-[11px] text-orange-500 font-bold flex items-center gap-1">
               <span className="material-symbols-outlined text-sm">trending_up</span> Live
             </div>
@@ -157,7 +185,20 @@ export default function Dashboard() {
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 map-gradient pointer-events-none"></div>
             <div className="h-full [&>div]:!h-full [&>div>div]:!h-full">
-              <CesiumGlobe ref={globeRef} satellites={satellites} onSelectObject={setSelectedSatellite} />
+              <CesiumErrorBoundary
+                satellites={filteredSatellites}
+                onSelectObject={setSelectedSatellite}
+                selectedObject={selectedSatellite}
+                filters={activeFilters}
+              >
+                <CesiumGlobe
+                  ref={globeRef}
+                  satellites={filteredSatellites}
+                  onSelectObject={setSelectedSatellite}
+                  selectedObject={selectedSatellite}
+                  filters={activeFilters}
+                />
+              </CesiumErrorBoundary>
             </div>
           </div>
           
@@ -168,21 +209,37 @@ export default function Dashboard() {
             <h3 className="font-headline-sm text-headline-sm mb-4">OBJECTS</h3>
             <div className="space-y-3">
               <label className="flex items-center gap-3 cursor-pointer">
-                <input defaultChecked className="rounded border-outline-variant bg-surface-container text-primary focus:ring-primary w-4 h-4" type="checkbox"/>
+                <input
+                  type="checkbox"
+                  checked={showSatellites}
+                  onChange={(e) => setShowSatellites(e.target.checked)}
+                  className="rounded border-outline-variant bg-surface-container text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                />
                 <span className="text-sm font-medium">Satellites</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input defaultChecked className="rounded border-outline-variant bg-surface-container text-primary focus:ring-primary w-4 h-4" type="checkbox"/>
+                <input
+                  type="checkbox"
+                  checked={showDebris}
+                  onChange={(e) => setShowDebris(e.target.checked)}
+                  className="rounded border-outline-variant bg-surface-container text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                />
                 <span className="text-sm font-medium">Debris</span>
               </label>
             </div>
             <div className="mt-6">
-              <label className="text-[11px] font-bold text-on-surface-variant/60 block mb-2 uppercase">Orbit Layers</label>
-              <select className="w-full bg-surface-container-low border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface font-medium focus:ring-primary outline-none">
-                <option>All Orbits</option>
-                <option>LEO - Low Earth</option>
-                <option>MEO - Medium Earth</option>
-                <option>GEO - Geostationary</option>
+              <label htmlFor="orbit-layer-select" className="text-[11px] font-bold text-on-surface-variant/60 block mb-2 uppercase">Orbit Layers</label>
+              <select
+                id="orbit-layer-select"
+                aria-label="Orbit Layers"
+                value={orbitLayer}
+                onChange={(e) => setOrbitLayer(e.target.value as 'ALL' | 'LEO' | 'MEO' | 'GEO')}
+                className="w-full bg-surface-container-low border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface font-medium focus:ring-primary outline-none cursor-pointer"
+              >
+                <option value="ALL">All Orbits ({satellites.length})</option>
+                <option value="LEO">LEO - Low Earth (&lt;2,000 km)</option>
+                <option value="MEO">MEO - Medium Earth (2,000-35,000 km)</option>
+                <option value="GEO">GEO - Geostationary (&gt;35,000 km)</option>
               </select>
             </div>
           </div>

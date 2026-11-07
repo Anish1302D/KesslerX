@@ -88,11 +88,21 @@ export default function Header({ onMenuClick, onSearchClick }: HeaderProps) {
               </span>
             )}
           </button>
-          <button onClick={() => {}} className="relative w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90">
+          <button
+            onClick={() => navigate('/alert-center')}
+            className="relative w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90"
+            title="Open Alert Center"
+            aria-label="Alert Center"
+          >
             <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
             <span className="absolute top-2 right-2 w-2 h-2 bg-tertiary-container rounded-full border border-background"></span>
           </button>
-          <button onClick={() => {}} className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90">
+          <button
+            onClick={() => navigate('/ground-station')}
+            className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-highest/30 rounded-full transition-all group active:scale-90"
+            title="Open Ground Station Telemetry"
+            aria-label="Ground Station"
+          >
             <span className="material-symbols-outlined text-on-surface-variant">hub</span>
           </button>
 

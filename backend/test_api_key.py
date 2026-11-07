@@ -10,4 +10,6 @@ async def test_key():
     except Exception as e:
         print('Error:', e)
 
-asyncio.run(test_key())
+if __name__ == "__main__":
+    asyncio.run(test_key())
+

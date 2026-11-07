@@ -1,17 +1,18 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Gauge, Clock, Compass, Shield, Download, Crosshair, Satellite } from 'lucide-react';
 import StatusBadge from '../ui/StatusBadge';
 import * as satellite from 'satellite.js';
 import { getSatelliteMedia, type SatelliteMedia } from '../../data/satelliteMedia';
 import type { FollowState } from './CesiumGlobe';
+import { SatelliteItem } from './GlobeFallbackTable';
 import ReportPreviewModal from '../handoff/ReportPreviewModal';
 import { useEvents, useUsers } from '../../hooks/useHandoffAPI';
 import { useCurrentUser } from '../handoff/UserContext';
 import type { HandoffEvent } from '../../data/handoffTypes';
 
 interface ObjectDetailsPanelProps {
-  satelliteData: any | null;
+  satelliteData: SatelliteItem | null;
   onClose: () => void;
   followState?: FollowState;
   onFollowSatellite?: () => void;
@@ -65,7 +66,7 @@ export default function ObjectDetailsPanel({
         }
       }
       }
-    } catch (e) {
+    } catch {
       // Fallback
     }
   }
@@ -77,7 +78,8 @@ export default function ObjectDetailsPanel({
   if (period === 'Unknown' && satelliteData?.period !== undefined) period = satelliteData.period.toString();
 
   // Generate a stable fake collision risk based on ID
-  const baseRisk = satelliteData ? (satelliteData.NORAD_CAT_ID % 20) : 0;
+  const noradNum = Number(satelliteData?.NORAD_CAT_ID ?? satelliteData?.id ?? 0);
+  const baseRisk = Number.isFinite(noradNum) ? (noradNum % 20) : 0;
   const collisionRisk = satelliteData?.CATEGORY === 'Debris' ? 0 : baseRisk;
   const requiresManeuver = collisionRisk > 10;
   const deltaV = (collisionRisk * 0.15).toFixed(2);
@@ -100,36 +102,39 @@ export default function ObjectDetailsPanel({
     )) || (satelliteData?.NORAD_CAT_ID && e.event_id?.includes(satelliteData.NORAD_CAT_ID.toString()))
   );
 
-  const reportEvent: HandoffEvent = matchingEvent || {
-    event_id: `SAT-${satelliteData?.NORAD_CAT_ID || '00000'}`,
-    title: `${objectName || 'SATELLITE'} — Orbital Safety Assessment`,
-    satellite: objectName || `NORAD ${satelliteData?.NORAD_CAT_ID || 'Unknown'}`,
-    object: 'Catalog Background Screening',
-    severity: (satelliteData?.CATEGORY === 'Debris' || requiresManeuver) ? 'MEDIUM' : 'LOW',
-    tca: 'Continuous Telemetry Monitoring',
-    tca_minutes: 0,
-    miss_distance_km: undefined,
-    collision_probability: requiresManeuver ? 0.012 : 0.0001,
-    status: 'Nominal Tracking',
-    current_owner_id: currentUser?.user_id || 'anish',
-    current_owner_role: currentUser?.role || 'Flight Dynamics Analyst',
-    next_action: requiresManeuver ? 'Perform collision avoidance screening pass.' : 'Maintain standard orbital ephemeris screening.',
-    deadline: new Date(Date.now() + 86400000).toISOString(),
-    orbit: satelliteData?.CATEGORY || 'LEO',
-    altitude_km: altitude !== 'Unknown' ? Number(altitude.replace(/,/g, '')) : undefined,
-    relative_velocity_km_s: velocity !== 'Unknown' ? Number((Number(velocity.replace(/,/g, '')) / 3600).toFixed(2)) : undefined,
-    risk_trend: requiresManeuver ? 'Elevated' : 'Stable',
-    uncertainty: '±15m radial',
-    work_completed: [
-      'Telemetry ingested from Space-Track / 18 SDS ephemeris',
-      'SGP4 propagation updated with active orbital elements',
-      'Conjunction safety threshold screening performed',
-    ],
-    current_decision: 'Satellite orbit is being continuously monitored by KesslerX safety pipelines.',
-    constraints: [
-      'Subject to atmospheric drag variations in Low Earth Orbit',
-    ],
-  };
+  const reportEvent: HandoffEvent = useMemo(() => {
+    if (matchingEvent) return matchingEvent;
+    return {
+      event_id: `SAT-${satelliteData?.NORAD_CAT_ID || '00000'}`,
+      title: `${objectName || 'SATELLITE'} — Orbital Safety Assessment`,
+      satellite: objectName || `NORAD ${satelliteData?.NORAD_CAT_ID || 'Unknown'}`,
+      object: 'Catalog Background Screening',
+      severity: (satelliteData?.CATEGORY === 'Debris' || requiresManeuver) ? 'MEDIUM' : 'LOW',
+      tca: 'Continuous Telemetry Monitoring',
+      tca_minutes: 0,
+      miss_distance_km: undefined,
+      collision_probability: requiresManeuver ? 0.012 : 0.0001,
+      status: 'Nominal Tracking',
+      current_owner_id: currentUser?.user_id || 'anish',
+      current_owner_role: currentUser?.role || 'Flight Dynamics Analyst',
+      next_action: requiresManeuver ? 'Perform collision avoidance screening pass.' : 'Maintain standard orbital ephemeris screening.',
+      deadline: 'Next Operational Window (+24h)',
+      orbit: satelliteData?.CATEGORY || 'LEO',
+      altitude_km: altitude !== 'Unknown' ? Number(altitude.replace(/,/g, '')) : undefined,
+      relative_velocity_km_s: velocity !== 'Unknown' ? Number((Number(velocity.replace(/,/g, '')) / 3600).toFixed(2)) : undefined,
+      risk_trend: requiresManeuver ? 'Elevated' : 'Stable',
+      uncertainty: '±15m radial',
+      work_completed: [
+        'Telemetry ingested from Space-Track / 18 SDS ephemeris',
+        'SGP4 propagation updated with active orbital elements',
+        'Conjunction safety threshold screening performed',
+      ],
+      current_decision: 'Satellite orbit is being continuously monitored by KesslerX safety pipelines.',
+      constraints: [
+        'Subject to atmospheric drag variations in Low Earth Orbit',
+      ],
+    };
+  }, [matchingEvent, satelliteData?.NORAD_CAT_ID, satelliteData?.CATEGORY, objectName, requiresManeuver, currentUser?.user_id, currentUser?.role, altitude, velocity]);
 
   return (
     <AnimatePresence>

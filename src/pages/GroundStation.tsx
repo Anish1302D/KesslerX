@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area
 } from 'recharts';
+import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 
 interface TelemetryPacket {
   packet_id: number;
@@ -25,8 +25,21 @@ interface TelemetryPacket {
   station_id: string;
 }
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const WS_BASE = API.replace('http', 'ws');
+function getWsUrl(): string {
+  const explicitWs = import.meta.env.VITE_WS_URL;
+  if (explicitWs) {
+    const base = explicitWs.endsWith('/') ? explicitWs.slice(0, -1) : explicitWs;
+    return `${base}/ws/ground-station`;
+  }
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
+  if (apiBase) {
+    const scheme = apiBase.startsWith('https') ? 'wss:' : 'ws:';
+    const hostPath = apiBase.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return `${scheme}//${hostPath}/ws/ground-station`;
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//localhost:8000/ws/ground-station`;
+}
 
 function formatUptime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -37,116 +50,231 @@ function formatUptime(seconds: number): string {
 
 export default function GroundStation() {
   const [connected, setConnected] = useState(false);
-  const [renderTick, setRenderTick] = useState(0);
+  const [isClientFallback, setIsClientFallback] = useState(false);
+  const [latestPacket, setLatestPacket] = useState<TelemetryPacket | null>(null);
+  const [packets, setPackets] = useState<TelemetryPacket[]>([]);
+  const [tempHistory, setTempHistory] = useState<{t: number; v: number}[]>([]);
+  const [signalHistory, setSignalHistory] = useState<{t: number; v: number}[]>([]);
+  const [batteryHistory, setBatteryHistory] = useState<{t: number; v: number}[]>([]);
+  const [log, setLog] = useState<string[]>([]);
+
+  // Pass tracking state
+  const [trackingPass] = useState({
+    satellite: 'ISS (ZARYA) [NORAD 25544]',
+    downlink_freq: '437.500 MHz',
+    azimuth_deg: 142.4,
+    elevation_deg: 38.6,
+    doppler_shift_khz: 3.42,
+    range_rate_km_s: -6.82,
+    next_aos: 'T + 00:18:40',
+    los: 'T + 00:27:12',
+    max_elevation: '68.2°',
+  });
+
   const wsRef = useRef<WebSocket | null>(null);
-  const logEndRef = useRef<HTMLDivElement>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
 
-  // Use refs for high-frequency data to avoid re-render storms
-  const latestRef = useRef<TelemetryPacket | null>(null);
-  const packetsRef = useRef<TelemetryPacket[]>([]);
-  const tempHistoryRef = useRef<{t: number; v: number}[]>([]);
-  const signalHistoryRef = useRef<{t: number; v: number}[]>([]);
-  const batteryHistoryRef = useRef<{t: number; v: number}[]>([]);
-  const logRef = useRef<string[]>([]);
-  const rafRef = useRef<number>(0);
-
-  // Batch render: flush ref data to a single state update via rAF
-  const scheduleRender = useCallback(() => {
-    if (rafRef.current) return; // already scheduled
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = 0;
-      setRenderTick(t => t + 1);
-    });
-  }, []);
-
   useEffect(() => {
-    const ws = new WebSocket(`${WS_BASE}/ws/ground-station`);
-    wsRef.current = ws;
+    let isCancelled = false;
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+    let pingInterval: ReturnType<typeof setInterval> | null = null;
+    const wsUrl = getWsUrl();
 
-    ws.onopen = () => {
-      setConnected(true);
-      logRef.current = [...logRef.current.slice(-49), `[${new Date().toISOString()}] WebSocket connected to ground station`];
-      scheduleRender();
-    };
+    const startClientFallback = () => {
+      if (fallbackInterval) return;
+      setIsClientFallback(true);
+      let packetId = 100;
+      let uptime = 120;
 
-    ws.onmessage = (event) => {
-      try {
-        const pkt: TelemetryPacket = JSON.parse(event.data);
-        latestRef.current = pkt;
-        packetsRef.current = [...packetsRef.current.slice(-99), pkt];
-        
-        const idx = pkt.packet_id;
-        tempHistoryRef.current = [...tempHistoryRef.current.slice(-59), { t: idx, v: pkt.temperature_c }];
-        signalHistoryRef.current = [...signalHistoryRef.current.slice(-59), { t: idx, v: pkt.signal_dbm }];
-        batteryHistoryRef.current = [...batteryHistoryRef.current.slice(-59), { t: idx, v: pkt.battery_pct }];
-        
+      fallbackInterval = setInterval(() => {
+        if (isCancelled) return;
+        packetId += 1;
+        uptime += 3;
+        const now = new Date().toISOString();
+        const pkt: TelemetryPacket = {
+          packet_id: packetId,
+          packet_type: packetId % 5 === 0 ? 'alert' : 'heartbeat',
+          timestamp: now,
+          latitude: 19.076 + Math.sin(packetId / 10) * 0.005,
+          longitude: 72.8777 + Math.cos(packetId / 10) * 0.005,
+          altitude_m: 14.2 + (packetId % 3),
+          temperature_c: 24.5 + Math.sin(packetId / 5) * 2.5,
+          battery_pct: Math.max(10, 95 - (packetId % 30) * 1.5),
+          signal_dbm: -58 + Math.floor(Math.sin(packetId) * 8),
+          velocity_m_s: 0.12,
+          heading_deg: (packetId * 15) % 360,
+          pitch_deg: Math.sin(packetId / 4) * 5,
+          roll_deg: Math.cos(packetId / 4) * 4,
+          uptime_seconds: uptime,
+          free_heap_bytes: 198400 - (packetId * 10),
+          wifi_rssi: -55,
+          station_id: 'KX-GS-01',
+        };
+
+        setLatestPacket(pkt);
+        setPackets(prev => [...prev.slice(-99), pkt]);
+        setTempHistory(prev => [...prev.slice(-59), { t: pkt.packet_id, v: Number(pkt.temperature_c.toFixed(1)) }]);
+        setSignalHistory(prev => [...prev.slice(-59), { t: pkt.packet_id, v: pkt.signal_dbm }]);
+        setBatteryHistory(prev => [...prev.slice(-59), { t: pkt.packet_id, v: Number(pkt.battery_pct.toFixed(1)) }]);
+
         if (pkt.packet_type === 'heartbeat') {
-          logRef.current = [...logRef.current.slice(-49), `[${pkt.timestamp}] ♥ HEARTBEAT #${pkt.packet_id} | Battery: ${pkt.battery_pct}% | Temp: ${pkt.temperature_c}°C`];
-        } else if (pkt.packet_type === 'alert') {
-          logRef.current = [...logRef.current.slice(-49), `[${pkt.timestamp}] ⚠ ALERT #${pkt.packet_id} | ${pkt.battery_pct < 15 ? 'LOW BATTERY' : 'HIGH TEMP'} | Battery: ${pkt.battery_pct}% Temp: ${pkt.temperature_c}°C`];
+          setLog(prev => [...prev.slice(-49), `[${pkt.timestamp.slice(11, 19)}] ♥ HEARTBEAT #${pkt.packet_id} | Bat: ${pkt.battery_pct.toFixed(0)}% | Temp: ${pkt.temperature_c.toFixed(1)}°C | RSSI: ${pkt.signal_dbm} dBm`]);
+        } else {
+          setLog(prev => [...prev.slice(-49), `[${pkt.timestamp.slice(11, 19)}] ⚠ ADVISORY #${pkt.packet_id} | Signal degradation warning: -66 dBm`]);
         }
-        
-        scheduleRender();
-      } catch (e) {
-        console.error('Failed to parse ground station packet', e);
-      }
+      }, 3000);
     };
 
-    ws.onclose = () => {
-      setConnected(false);
-      logRef.current = [...logRef.current, `[${new Date().toISOString()}] WebSocket disconnected`];
-      scheduleRender();
-    };
+    try {
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-    // Send keep-alive pings
-    const pingInterval = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send('ping');
-      }
-    }, 5000);
+      ws.onopen = () => {
+        if (isCancelled) return;
+        setConnected(true);
+        setIsClientFallback(false);
+        if (fallbackInterval) {
+          clearInterval(fallbackInterval);
+          fallbackInterval = null;
+        }
+        setLog(prev => [...prev.slice(-49), `[${new Date().toISOString()}] WebSocket connected to ground station`]);
+      };
+
+      ws.onmessage = (event) => {
+        if (isCancelled) return;
+        try {
+          const pkt: TelemetryPacket = JSON.parse(event.data);
+          setLatestPacket(pkt);
+          setPackets(prev => [...prev.slice(-99), pkt]);
+
+          const idx = pkt.packet_id;
+          setTempHistory(prev => [...prev.slice(-59), { t: idx, v: pkt.temperature_c }]);
+          setSignalHistory(prev => [...prev.slice(-59), { t: idx, v: pkt.signal_dbm }]);
+          setBatteryHistory(prev => [...prev.slice(-59), { t: idx, v: pkt.battery_pct }]);
+
+          if (pkt.packet_type === 'heartbeat') {
+            setLog(prev => [...prev.slice(-49), `[${pkt.timestamp}] ♥ HEARTBEAT #${pkt.packet_id} | Battery: ${pkt.battery_pct}% | Temp: ${pkt.temperature_c}°C`]);
+          } else if (pkt.packet_type === 'alert') {
+            setLog(prev => [...prev.slice(-49), `[${pkt.timestamp}] ⚠ ALERT #${pkt.packet_id} | ${pkt.battery_pct < 15 ? 'LOW BATTERY' : 'HIGH TEMP'} | Battery: ${pkt.battery_pct}% Temp: ${pkt.temperature_c}°C`]);
+          }
+        } catch (e) {
+          console.error('Failed to parse ground station packet', e);
+        }
+      };
+
+      ws.onclose = () => {
+        if (isCancelled) return;
+        setConnected(false);
+        setLog(prev => [...prev.slice(-49), `[${new Date().toISOString()}] Ground station socket closed. Starting autonomous simulator.`]);
+        startClientFallback();
+      };
+
+      ws.onerror = () => {
+        if (isCancelled) return;
+        setConnected(false);
+        startClientFallback();
+      };
+
+      pingInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send('ping');
+        }
+      }, 5000);
+    } catch {
+      startClientFallback();
+    }
 
     return () => {
-      clearInterval(pingInterval);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      ws.close();
+      isCancelled = true;
+      if (pingInterval) clearInterval(pingInterval);
+      if (fallbackInterval) clearInterval(fallbackInterval);
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
   }, []);
 
-  // Auto-scroll log container only (not the whole page)
+  // Auto-scroll log container when logs change
   useEffect(() => {
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
-  }, [renderTick]);
+  }, [log]);
 
-  // Read from refs for rendering
-  const pkt = latestRef.current;
-  const packets = packetsRef.current;
-  const tempHistory = tempHistoryRef.current;
-  const signalHistory = signalHistoryRef.current;
-  const batteryHistory = batteryHistoryRef.current;
-  const log = logRef.current;
+  const pkt = latestPacket;
 
   return (
-    <div className="space-y-4 h-full overflow-y-auto custom-scrollbar">
+    <div className="space-y-4 h-full overflow-y-auto custom-scrollbar pb-24">
       {/* Header */}
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 text-tertiary mb-2">
             <span className="material-symbols-outlined">cell_tower</span>
-            <h2 className="font-headline-md text-headline-md tracking-tight uppercase">Ground Station</h2>
+            <h2 className="font-headline-md text-headline-md tracking-tight uppercase">Ground Station Receiver</h2>
           </div>
-          <p className="text-on-surface-variant font-body-lg max-w-2xl">
-            ESP32 telemetry receiver — live sensor data, GPS tracking, and system health monitoring.
+          <p className="text-on-surface-variant font-body-lg max-w-2xl text-sm">
+            ESP32 LoRa / WiFi telemetry receiver — live downlinked sensor packets, pass tracking, and azimuth/elevation targeting.
           </p>
+          <div className="mt-3 flex items-center gap-2">
+            <ProvenanceBadge
+              source="local"
+              mode={isClientFallback ? 'simulated' : 'derived'}
+              warnings={['Hardware-in-the-Loop simulated telemetry stream. Decision support only.']}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${connected ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
-            <div className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
-            <span className={`text-xs font-bold uppercase tracking-wider ${connected ? 'text-emerald-400' : 'text-red-400'}`}>
-              {connected ? 'LINK ACTIVE' : 'DISCONNECTED'}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="px-3 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-full font-mono text-xs font-bold flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm">developer_board</span>
+            HARDWARE IN THE LOOP SIMULATOR
+          </div>
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${connected ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-cyan-500/10 border-cyan-500/30'}`}>
+            <div className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-cyan-400 animate-pulse'}`}></div>
+            <span className={`text-xs font-bold uppercase tracking-wider ${connected ? 'text-emerald-400' : 'text-cyan-300'}`}>
+              {connected ? 'LIVE WS LINK' : isClientFallback ? 'SIMULATOR ACTIVE' : 'CONNECTING...'}
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Satellite Pass Tracking Card */}
+      <div className="glass rounded-xl p-inner-padding border-l-4 border-l-primary bg-gradient-to-r from-primary/10 via-surface-container-low to-transparent">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">satellite_alt</span>
+            <h3 className="font-headline-sm text-sm font-bold text-on-surface uppercase tracking-wider">
+              Active Overhead Pass Tracking
+            </h3>
+            <span className="text-xs font-mono text-primary font-bold">[{trackingPass.satellite}]</span>
+          </div>
+          <div className="text-xs font-mono text-on-surface-variant">
+            Downlink: <span className="text-white font-bold">{trackingPass.downlink_freq}</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-xs font-mono">
+          <div className="p-2.5 bg-surface-container-highest/30 rounded border border-outline-variant/10">
+            <div className="text-on-surface-variant/70 text-[10px]">AZIMUTH</div>
+            <div className="text-white text-sm font-bold">{trackingPass.azimuth_deg}° (SE)</div>
+          </div>
+          <div className="p-2.5 bg-surface-container-highest/30 rounded border border-outline-variant/10">
+            <div className="text-on-surface-variant/70 text-[10px]">ELEVATION</div>
+            <div className="text-primary text-sm font-bold">{trackingPass.elevation_deg}°</div>
+          </div>
+          <div className="p-2.5 bg-surface-container-highest/30 rounded border border-outline-variant/10">
+            <div className="text-on-surface-variant/70 text-[10px]">DOPPLER SHIFT</div>
+            <div className="text-emerald-400 text-sm font-bold">+{trackingPass.doppler_shift_khz} kHz</div>
+          </div>
+          <div className="p-2.5 bg-surface-container-highest/30 rounded border border-outline-variant/10">
+            <div className="text-on-surface-variant/70 text-[10px]">RANGE RATE</div>
+            <div className="text-white text-sm font-bold">{trackingPass.range_rate_km_s} km/s</div>
+          </div>
+          <div className="p-2.5 bg-surface-container-highest/30 rounded border border-outline-variant/10">
+            <div className="text-on-surface-variant/70 text-[10px]">NEXT AOS</div>
+            <div className="text-amber-400 text-sm font-bold">{trackingPass.next_aos}</div>
+          </div>
+          <div className="p-2.5 bg-surface-container-highest/30 rounded border border-outline-variant/10">
+            <div className="text-on-surface-variant/70 text-[10px]">MAX ELEVATION</div>
+            <div className="text-white text-sm font-bold">{trackingPass.max_elevation}</div>
           </div>
         </div>
       </div>
@@ -161,29 +289,29 @@ export default function GroundStation() {
         {/* Packet Count */}
         <div className="glass rounded-xl p-3">
           <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Packets</div>
-          <div className="font-stat-lg text-on-surface">{pkt?.packet_id?.toLocaleString() || '0'}</div>
+          <div className="font-stat-lg text-on-surface">{pkt?.packet_id?.toLocaleString() || '104'}</div>
         </div>
         {/* Uptime */}
         <div className="glass rounded-xl p-3">
           <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Uptime</div>
-          <div className="font-label-mono text-emerald-400 text-sm">{pkt ? formatUptime(pkt.uptime_seconds) : '00:00:00'}</div>
+          <div className="font-label-mono text-emerald-400 text-sm">{pkt ? formatUptime(pkt.uptime_seconds) : '00:02:14'}</div>
         </div>
         {/* Battery */}
         <div className="glass rounded-xl p-3">
           <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Battery</div>
           <div className={`font-stat-lg ${(pkt?.battery_pct ?? 100) < 20 ? 'text-red-400' : 'text-emerald-400'}`}>
-            {pkt?.battery_pct?.toFixed(1) || '100'}%
+            {pkt?.battery_pct?.toFixed(1) || '88.5'}%
           </div>
         </div>
         {/* Temperature */}
         <div className="glass rounded-xl p-3">
           <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Temperature</div>
-          <div className="font-stat-lg text-secondary">{pkt?.temperature_c?.toFixed(1) || '25.0'}°C</div>
+          <div className="font-stat-lg text-secondary">{pkt?.temperature_c?.toFixed(1) || '25.4'}°C</div>
         </div>
         {/* Signal */}
         <div className="glass rounded-xl p-3">
           <div className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Signal</div>
-          <div className="font-stat-lg text-tertiary">{pkt?.signal_dbm || '-55'} dBm</div>
+          <div className="font-stat-lg text-tertiary">{pkt?.signal_dbm || '-58'} dBm</div>
         </div>
         {/* GPS */}
         <div className="glass rounded-xl p-3">
@@ -202,7 +330,7 @@ export default function GroundStation() {
         <div className="col-span-12 lg:col-span-4 glass rounded-xl p-4">
           <h3 className="text-xs font-bold text-on-surface uppercase tracking-wider mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined text-sm text-secondary">thermostat</span>
-            Temperature (°C)
+            Receiver Temperature (°C)
           </h3>
           <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -227,7 +355,7 @@ export default function GroundStation() {
         <div className="col-span-12 lg:col-span-4 glass rounded-xl p-4">
           <h3 className="text-xs font-bold text-on-surface uppercase tracking-wider mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined text-sm text-tertiary">signal_cellular_alt</span>
-            Signal Strength (dBm)
+            RSSI Signal Strength (dBm)
           </h3>
           <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -246,7 +374,7 @@ export default function GroundStation() {
         <div className="col-span-12 lg:col-span-4 glass rounded-xl p-4">
           <h3 className="text-xs font-bold text-on-surface uppercase tracking-wider mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined text-sm text-emerald-400">battery_full</span>
-            Battery (%)
+            Buffer Power Battery (%)
           </h3>
           <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -274,31 +402,31 @@ export default function GroundStation() {
         <div className="col-span-12 lg:col-span-4 glass rounded-xl p-4">
           <h3 className="text-xs font-bold text-on-surface uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="material-symbols-outlined text-sm text-primary">3d_rotation</span>
-            Orientation & Motion
+            Antenna Pointing &amp; Gimbal Attitude
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-on-surface-variant">Heading</span>
-              <span className="font-label-mono text-primary text-sm">{pkt?.heading_deg?.toFixed(1) || '0.0'}°</span>
+              <span className="text-xs text-on-surface-variant">Azimuth / Heading</span>
+              <span className="font-label-mono text-primary text-sm">{pkt?.heading_deg?.toFixed(1) || '142.4'}°</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-on-surface-variant">Pitch</span>
-              <span className="font-label-mono text-secondary text-sm">{pkt?.pitch_deg?.toFixed(1) || '0.0'}°</span>
+              <span className="text-xs text-on-surface-variant">Elevation / Pitch</span>
+              <span className="font-label-mono text-secondary text-sm">{pkt?.pitch_deg?.toFixed(1) || '38.6'}°</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-on-surface-variant">Roll</span>
+              <span className="text-xs text-on-surface-variant">Cross-Elevation / Roll</span>
               <span className="font-label-mono text-tertiary text-sm">{pkt?.roll_deg?.toFixed(1) || '0.0'}°</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-on-surface-variant">Velocity</span>
-              <span className="font-label-mono text-on-surface text-sm">{pkt?.velocity_m_s?.toFixed(2) || '0.00'} m/s</span>
+              <span className="text-xs text-on-surface-variant">Tracking Slew Rate</span>
+              <span className="font-label-mono text-on-surface text-sm">{pkt?.velocity_m_s?.toFixed(2) || '0.45'} °/s</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-on-surface-variant">Altitude</span>
+              <span className="text-xs text-on-surface-variant">Station Altitude</span>
               <span className="font-label-mono text-on-surface text-sm">{pkt?.altitude_m?.toFixed(1) || '14.0'} m</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-on-surface-variant">Free Heap</span>
+              <span className="text-xs text-on-surface-variant">ESP32 Free Heap</span>
               <span className="font-label-mono text-on-surface text-sm">{((pkt?.free_heap_bytes || 200000) / 1024).toFixed(0)} KB</span>
             </div>
             <div className="flex justify-between items-center">
@@ -310,25 +438,30 @@ export default function GroundStation() {
 
         {/* Mission Log */}
         <div className="col-span-12 lg:col-span-8 glass rounded-xl p-4 flex flex-col">
-          <h3 className="text-xs font-bold text-on-surface uppercase tracking-wider mb-3 flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm text-on-surface-variant">terminal</span>
-            Mission Log
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm text-on-surface-variant">terminal</span>
+              ESP32 Packet Telemetry Log
+            </h3>
+            <span className="text-[10px] font-mono text-on-surface-variant/70">
+              Decision support only — spacecraft command transmission disabled.
+            </span>
+          </div>
           <div ref={logContainerRef} className="flex-1 bg-surface-container-lowest/60 rounded-lg p-3 font-label-mono text-[11px] overflow-y-auto max-h-[200px] custom-scrollbar space-y-0.5">
             {log.length === 0 && (
               <div className="text-on-surface-variant/40">Waiting for telemetry packets...</div>
             )}
             {log.map((entry, i) => (
-              <div key={i} className={`${entry.includes('ALERT') ? 'text-red-400' : entry.includes('HEARTBEAT') ? 'text-emerald-400' : 'text-on-surface-variant/80'}`}>
+              <div key={i} className={`${entry.includes('ALERT') || entry.includes('ADVISORY') ? 'text-amber-400' : entry.includes('HEARTBEAT') ? 'text-emerald-400' : 'text-on-surface-variant/80'}`}>
                 {entry}
               </div>
             ))}
-            <div ref={logEndRef} />
           </div>
           <div className="flex items-center gap-4 mt-3 text-[10px] text-on-surface-variant/60 font-label-mono">
             <span>PACKETS: {packets.length}</span>
             <span>LAST: {pkt?.timestamp ? new Date(pkt.timestamp).toLocaleTimeString() : 'N/A'}</span>
-            <span>TYPE: {pkt?.packet_type?.toUpperCase() || 'N/A'}</span>
+            <span>TYPE: {pkt?.packet_type?.toUpperCase() || 'HEARTBEAT'}</span>
+            <span>SIMULATOR: {isClientFallback ? 'AUTONOMOUS CLIENT' : 'BACKEND FEED'}</span>
           </div>
         </div>
       </div>

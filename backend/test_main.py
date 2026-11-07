@@ -144,9 +144,7 @@ def test_alerts_with_severity_filter():
 
 def test_acknowledge_alert_not_found():
     response = client.post("/api/alerts/nonexistent/acknowledge")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "not_found"
+    assert response.status_code == 404
 
 
 # ============================================================
@@ -258,3 +256,68 @@ def test_no_404_on_any_api():
         response = client.get(endpoint)
         assert response.status_code != 404, f"{endpoint} returned 404!"
         assert response.status_code == 200, f"{endpoint} returned {response.status_code}"
+
+
+# ============================================================
+# Phase 4 & 7 Tests: Health, Negotiator, Dynamic TCA
+# ============================================================
+
+def test_health_granular_dependencies():
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "nominal"
+    assert "dependencies" in data
+    assert "database" in data["dependencies"]
+    assert "ai_engine" in data["dependencies"]
+    assert "satellite_catalog" in data["dependencies"]
+    assert "Decision support only — human approval required" in data["disclaimer"]
+
+
+def test_negotiator_evaluate_endpoint():
+    response = client.post(
+        "/api/negotiator/evaluate",
+        json={
+            "event_id": "EVT-TEST-API",
+            "name_a": "STARLINK-1001",
+            "name_b": "DEBRIS-88172",
+            "altitude_km": 550.0,
+            "miss_distance_km": 0.22,
+            "collision_probability": 0.08,
+            "tle_age_hours": 12.0,
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["event_id"] == "EVT-TEST-API"
+    assert len(data["candidates"]) == 6
+    assert "Decision support only — human approval required" in data["disclaimer"]
+    recommended = [c for c in data["candidates"] if c["recommended"]]
+    assert len(recommended) == 1
+
+
+def test_collisions_dynamic_tca():
+    response = client.get("/api/collisions")
+    assert response.status_code == 200
+    events = response.json()
+    assert len(events) > 0
+    first = events[0]
+    assert "tca" in first
+    assert first["source"] == "demo"
+    assert first["mode"] == "fallback"
+    assert len(first["warnings"]) > 0
+
+
+def test_validation_error_structured_response():
+    # Negative duration should fail validation with 422
+    response = client.post(
+        "/api/conjunction/analyze",
+        json={
+            "tle1_line1": "1 25544U 98067A   26079.52187500  .00016717  00000-0  10270-3 0  9005",
+            "tle1_line2": "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.72125391563537",
+            "tle2_line1": "1 88172U          26079.52187500  .00000000  00000-0  00000-0 0  9999",
+            "tle2_line2": "2 88172  51.6420 247.4600 0006700 130.5300 325.0200 15.72125000    01",
+            "duration_hours": -5,  # Invalid
+        },
+    )
+    assert response.status_code == 422

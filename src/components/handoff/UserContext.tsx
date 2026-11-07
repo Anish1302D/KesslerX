@@ -42,8 +42,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (Array.isArray(data.users) && data.users.length > 0) {
           setAllUsers(data.users);
           const savedId = localStorage.getItem('kesslerx_current_user');
-          const defaultUser = data.users.find((u: HandoffUser) => u.user_id === (savedId || currentUser.user_id)) || data.users[0];
-          if (defaultUser) setCurrentUser(defaultUser);
+          setCurrentUser(prev => {
+            const match = data.users.find((u: HandoffUser) => u.user_id === (savedId || prev.user_id));
+            return match || data.users[0] || prev;
+          });
         }
       } catch (err) {
         console.warn('Backend users API not ready, using default demo users:', err);
@@ -67,6 +69,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCurrentUser() {
   return useContext(UserContext);
 }

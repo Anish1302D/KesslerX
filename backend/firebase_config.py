@@ -28,6 +28,11 @@ def init_firebase():
     if _firebase_app is not None:
         return _firebase_available
 
+    if os.getenv("TESTING") == "1" or os.getenv("FIREBASE_DISABLED") == "1":
+        _firebase_available = False
+        _firebase_app = "disabled"
+        return False
+
     try:
         import firebase_admin
         from firebase_admin import credentials, firestore

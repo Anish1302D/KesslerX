@@ -44,44 +44,94 @@ async function handoffFetch<T>(
 export function useUsers() {
   const [users, setUsers] = useState<HandoffUser[]>(DEFAULT_DEMO_USERS);
   const [loading, setLoading] = useState(false);
+  const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
       const data = await handoffFetch<{ users: HandoffUser[] }>(`${API}/api/users`);
-      if (Array.isArray(data.users) && data.users.length > 0) {
+      if (mountedRef.current && Array.isArray(data.users) && data.users.length > 0) {
         setUsers(data.users);
       }
     } catch (err) {
       console.warn('Failed to fetch users, using default demo users:', err);
-      setUsers(DEFAULT_DEMO_USERS);
+      if (mountedRef.current) setUsers(DEFAULT_DEMO_USERS);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    mountedRef.current = true;
+    let isCancelled = false;
+    const fetchUsers = async () => {
+      try {
+        const data = await handoffFetch<{ users: HandoffUser[] }>(`${API}/api/users`);
+        if (!isCancelled && Array.isArray(data.users) && data.users.length > 0) {
+          setUsers(data.users);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn('Failed to fetch users, using default demo users:', err);
+          setUsers(DEFAULT_DEMO_USERS);
+        }
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    };
+    void fetchUsers();
+    return () => {
+      isCancelled = true;
+      mountedRef.current = false;
+    };
+  }, []);
+
   return { users, loading, refresh };
 }
 
 export function useEvents() {
   const [events, setEvents] = useState<HandoffEvent[]>(DEFAULT_DEMO_EVENTS);
   const [loading, setLoading] = useState(false);
+  const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
       const data = await handoffFetch<{ events: HandoffEvent[] }>(`${API}/api/events`);
-      if (Array.isArray(data.events) && data.events.length > 0) {
+      if (mountedRef.current && Array.isArray(data.events) && data.events.length > 0) {
         setEvents(data.events);
       }
     } catch (err) {
       console.warn('Failed to fetch events, using default demo events:', err);
-      setEvents(DEFAULT_DEMO_EVENTS);
+      if (mountedRef.current) setEvents(DEFAULT_DEMO_EVENTS);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    mountedRef.current = true;
+    let isCancelled = false;
+    const fetchEvents = async () => {
+      try {
+        const data = await handoffFetch<{ events: HandoffEvent[] }>(`${API}/api/events`);
+        if (!isCancelled && Array.isArray(data.events) && data.events.length > 0) {
+          setEvents(data.events);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn('Failed to fetch events, using default demo events:', err);
+          setEvents(DEFAULT_DEMO_EVENTS);
+        }
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    };
+    void fetchEvents();
+    return () => {
+      isCancelled = true;
+      mountedRef.current = false;
+    };
+  }, []);
+
   return { events, loading, refresh };
 }
 
@@ -90,30 +140,58 @@ export function useEvent(eventId: string) {
     return DEFAULT_DEMO_EVENTS.find(e => e.event_id === eventId) || null;
   });
   const [loading, setLoading] = useState(false);
+  const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     if (!eventId) return;
     try {
       const data = await handoffFetch<HandoffEvent>(`${API}/api/events/${eventId}`);
-      if (data && data.event_id) {
+      if (mountedRef.current && data && data.event_id) {
         setEvent(data);
       }
     } catch (err) {
       console.warn(`Failed to fetch event ${eventId}, using demo fallback:`, err);
       const fallback = DEFAULT_DEMO_EVENTS.find(e => e.event_id === eventId);
-      if (fallback) setEvent(fallback);
+      if (mountedRef.current && fallback) setEvent(fallback);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [eventId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    mountedRef.current = true;
+    let isCancelled = false;
+    const fetchEvent = async () => {
+      if (!eventId) return;
+      try {
+        const data = await handoffFetch<HandoffEvent>(`${API}/api/events/${eventId}`);
+        if (!isCancelled && data && data.event_id) {
+          setEvent(data);
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn(`Failed to fetch event ${eventId}, using demo fallback:`, err);
+          const fallback = DEFAULT_DEMO_EVENTS.find(e => e.event_id === eventId);
+          if (fallback) setEvent(fallback);
+        }
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    };
+    void fetchEvent();
+    return () => {
+      isCancelled = true;
+      mountedRef.current = false;
+    };
+  }, [eventId]);
+
   return { event, loading, refresh };
 }
 
 export function useEventHandoffs(eventId: string) {
   const [handoffs, setHandoffs] = useState<Handoff[]>([]);
   const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     if (!eventId) return;
@@ -121,21 +199,44 @@ export function useEventHandoffs(eventId: string) {
       const data = await handoffFetch<{ handoffs: Handoff[] }>(
         `${API}/api/events/${eventId}/handoffs`
       );
-      setHandoffs(data.handoffs);
+      if (mountedRef.current) setHandoffs(data.handoffs);
     } catch (err) {
       console.warn('Failed to fetch handoffs:', err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [eventId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    mountedRef.current = true;
+    let isCancelled = false;
+    const fetchHandoffs = async () => {
+      if (!eventId) return;
+      try {
+        const data = await handoffFetch<{ handoffs: Handoff[] }>(
+          `${API}/api/events/${eventId}/handoffs`
+        );
+        if (!isCancelled) setHandoffs(data.handoffs);
+      } catch (err) {
+        if (!isCancelled) console.warn('Failed to fetch handoffs:', err);
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    };
+    void fetchHandoffs();
+    return () => {
+      isCancelled = true;
+      mountedRef.current = false;
+    };
+  }, [eventId]);
+
   return { handoffs, loading, refresh };
 }
 
 export function useEventTimeline(eventId: string) {
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     if (!eventId) return;
@@ -143,15 +244,37 @@ export function useEventTimeline(eventId: string) {
       const data = await handoffFetch<{ timeline: TimelineEntry[] }>(
         `${API}/api/events/${eventId}/timeline`
       );
-      setTimeline(data.timeline);
+      if (mountedRef.current) setTimeline(data.timeline);
     } catch (err) {
       console.warn('Failed to fetch timeline:', err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [eventId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    mountedRef.current = true;
+    let isCancelled = false;
+    const fetchTimeline = async () => {
+      if (!eventId) return;
+      try {
+        const data = await handoffFetch<{ timeline: TimelineEntry[] }>(
+          `${API}/api/events/${eventId}/timeline`
+        );
+        if (!isCancelled) setTimeline(data.timeline);
+      } catch (err) {
+        if (!isCancelled) console.warn('Failed to fetch timeline:', err);
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    };
+    void fetchTimeline();
+    return () => {
+      isCancelled = true;
+      mountedRef.current = false;
+    };
+  }, [eventId]);
+
   return { timeline, loading, refresh };
 }
 
@@ -176,10 +299,32 @@ export function usePendingHandoffs(userId: string) {
 
   useEffect(() => {
     mountedRef.current = true;
-    refresh();
-    const interval = setInterval(refresh, 10000); // Poll every 10s
-    return () => { mountedRef.current = false; clearInterval(interval); };
-  }, [refresh]);
+    let isCancelled = false;
+    const fetchPending = async () => {
+      try {
+        const data = await handoffFetch<{ handoffs: Handoff[] }>(
+          `${API}/api/handoffs/pending`,
+          { userId }
+        );
+        if (!isCancelled && mountedRef.current) setHandoffs(data.handoffs);
+      } catch (err) {
+        if (!isCancelled) console.warn('Failed to fetch pending handoffs:', err);
+      } finally {
+        if (!isCancelled && mountedRef.current) setLoading(false);
+      }
+    };
+
+    void fetchPending();
+    const interval = setInterval(() => {
+      void fetchPending();
+    }, 10000); // Poll every 10s
+
+    return () => {
+      isCancelled = true;
+      mountedRef.current = false;
+      clearInterval(interval);
+    };
+  }, [userId]);
 
   return { handoffs, loading, refresh };
 }
@@ -187,20 +332,41 @@ export function usePendingHandoffs(userId: string) {
 export function useHandoff(handoffId: string) {
   const [handoff, setHandoff] = useState<Handoff | null>(null);
   const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     if (!handoffId) return;
     try {
       const data = await handoffFetch<Handoff>(`${API}/api/handoffs/${handoffId}`);
-      setHandoff(data);
+      if (mountedRef.current) setHandoff(data);
     } catch (err) {
       console.warn('Failed to fetch handoff:', err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [handoffId]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    mountedRef.current = true;
+    let isCancelled = false;
+    const fetchHandoff = async () => {
+      if (!handoffId) return;
+      try {
+        const data = await handoffFetch<Handoff>(`${API}/api/handoffs/${handoffId}`);
+        if (!isCancelled && mountedRef.current) setHandoff(data);
+      } catch (err) {
+        if (!isCancelled) console.warn('Failed to fetch handoff:', err);
+      } finally {
+        if (!isCancelled && mountedRef.current) setLoading(false);
+      }
+    };
+    void fetchHandoff();
+    return () => {
+      isCancelled = true;
+      mountedRef.current = false;
+    };
+  }, [handoffId]);
+
   return { handoff, loading, refresh };
 }
 
@@ -267,7 +433,7 @@ export async function rejectHandoff(
   });
 }
 
-export async function checkTimeouts(timeout?: number): Promise<any> {
+export async function checkTimeouts(timeout?: number): Promise<{ timed_out_count?: number; escalated_count?: number } | unknown> {
   const url = timeout
     ? `${API}/api/handoffs/check-timeouts?timeout=${timeout}`
     : `${API}/api/handoffs/check-timeouts`;

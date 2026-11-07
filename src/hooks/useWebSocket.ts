@@ -2,56 +2,101 @@ import { useState, useEffect, useRef } from 'react';
 
 export interface WebSocketMessage {
   type?: string;
-  data?: any;
+  data?: unknown;
   severity?: string;
   timestamp?: string;
   message?: string;
 }
 
-export function useWebSocket(url: string) {
+export function useWebSocket(pathOrUrl: string) {
   const [messages, setMessages] = useState<WebSocketMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    // Determine WS protocol based on HTTP protocol
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use the provided URL or fallback to localhost
-    const wsUrl = url.startsWith('ws') ? url : `${protocol}//localhost:8000${url}`;
-    
+    let isMounted = true;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    // Resolve target WebSocket URL
+    let wsUrl: string;
+    if (pathOrUrl.startsWith('ws://') || pathOrUrl.startsWith('wss://')) {
+      wsUrl = pathOrUrl;
+    } else {
+      const explicitWsBase = import.meta.env.VITE_WS_URL;
+      const apiBase = import.meta.env.VITE_API_BASE_URL;
+
+      if (explicitWsBase) {
+        const base = explicitWsBase.endsWith('/') ? explicitWsBase.slice(0, -1) : explicitWsBase;
+        const path = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+        wsUrl = `${base}${path}`;
+      } else if (apiBase) {
+        const wsScheme = apiBase.startsWith('https') ? 'wss:' : 'ws:';
+        const hostPath = apiBase.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        const path = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
+        wsUrl = `${wsScheme}//${hostPath}${path}`;
+      } else {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsUrl = `${protocol}//localhost:8000${pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`}`;
+      }
+    }
+
     const connect = () => {
-      const ws = new WebSocket(wsUrl);
-      
-      ws.onopen = () => {
-        setIsConnected(true);
-      };
+      if (!isMounted) return;
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          setMessages((prev) => [...prev, data]);
-        } catch (e) {
-          console.error("Failed to parse WebSocket message", e);
+      try {
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          if (isMounted) setIsConnected(true);
+        };
+
+        ws.onmessage = (event) => {
+          if (!isMounted) return;
+          try {
+            const data = JSON.parse(event.data);
+            setMessages((prev) => [...prev, data]);
+          } catch {
+            setMessages((prev) => [...prev, { data: event.data }]);
+          }
+        };
+
+        ws.onclose = () => {
+          if (!isMounted) return;
+          setIsConnected(false);
+          // Reconnect after 5 seconds with cancellation guard
+          reconnectTimeout = setTimeout(() => {
+            if (isMounted) connect();
+          }, 5000);
+        };
+
+        ws.onerror = () => {
+          if (isMounted) setIsConnected(false);
+        };
+
+        wsRef.current = ws;
+      } catch {
+        if (isMounted) {
+          setIsConnected(false);
+          reconnectTimeout = setTimeout(() => {
+            if (isMounted) connect();
+          }, 5000);
         }
-      };
-
-      ws.onclose = () => {
-        setIsConnected(false);
-        // Attempt to reconnect after a delay
-        setTimeout(connect, 5000);
-      };
-
-      wsRef.current = ws;
+      }
     };
 
     connect();
 
     return () => {
+      isMounted = false;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
       if (wsRef.current) {
         wsRef.current.close();
+        wsRef.current = null;
       }
     };
-  }, [url]);
+  }, [pathOrUrl]);
 
   return { messages, isConnected };
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
+import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -24,7 +25,17 @@ const INITIAL_ALERTS: Alert[] = [
   { id: '4', target: 'COSMOS-2251', time: '1h 12m ago', title: 'Debris Cloud Proximity', type: 'Environmental', severity: 'info', status: 'Unacknowledged', altitude: '790 km', velocity: '7.40 km/s' },
 ];
 
-function mapBackendAlert(a: any): Alert {
+interface RawBackendAlert {
+  id?: string;
+  title?: string;
+  message?: string;
+  severity?: string;
+  type?: string;
+  timestamp?: string;
+  acknowledged?: boolean;
+}
+
+function mapBackendAlert(a: RawBackendAlert): Alert {
   const sevMap: Record<string, AlertSeverity> = { CRITICAL: 'critical', HIGH: 'critical', MEDIUM: 'warning', LOW: 'info' };
   const ago = a.timestamp ? getTimeAgo(a.timestamp) : 'just now';
   return {
@@ -33,7 +44,7 @@ function mapBackendAlert(a: any): Alert {
     time: ago,
     title: a.message || a.title || '',
     type: a.type || 'system',
-    severity: sevMap[a.severity] || 'info',
+    severity: (a.severity ? sevMap[a.severity] : undefined) || 'info',
     status: a.acknowledged ? 'Acknowledged' : 'Unacknowledged',
     altitude: '-',
     velocity: '-',
@@ -53,26 +64,55 @@ export default function AlertCenter() {
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [selectedAlertId, setSelectedAlertId] = useState<string>('1');
 
-  // Fetch persistent alerts from backend on mount
+  // Fetch persistent alerts from backend and poll when WebSocket disconnected
   useEffect(() => {
-    fetch(`${API}/api/alerts?limit=50`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.alerts && data.alerts.length > 0) {
-          const backendAlerts = data.alerts.map(mapBackendAlert);
-          setAlerts(prev => [...backendAlerts, ...prev]);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    let isMounted = true;
+    const fetchAlerts = () => {
+      fetch(`${API}/api/alerts?limit=50`)
+        .then(r => r.json())
+        .then(data => {
+          if (isMounted && data.alerts && data.alerts.length > 0) {
+            const backendAlerts = data.alerts.map(mapBackendAlert);
+            setAlerts(prev => {
+              const existingIds = new Set(prev.map(a => a.id));
+              const fresh = backendAlerts.filter((ba: Alert) => !existingIds.has(ba.id));
+              return fresh.length > 0 ? [...fresh, ...prev] : prev;
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchAlerts();
+
+    // If WebSocket is not connected, fallback to 10s REST polling
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (!isConnected) {
+      interval = setInterval(fetchAlerts, 10000);
+    }
+
+    return () => {
+      isMounted = false;
+      if (interval) clearInterval(interval);
+    };
+  }, [isConnected]);
 
   // Append live WebSocket alerts
   useEffect(() => {
     if (messages.length > 0) {
       const latest = messages[messages.length - 1];
-      if (latest.data) {
-        const mapped = mapBackendAlert(typeof latest.data === 'string' ? { title: latest.data, severity: (latest as any).severity || 'LOW', type: (latest as any).type || 'live' } : latest.data);
-        setAlerts(prev => [mapped, ...prev].slice(0, 100));
+      if (latest && latest.data) {
+        const timer = setTimeout(() => {
+          const rawPayload: RawBackendAlert = typeof latest.data === 'string'
+            ? { title: latest.data, severity: latest.severity || 'LOW', type: latest.type || 'live' }
+            : (latest.data as RawBackendAlert);
+          const mapped = mapBackendAlert(rawPayload);
+          setAlerts(prev => {
+            if (prev.some(a => a.id === mapped.id)) return prev;
+            return [mapped, ...prev].slice(0, 100);
+          });
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
   }, [messages]);
@@ -90,7 +130,9 @@ export default function AlertCenter() {
     // Call backend
     try {
       await fetch(`${API}/api/alerts/${selectedAlert.id}/acknowledge`, { method: 'POST' });
-    } catch {}
+    } catch {
+      // Ignore network error on acknowledge
+    }
     setAlerts(alerts.map(a => a.id === selectedAlert.id ? { ...a, status: 'Acknowledged' } : a));
   };
 
@@ -129,11 +171,17 @@ export default function AlertCenter() {
               <span className="material-symbols-outlined">format_list_bulleted</span>
               Active Alerts
             </h2>
-            {criticalCount > 0 && (
-              <span className="bg-error/20 text-error font-label-mono text-[10px] px-2 py-0.5 rounded-full border border-error/30 animate-pulse">
-                {criticalCount} CRITICAL
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+              <span className="font-mono text-[10px] text-on-surface-variant">
+                {isConnected ? 'LIVE WS' : 'REST POLL (10s)'}
               </span>
-            )}
+              {criticalCount > 0 && (
+                <span className="bg-error/20 text-error font-label-mono text-[10px] px-2 py-0.5 rounded-full border border-error/30 animate-pulse">
+                  {criticalCount} CRITICAL
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex gap-2 mb-2">
             <button 
@@ -202,7 +250,7 @@ export default function AlertCenter() {
         {selectedAlert ? (
           <>
             {/* Header Detail */}
-            <div className="glass p-inner-padding rounded-xl flex justify-between items-center relative overflow-hidden">
+            <div className="glass p-inner-padding rounded-xl flex flex-wrap justify-between items-center gap-4 relative overflow-hidden">
               <div className="absolute inset-0 opacity-10 pointer-events-none"></div>
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-1">
@@ -210,6 +258,7 @@ export default function AlertCenter() {
                     satellite_alt
                   </span>
                   <h3 className="font-display-lg text-display-lg text-on-surface">{selectedAlert.target}</h3>
+                  <ProvenanceBadge source="local" mode="derived" warnings={['Incident vector modeled via SGP4 analytical propagation']} />
                 </div>
                 <div className="flex gap-4">
                   <div className="flex flex-col">
@@ -342,7 +391,7 @@ export default function AlertCenter() {
                     <p><span className={getSeverityTextColor(selectedAlert.severity)}>[12:22:12]</span> {selectedAlert.severity === 'critical' ? 'ANOMALY DETECTED: Path deviation > 0.05%' : 'LOG: Trajectory plotted successfully.'}</p>
                     
                     {messages.map((msg, idx) => (
-                      <p key={idx}><span className="text-secondary">[{new Date().toLocaleTimeString()}]</span> LIVE EVENT: {msg.data}</p>
+                      <p key={idx}><span className="text-secondary">[{new Date().toLocaleTimeString()}]</span> LIVE EVENT: {typeof msg.data === 'string' ? msg.data : JSON.stringify(msg.data)}</p>
                     ))}
                   </div>
                 </div>

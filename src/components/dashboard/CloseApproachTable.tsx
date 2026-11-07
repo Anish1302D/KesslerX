@@ -44,6 +44,16 @@ function formatTCA(tcaStr: string): { display: string; minutes: number } {
   }
 }
 
+interface BackendCollisionEvent {
+  id: string;
+  satellite: string;
+  object: string;
+  tca: string;
+  collision_probability: number;
+  risk: string;
+  miss_distance: number;
+}
+
 export default function CloseApproachTable() {
   const [approaches, setApproaches] = useState<CloseApproach[]>(fallbackApproaches);
 
@@ -54,7 +64,8 @@ export default function CloseApproachTable() {
         if (!res.ok) return;
         const data = await res.json();
         // Map backend collision events to CloseApproach format
-        const mapped: CloseApproach[] = (Array.isArray(data) ? data : data.data || []).map((ev: any) => {
+        const rawList: BackendCollisionEvent[] = Array.isArray(data) ? data : data.data || [];
+        const mapped: CloseApproach[] = rawList.map((ev: BackendCollisionEvent) => {
           const { display, minutes } = formatTCA(ev.tca);
           return {
             id: ev.id,

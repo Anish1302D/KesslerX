@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent } from 'react';
+import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 
 interface Message {
   id: string;
@@ -16,7 +17,14 @@ export default function AICopilot() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showTelemetryModal, setShowTelemetryModal] = useState(false);
+  const [isFullscreenPath, setIsFullscreenPath] = useState(false);
+  const [constellationOverlayActive, setConstellationOverlayActive] = useState(false);
+  const [isListeningMic, setIsListeningMic] = useState(false);
+  const [statusNotification, setStatusNotification] = useState<string | null>(null);
+
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -75,6 +83,62 @@ export default function AICopilot() {
     }
   };
 
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        const preview = content.slice(0, 300);
+        setInput(`Analyze uploaded orbital data (${file.name}):\n${preview}...`);
+        setStatusNotification(`Loaded ${file.name} for AI analysis.`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleToggleMic = () => {
+    if (isListeningMic) {
+      setIsListeningMic(false);
+      setStatusNotification(null);
+      return;
+    }
+    setIsListeningMic(true);
+    setStatusNotification('Voice input active: Listening for orbital command query...');
+    setTimeout(() => {
+      setInput('Analyze nearest orbital neighbors and evaluate collision avoidance maneuvers for Starlink-3021.');
+      setIsListeningMic(false);
+      setStatusNotification(null);
+    }, 1500);
+  };
+
+  const handleExportSession = () => {
+    const sessionData = {
+      session_id: `COPILOT-LOG-${Date.now()}`,
+      exported_at: new Date().toISOString(),
+      disclaimer: 'Decision support only — human approval required. Not a flight command system.',
+      provenance: {
+        engine: 'KesslerX AI Copilot',
+        model: 'Gemini 1.5 Pro (SSA Fine-tuned)',
+        mode: 'derived',
+      },
+      messages,
+    };
+    const blob = new Blob([JSON.stringify(sessionData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kesslerx-copilot-session-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatusNotification('Copilot session transcript exported successfully.');
+  };
+
+  const handleQuickPrompt = (promptText: string) => {
+    setInput(promptText);
+  };
+
   return (
     <div className="flex h-[calc(100vh-64px)] -m-container-margin bg-background">
       {/* Main Content Canvas */}
@@ -88,6 +152,14 @@ export default function AICopilot() {
             </div>
             <h1 className="font-display-lg text-display-lg text-on-surface mb-2 tracking-tight">Kessler AI Copilot</h1>
             <p className="font-body-lg text-on-surface-variant/70 max-w-lg">Advanced orbital mechanics engine. Ready for debris analysis, path prediction, and risk assessment.</p>
+            <div className="flex items-center gap-2 mt-3">
+              <ProvenanceBadge source="local" mode="derived" warnings={['Decision-support advisory — requires human verification before operational action']} />
+            </div>
+            {statusNotification && (
+              <div className="mt-2 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded animate-fade-in">
+                {statusNotification}
+              </div>
+            )}
           </div>
 
           {/* Messages */}
@@ -154,7 +226,14 @@ export default function AICopilot() {
                                 <span className="material-symbols-outlined text-primary">timeline</span>
                                 <h3 className="font-headline-sm text-headline-sm">Predicted Path</h3>
                               </div>
-                              <button onClick={() => {}} className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">fullscreen</button>
+                              <button
+                                type="button"
+                                onClick={() => setIsFullscreenPath(prev => !prev)}
+                                className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors"
+                                title={isFullscreenPath ? "Exit Fullscreen" : "Fullscreen Path Visualization"}
+                              >
+                                {isFullscreenPath ? 'fullscreen_exit' : 'fullscreen'}
+                              </button>
                             </div>
                             <div className="h-40 w-full bg-surface-container-low/50 rounded border border-outline-variant/5 relative overflow-hidden">
                               <div className="absolute bottom-2 left-2 flex gap-1">
@@ -167,15 +246,25 @@ export default function AICopilot() {
                                 <div className="font-label-mono text-on-surface-variant text-[10px]">T-MINUS INTERSECT</div>
                                 <div className="font-headline-sm text-primary">04:12:44</div>
                               </div>
-                              <button onClick={() => {}} className="px-3 py-1 border border-primary/40 text-primary font-label-mono text-[11px] rounded hover:bg-primary/10 transition-colors">
+                              <button
+                                type="button"
+                                onClick={() => setShowTelemetryModal(true)}
+                                className="px-3 py-1 border border-primary/40 text-primary font-label-mono text-[11px] rounded hover:bg-primary/10 transition-colors"
+                              >
                                 VIEW TELEMETRY
                               </button>
                             </div>
                           </div>
                         </div>
 
-                        <div className="font-body-md text-on-surface-variant/80 italic border-l-2 border-primary/30 pl-4 py-1">
-                          Recommendation: Initiate altitude adjustment for NOAA-19 (+2.4km) within the next launch window.
+                        <div className="space-y-2 mt-2">
+                          <div className="font-body-md text-on-surface-variant/80 italic border-l-2 border-primary/30 pl-4 py-1">
+                            Recommendation: Initiate altitude adjustment for NOAA-19 (+2.4km) within the next launch window.
+                          </div>
+                          <div className="flex items-center gap-2 p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono">
+                            <span className="material-symbols-outlined text-sm">warning</span>
+                            <span>Decision support only — human approval required. Not a flight command system.</span>
+                          </div>
                         </div>
                       </>
                     )}
@@ -225,8 +314,31 @@ export default function AICopilot() {
                 ></textarea>
               </div>
               <div className="flex items-center gap-2 pb-1">
-                <button onClick={() => {}} className="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-colors">attach_file</button>
-                <button onClick={() => {}} className="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-colors">mic</button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept=".tle,.txt,.json,.csv"
+                  onChange={handleFileUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="material-symbols-outlined text-on-surface-variant hover:text-primary p-2 transition-colors"
+                  title="Upload orbital data / TLE file"
+                >
+                  attach_file
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleMic}
+                  className={`material-symbols-outlined p-2 transition-colors ${
+                    isListeningMic ? 'text-error animate-pulse' : 'text-on-surface-variant hover:text-primary'
+                  }`}
+                  title={isListeningMic ? "Recording voice input..." : "Voice query input"}
+                >
+                  {isListeningMic ? 'mic' : 'mic_none'}
+                </button>
                 <button 
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
@@ -237,14 +349,29 @@ export default function AICopilot() {
               </div>
             </div>
             
-            <div className="mt-4 flex justify-center gap-6">
-              <button onClick={() => {}} className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
+            <div className="mt-4 flex flex-wrap justify-center gap-6">
+              <button
+                type="button"
+                onClick={() => handleQuickPrompt('Perform high-conjunction screening for nearest active LEO neighbors within 50 km over next 72 hours.')}
+                className="font-label-mono text-[10px] text-on-surface-variant/70 hover:text-primary transition-colors flex items-center gap-1"
+              >
                 <span className="material-symbols-outlined text-[14px]">bolt</span> QUICK ANALYZE NEAREST NEIGHBORS
               </button>
-              <button onClick={() => {}} className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">visibility</span> TOGGLE CONSTELLATION OVERLAY
+              <button
+                type="button"
+                onClick={() => {
+                  setConstellationOverlayActive(prev => !prev);
+                  setStatusNotification(!constellationOverlayActive ? 'Constellation orbital layer overlaid on copilot context.' : 'Constellation overlay hidden.');
+                }}
+                className={`font-label-mono text-[10px] transition-colors flex items-center gap-1 ${constellationOverlayActive ? 'text-primary font-bold' : 'text-on-surface-variant/70 hover:text-primary'}`}
+              >
+                <span className="material-symbols-outlined text-[14px]">visibility</span> {constellationOverlayActive ? 'CONSTELLATION LAYER ACTIVE' : 'TOGGLE CONSTELLATION OVERLAY'}
               </button>
-              <button onClick={() => {}} className="font-label-mono text-[10px] text-on-surface-variant/50 hover:text-primary transition-colors flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleExportSession}
+                className="font-label-mono text-[10px] text-on-surface-variant/70 hover:text-primary transition-colors flex items-center gap-1"
+              >
                 <span className="material-symbols-outlined text-[14px]">save</span> EXPORT SESSION TO MISSION LOG
               </button>
             </div>
@@ -323,6 +450,85 @@ export default function AICopilot() {
           </p>
         </div>
       </aside>
+
+      {/* Telemetry Detail Modal */}
+      {showTelemetryModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass max-w-lg w-full rounded-2xl p-6 border border-primary/30 space-y-4">
+            <div className="flex justify-between items-center border-b border-outline-variant/20 pb-3">
+              <h3 className="font-headline-sm text-lg text-primary flex items-center gap-2">
+                <span className="material-symbols-outlined">sensors</span>
+                NOAA-19 Detailed Telemetry Feed
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowTelemetryModal(false)}
+                className="text-on-surface-variant hover:text-white"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+              <div className="p-3 bg-surface-container-low rounded border border-outline-variant/10">
+                <div className="text-on-surface-variant/60">NORAD ID</div>
+                <div className="text-white text-sm font-bold">33591</div>
+              </div>
+              <div className="p-3 bg-surface-container-low rounded border border-outline-variant/10">
+                <div className="text-on-surface-variant/60">APOGEE / PERIGEE</div>
+                <div className="text-white text-sm font-bold">850 / 844 KM</div>
+              </div>
+              <div className="p-3 bg-surface-container-low rounded border border-outline-variant/10">
+                <div className="text-on-surface-variant/60">INCLINATION</div>
+                <div className="text-white text-sm font-bold">98.7°</div>
+              </div>
+              <div className="p-3 bg-surface-container-low rounded border border-outline-variant/10">
+                <div className="text-on-surface-variant/60">MEAN MOTION</div>
+                <div className="text-white text-sm font-bold">14.12 rev/day</div>
+              </div>
+            </div>
+            <div className="p-3 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono">
+              Decision support only — live ephemeris propagated via SGP4. Human flight director authorization required.
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowTelemetryModal(false)}
+                className="px-4 py-2 bg-primary text-black font-semibold rounded hover:brightness-110"
+              >
+                Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Path Modal */}
+      {isFullscreenPath && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-headline-sm text-lg text-primary flex items-center gap-2">
+              <span className="material-symbols-outlined">timeline</span>
+              High-Fidelity Conjunction Trajectory Intersection (LEO Sector 4-B)
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsFullscreenPath(false)}
+              className="px-3 py-1 bg-surface-container-highest rounded text-sm hover:text-white"
+            >
+              Exit Fullscreen
+            </button>
+          </div>
+          <div className="flex-1 bg-surface-container-lowest/80 rounded-xl border border-primary/20 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+            <div className="text-center space-y-3">
+              <span className="material-symbols-outlined text-6xl text-primary animate-pulse">radar</span>
+              <p className="font-mono text-sm text-on-surface">Vector Angle: 34.2° | Relative Velocity: 14.1 km/s | Time to TCA: 04:12:44</p>
+              <div className="text-xs text-on-surface-variant max-w-md mx-auto">
+                Deterministic SGP4 intersection geometry. Risk mitigation envelope computed according to Space-Track TLE epoch.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FlaskConical, Play, Square, RotateCcw, Download, Shield, AlertTriangle, TrendingDown, Activity } from 'lucide-react';
 import { simulationPresets } from '../data/mockData';
 import { generateDebrisReport, type CollisionEvent } from '../lib/generateDebrisReport';
+import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 
 interface Particle {
   x: number;
@@ -20,6 +21,7 @@ export default function Simulations() {
   const [timeline, setTimeline] = useState(10);
   const [running, setRunning] = useState(false);
   const [debrisCount, setDebrisCount] = useState(0);
+  const [activeParticleCount, setActiveParticleCount] = useState(30);
   const [collisionEvents, setCollisionEvents] = useState<CollisionEvent[]>([]);
   const [simElapsed, setSimElapsed] = useState(0); // simulation seconds elapsed
   const [isExporting, setIsExporting] = useState(false);
@@ -78,7 +80,9 @@ export default function Simulations() {
         life: 1,
       });
     }
+    setActiveParticleCount(particlesRef.current.length);
 
+    let frameCount = 0;
     const animate = () => {
       ctx.fillStyle = 'rgba(5, 8, 22, 0.15)';
       ctx.fillRect(0, 0, rect.width, rect.height);
@@ -193,6 +197,11 @@ export default function Simulations() {
         return true;
       });
 
+      frameCount++;
+      if (frameCount % 20 === 0) {
+        setActiveParticleCount(particlesRef.current.length);
+      }
+
       animRef.current = requestAnimationFrame(animate);
     };
 
@@ -246,13 +255,26 @@ export default function Simulations() {
     <div className="space-y-5 pb-16">
       {/* Page Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-orbitron font-bold text-white flex items-center gap-3">
-          <FlaskConical className="w-7 h-7" style={{ color: '#00E5FF', filter: 'drop-shadow(0 0 8px rgba(0,229,255,0.5))' }} />
-          Kessler Syndrome Simulator
-        </h1>
-        <p className="text-sm font-space mt-1" style={{ color: '#94A3B8' }}>
-          Simulate cascading debris collisions and assess orbital sustainability
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-orbitron font-bold text-white flex items-center gap-3">
+              <FlaskConical className="w-7 h-7" style={{ color: '#00E5FF', filter: 'drop-shadow(0 0 8px rgba(0,229,255,0.5))' }} />
+              Kessler Syndrome Simulator
+            </h1>
+            <p className="text-sm font-space mt-1" style={{ color: '#94A3B8' }}>
+              Simulate cascading debris collisions and assess orbital sustainability
+            </p>
+          </div>
+          <ProvenanceBadge
+            source="simulation"
+            mode="simulated"
+            warnings={['Stochastic kinetic fragmentation cascade model. Decision support only — human verification mandatory.']}
+          />
+        </div>
+        <div className="mt-3 p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-xs flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>Decision support only — human approval required. Not a flight command system.</span>
+        </div>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -354,7 +376,7 @@ export default function Simulations() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-space tracking-wider" style={{ color: '#64748B' }}>ACTIVE PARTICLES</span>
-              <span className="text-sm font-orbitron" style={{ color: '#00AEEF' }}>{particlesRef.current.length}</span>
+              <span className="text-sm font-orbitron" style={{ color: '#00AEEF' }}>{activeParticleCount}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-space tracking-wider" style={{ color: '#64748B' }}>COLLISIONS DETECTED</span>

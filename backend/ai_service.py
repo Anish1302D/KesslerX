@@ -2,8 +2,8 @@ import logging
 import os
 import json
 import math
-import random
 from datetime import datetime, timezone, timedelta
+from negotiator_engine import compute_deterministic_maneuver, DISCLAIMER_TEXT
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +27,12 @@ else:
     logger.warning("GEMINI_API_KEY not set or genai unavailable. AI responses will fail.")
 
 SYSTEM_INSTRUCTION = """
-You are the Kessler AI Copilot, an advanced orbital mechanics engine and space situational awareness AI.
-Your purpose is to analyze orbital telemetry, predict satellite trajectories, and assess collision risks (Kessler Syndrome).
-You can also generate collision avoidance maneuver plans when asked.
+You are the KesslerX AI Copilot, an orbital safety decision-support AI.
+IMPORTANT NON-NEGOTIABLE SAFETY RULES:
+1. Decision support only — human approval required. Never present advice as flight-ready commands.
+2. You have no authority to approve or execute maneuvers, change spacecraft state, or issue commands.
+3. Every recommendation must visibly state: "Decision support only — human approval required."
+4. Always provide honest data provenance (observed, derived, simulated, fallback).
 
 When generating maneuver plans, respond ONLY with valid JSON in this exact format:
 {
@@ -38,13 +41,14 @@ When generating maneuver plans, respond ONLY with valid JSON in this exact forma
   "burn_direction": "RETROGRADE",
   "burn_duration_seconds": 12.5,
   "burn_time_utc": "2026-08-06T10:42:00Z",
-  "expected_miss_distance_km": 520,
+  "expected_miss_distance_km": 52.0,
   "fuel_cost_kg": 0.85,
   "confidence_pct": 96.4,
-  "explanation": "A retrograde burn is recommended to lower the orbit..."
+  "disclaimer": "Decision support only — human approval required. Not a flight command system.",
+  "explanation": "Decision support only — human approval required. A retrograde burn is recommended to lower the orbit..."
 }
 
-For general queries, keep responses concise, professional, and slightly technical, like a mission control AI.
+For general queries, keep responses concise, professional, and technical, like a mission control safety analyst.
 """
 
 class MockAIService: # Keeping the name MockAIService to avoid changing main.py, but it's actually Gemini now
@@ -129,63 +133,42 @@ burn_time_utc (before TCA), expected_miss_distance_km, fuel_cost_kg, confidence_
         return self._rule_based_maneuver(miss_distance, rel_velocity, risk_level, tca, altitude, obj_a, obj_b)
 
     def _rule_based_maneuver(self, miss_distance, rel_velocity, risk_level, tca, altitude, obj_a, obj_b) -> dict:
-        """Rule-based maneuver planning using orbital mechanics heuristics."""
-        # Determine burn direction based on geometry
-        # For objects approaching from ahead/behind: PROGRADE/RETROGRADE
-        # For objects at different inclinations: NORMAL
-        if altitude < 500:
-            direction = "RETROGRADE"  # Lower orbit to pass behind
+        """Rule-based maneuver planning using deterministic orbital mechanics."""
+        if altitude < 550:
+            direction = "RETROGRADE"
             reason = "retrograde burn to lower perigee and pass behind the conjunction object"
         elif altitude > 35000:
-            direction = "RADIAL"  # GEO station-keeping
+            direction = "RADIAL"
             reason = "radial thrust to adjust orbit phasing in geostationary belt"
         else:
-            direction = random.choice(["PROGRADE", "RETROGRADE", "NORMAL"])
-            reasons = {
-                "PROGRADE": "prograde burn to raise orbit above the conjunction plane",
-                "RETROGRADE": "retrograde burn to lower orbit below the conjunction object",
-                "NORMAL": "normal (cross-track) burn to shift inclination away from conjunction geometry"
-            }
-            reason = reasons[direction]
+            direction = "PROGRADE"
+            reason = "prograde burn to raise orbit above the conjunction plane"
 
-        # Delta-V calculation (simplified Hohmann-like transfer)
-        # Larger miss distance correction → larger delta-V needed
-        target_miss = 50.0  # km
-        delta_miss = max(target_miss - miss_distance, 1.0)  # km to add
-        
-        # v_circular = sqrt(GM/r)
-        r = 6371.0 + altitude
-        v_circ = math.sqrt(398600.4418 / r)  # km/s
-        
-        # Simplified: delta-V ≈ (delta_miss / orbital_period) * correction_factor
-        period_s = 2 * math.pi * r / v_circ  # seconds
-        delta_v = (delta_miss / r) * v_circ * 1000  # m/s
-        delta_v = round(min(max(delta_v, 0.05), 5.0), 3)  # Clamp to realistic range
+        # Deterministic delta-V calculation using Vis-Viva and rocket equation
+        man_calc = compute_deterministic_maneuver(
+            altitude_km=altitude,
+            current_miss_km=miss_distance,
+            target_miss_km=50.0,
+            mass_kg=500.0,
+        )
+        delta_v = man_calc["delta_v_m_s"]
+        fuel_mass = man_calc["fuel_cost_kg"]
+        burn_duration = man_calc["burn_duration_seconds"]
+        period_s = man_calc["orbital_period_seconds"]
 
-        # Burn duration assuming 10N thruster on 500kg satellite
-        thrust_n = 10.0
-        mass_kg = 500.0
-        burn_duration = (delta_v * mass_kg) / thrust_n  # seconds
-        burn_duration = round(min(max(burn_duration, 1.0), 300.0), 1)
-
-        # Fuel cost (hydrazine specific impulse ~220s)
-        isp = 220.0
-        fuel_mass = mass_kg * (1 - math.exp(-delta_v / (isp * 9.81)))
-        fuel_mass = round(max(fuel_mass, 0.01), 3)
-
-        # Burn time: 2 orbits before TCA
+        # Burn time: 2 orbital periods before TCA
         try:
             tca_dt = datetime.fromisoformat(tca.replace('Z', '+00:00'))
             burn_time = tca_dt - timedelta(seconds=period_s * 2)
         except Exception:
             burn_time = datetime.now(timezone.utc) + timedelta(hours=6)
 
-        # Expected miss distance after maneuver
-        expected_miss = round(miss_distance + delta_miss * random.uniform(0.8, 1.5), 1)
+        # Deterministic expected miss distance after maneuver
+        expected_miss = round(miss_distance + 50.0, 1)
 
-        # Confidence based on time until TCA and risk level
-        confidence_map = {"CRITICAL": 85.0, "HIGH": 90.0, "MEDIUM": 95.0, "LOW": 98.0, "SAFE": 99.5}
-        confidence = round(confidence_map.get(risk_level, 90.0) + random.uniform(-2, 2), 1)
+        # Deterministic confidence based on risk level
+        confidence_map = {"CRITICAL": 86.0, "HIGH": 91.0, "MEDIUM": 95.0, "LOW": 98.0, "SAFE": 99.5}
+        confidence = confidence_map.get(risk_level, 92.0)
 
         return {
             "risk": risk_level,
@@ -196,7 +179,9 @@ burn_time_utc (before TCA), expected_miss_distance_km, fuel_cost_kg, confidence_
             "expected_miss_distance_km": expected_miss,
             "fuel_cost_kg": fuel_mass,
             "confidence_pct": confidence,
+            "disclaimer": DISCLAIMER_TEXT,
             "explanation": (
+                f"Decision support only — human approval required. "
                 f"Analysis recommends a {direction} burn ({reason}) for {obj_a} to avoid conjunction with {obj_b}. "
                 f"The current miss distance of {miss_distance:.2f} km at TCA ({tca}) is insufficient given the "
                 f"{risk_level} risk classification. A delta-V of {delta_v:.3f} m/s applied at {burn_time.strftime('%Y-%m-%d %H:%M:%S UTC')} "

@@ -10,6 +10,9 @@ export default function CollisionMonitor() {
   const { currentUser } = useCurrentUser();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [showHandoffModal, setShowHandoffModal] = useState(false);
+  const [riskFilter, setRiskFilter] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM'>('ALL');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [dismissedInsight, setDismissedInsight] = useState(false);
 
   const severityStyle: Record<string, { border: string; bg: string; badge: string; badgeText: string }> = {
     CRITICAL: { border: 'border-l-error', bg: 'bg-primary-container/10', badge: 'bg-error/20 text-error', badgeText: 'CRITICAL' },
@@ -26,12 +29,34 @@ export default function CollisionMonitor() {
           <h2 className="font-headline-md text-headline-md text-primary">Collision Monitor</h2>
           <p className="text-on-surface-variant/80">Real-time tracking of conjunction events and orbital safety metrics.</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => {}} className="px-4 py-2 glass rounded-lg flex items-center gap-2 text-sm hover:bg-surface-container-highest transition-all">
-            <span className="material-symbols-outlined text-sm">filter_alt</span> Filters
-          </button>
-          <button onClick={() => {}} className="px-4 py-2 bg-primary-container text-white rounded-lg flex items-center gap-2 text-sm hover:brightness-110 active:scale-95 transition-all">
-            <span className="material-symbols-outlined text-sm">add</span> Add Tracking Object
+        <div className="flex gap-2 relative">
+          <div className="relative">
+            <button
+              onClick={() => setShowFilterDropdown(prev => !prev)}
+              className="px-4 py-2 glass rounded-lg flex items-center gap-2 text-sm hover:bg-surface-container-highest transition-all font-mono"
+            >
+              <span className="material-symbols-outlined text-sm">filter_alt</span>
+              Filter: {riskFilter}
+            </button>
+            {showFilterDropdown && (
+              <div className="absolute top-12 left-0 z-50 p-2 glass rounded-xl border border-white/10 shadow-xl space-y-1 font-mono text-xs w-36">
+                {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'] as const).map((lvl) => (
+                  <button
+                    key={lvl}
+                    onClick={() => { setRiskFilter(lvl); setShowFilterDropdown(false); }}
+                    className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors ${riskFilter === lvl ? 'bg-primary/20 text-primary font-bold' : 'hover:bg-white/5 text-white/70'}`}
+                  >
+                    {lvl}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => navigate('/conjunction-analysis')}
+            className="px-4 py-2 bg-primary-container text-white rounded-lg flex items-center gap-2 text-sm hover:brightness-110 active:scale-95 transition-all font-mono font-bold"
+          >
+            <span className="material-symbols-outlined text-sm">add</span> Add Conjunction Analysis
           </button>
         </div>
       </div>
@@ -166,7 +191,12 @@ export default function CollisionMonitor() {
               </>
             )}
           </div>
-          <button onClick={() => {}} className="w-full p-3 text-xs text-primary font-bold hover:bg-primary/10 transition-all border-t border-outline-variant/10">VIEW ALL COLLISION EVENTS</button>
+          <button
+            onClick={() => navigate('/alert-center')}
+            className="w-full p-3 text-xs text-primary font-bold hover:bg-primary/10 transition-all border-t border-outline-variant/10 font-mono tracking-wider"
+          >
+            VIEW ALL COLLISION EVENTS
+          </button>
         </div>
 
         {/* 3D Encounter Details View */}
@@ -191,8 +221,20 @@ export default function CollisionMonitor() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => {}} className="p-2 glass rounded hover:bg-surface-container-highest"><span className="material-symbols-outlined text-sm">videocam</span></button>
-                  <button onClick={() => {}} className="p-2 glass rounded hover:bg-surface-container-highest"><span className="material-symbols-outlined text-sm">fullscreen</span></button>
+                  <button
+                    onClick={() => window.open('https://www.youtube.com/watch?v=oFDeNcu3mnc', '_blank')}
+                    title="Open Stream in New Tab"
+                    className="p-2 glass rounded hover:bg-surface-container-highest text-white/80"
+                  >
+                    <span className="material-symbols-outlined text-sm">videocam</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/orbital-map')}
+                    title="Switch to 3D Orbit Globe"
+                    className="p-2 glass rounded hover:bg-surface-container-highest text-white/80"
+                  >
+                    <span className="material-symbols-outlined text-sm">public</span>
+                  </button>
                 </div>
               </div>
               <div className="mt-auto grid grid-cols-3 gap-4">
@@ -261,27 +303,54 @@ export default function CollisionMonitor() {
                   <div className="w-2 h-2 rounded-full bg-error"></div>
                   <span className="text-[10px] text-on-surface-variant uppercase">Critical Density</span>
                 </div>
-                <button onClick={() => {}} className="text-[10px] text-primary uppercase font-bold hover:underline">Full Analysis</button>
+                <button
+                  onClick={() => navigate('/analytics')}
+                  className="text-[10px] text-primary uppercase font-bold hover:underline font-mono"
+                >
+                  Full Analysis
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* AI Copilot Quick Assist */}
-      <div className="glass rounded-xl p-4 border-l-4 border-l-primary flex items-center gap-6 mt-4">
-        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary flex-shrink-0">
-          <span className="material-symbols-outlined">smart_toy</span>
+      {/* Decision Support Advisory Card */}
+      {!dismissedInsight && (
+        <div className="glass rounded-xl p-4 border-l-4 border-l-primary flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mt-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary flex-shrink-0">
+              <span className="material-symbols-outlined">smart_toy</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-primary">KesslerX Decision Support Advisory</p>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                  Decision support only — human approval required
+                </span>
+              </div>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                Conjunction event <span className="text-on-surface font-mono">STARLINK-3021 × DEBRIS-88172</span> has reached elevated risk.
+                Advisory plan recommends 0.45 m/s retrograde phasing burn. Human mission control sign-off required.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setDismissedInsight(true)}
+              className="px-3 py-1.5 bg-surface-container-highest hover:bg-outline-variant text-white text-xs rounded transition-all font-mono"
+            >
+              Dismiss
+            </button>
+            <button
+              onClick={() => navigate('/conjunction-analysis')}
+              className="px-4 py-1.5 bg-primary-container hover:brightness-110 text-white text-xs rounded font-bold transition-all font-mono"
+            >
+              Review Advisory Plan
+            </button>
+          </div>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-bold text-primary">Kessler AI Insight</p>
-          <p className="text-xs text-on-surface-variant leading-relaxed">The conjunction event <span className="text-on-surface font-mono">CX-9921-A</span> has reached a risk threshold. Recommend executing a 0.5m/s retrograde burn on STARLINK-3021 at <span className="text-on-surface font-mono">12:55:10 UTC</span> to increase radial separation by 450m.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => {}} className="px-4 py-2 bg-surface-container-highest hover:bg-outline-variant text-white text-xs rounded transition-all">Dismiss</button>
-          <button onClick={() => {}} className="px-4 py-2 bg-primary-container hover:brightness-110 text-white text-xs rounded font-bold transition-all">Execute Advice</button>
-        </div>
-      </div>
+      )}
 
       {/* Handoff Modal */}
       {selectedEventId && (

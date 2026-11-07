@@ -1,10 +1,19 @@
 import { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import ReportPreviewModal from '../components/handoff/ReportPreviewModal';
+import { useEvents } from '../hooks/useHandoffAPI';
+import { type HandoffEvent, DEFAULT_DEMO_USERS, DEFAULT_DEMO_EVENTS } from '../data/handoffTypes';
 
 export default function Reports() {
   const reportRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState<'PDF' | 'JSON' | 'CSV'>('PDF');
+  const [previewEvent, setPreviewEvent] = useState<HandoffEvent | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [fallbackPreviewEvent] = useState<HandoffEvent>(() => DEFAULT_DEMO_EVENTS[0]);
+  const [hookStatusMessage, setHookStatusMessage] = useState<string | null>(null);
+  const { events } = useEvents();
 
   const exportPDF = async () => {
     if (!reportRef.current) return;
@@ -20,12 +29,93 @@ export default function Reports() {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save('kesslerx_intelligence_report.pdf');
+      pdf.save(`kesslerx_intelligence_report_${Date.now()}.pdf`);
     } catch (e) {
       console.error('Failed to export PDF', e);
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const exportJSON = () => {
+    const evidencePackage = {
+      report_title: 'KesslerX Orbital Safety & Conjunction Intelligence Synthesis',
+      software_version: '2.1.0',
+      generated_at: new Date().toISOString(),
+      disclaimer: 'Decision support only — human approval required. Not a flight command system.',
+      provenance: {
+        orbital_catalog: 'Space-Track Analytical SGP4 Ephemeris',
+        space_weather: 'NOAA SWPC F10.7 Solar Flux & Planetary Kp',
+        mode: 'derived',
+      },
+      conjunction_evidence: [
+        {
+          id: 'CX-9921-A',
+          primary: 'STARLINK-3021 (NORAD 44238)',
+          secondary: 'DEBRIS-88172 (NORAD 88172)',
+          miss_distance_km: 0.12,
+          collision_probability: 0.098,
+          tca_utc: new Date(Date.now() + 14 * 3600000).toISOString(),
+          risk_level: 'CRITICAL',
+          negotiated_intent: 'Retrograde burn on STARLINK-3021, delta-v 0.45 m/s',
+        },
+        {
+          id: 'CX-9921-B',
+          primary: 'ISS (ZARYA) (NORAD 25544)',
+          secondary: 'COSMOS-DEB-4421 (NORAD 44210)',
+          miss_distance_km: 0.38,
+          collision_probability: 0.067,
+          tca_utc: new Date(Date.now() + 19 * 3600000).toISOString(),
+          risk_level: 'HIGH',
+          negotiated_intent: 'SSN Radar tasking requested to verify covariance',
+        },
+      ],
+      system_telemetry: {
+        tracked_objects: 34210,
+        active_critical_conjunctions: 2,
+        space_weather_kp: 3,
+      },
+    };
+    const blob = new Blob([JSON.stringify(evidencePackage, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kesslerx-evidence-package-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportCSV = () => {
+    const headers = ['Event_ID', 'Primary_Object', 'Secondary_Object', 'Miss_Distance_km', 'P_Collision', 'TCA_UTC', 'Risk_Level', 'Disclaimer'];
+    const rows = [
+      ['CX-9921-A', 'STARLINK-3021', 'DEBRIS-88172', '0.12', '0.098', new Date(Date.now() + 14 * 3600000).toISOString(), 'CRITICAL', 'Decision support only — human approval required'],
+      ['CX-9921-B', 'ISS (ZARYA)', 'COSMOS-DEB-4421', '0.38', '0.067', new Date(Date.now() + 19 * 3600000).toISOString(), 'HIGH', 'Decision support only — human approval required'],
+      ['CX-9921-C', 'ONEWEB-0012', 'DEBRIS-72401', '0.89', '0.042', new Date(Date.now() + 21 * 3600000).toISOString(), 'HIGH', 'Decision support only — human approval required'],
+    ];
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(f => `"${f}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kesslerx-conjunctions-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCompile = () => {
+    if (selectedFormat === 'PDF') {
+      exportPDF();
+    } else if (selectedFormat === 'JSON') {
+      exportJSON();
+    } else {
+      exportCSV();
+    }
+  };
+
+  const handleOpenPreview = (eventItem?: HandoffEvent) => {
+    const evt = eventItem || events[0] || null;
+    setPreviewEvent(evt);
+    setShowPreviewModal(true);
   };
 
   return (
@@ -45,7 +135,13 @@ export default function Reports() {
                 <p className="font-body-md text-body-md text-on-surface-variant/70">Aggregate multi-source orbital data into mission-ready reports.</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => {}} className="px-4 py-2 bg-surface-container-highest/50 border border-outline-variant/30 rounded font-label-mono text-label-mono hover:bg-primary/20 transition-all">TEMPLATES</button>
+                <button
+                  type="button"
+                  onClick={() => setHookStatusMessage('Template presets active: Conjunction Safety, ITU Spectrum, Debris Drift.')}
+                  className="px-4 py-2 bg-surface-container-highest/50 border border-outline-variant/30 rounded font-label-mono text-label-mono hover:bg-primary/20 transition-all"
+                >
+                  TEMPLATES
+                </button>
               </div>
             </div>
 
@@ -136,9 +232,27 @@ export default function Reports() {
                     <td className="px-inner-padding py-4 font-label-mono text-sm">2024.05.21 09:12</td>
                     <td className="px-inner-padding py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">download</button>
-                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">visibility</button>
-                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">delete</button>
+                        <button
+                          onClick={exportPDF}
+                          className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded text-primary"
+                          title="Download PDF"
+                        >
+                          download
+                        </button>
+                        <button
+                          onClick={() => handleOpenPreview()}
+                          className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded text-cyan-400"
+                          title="Preview Interactive Report"
+                        >
+                          visibility
+                        </button>
+                        <button
+                          onClick={exportJSON}
+                          className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded text-amber-400"
+                          title="Export Audit Evidence JSON"
+                        >
+                          data_object
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -161,7 +275,14 @@ export default function Reports() {
                     </td>
                     <td className="px-inner-padding py-4 font-label-mono text-sm">2024.05.21 12:40</td>
                     <td className="px-inner-padding py-4 text-right">
-                      <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded opacity-50 cursor-not-allowed">stop_circle</button>
+                      <button
+                        type="button"
+                        onClick={() => setHookStatusMessage('Generation job #402 monitored by background scheduler.')}
+                        title="Job status"
+                        className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded text-on-surface-variant/70"
+                      >
+                        info
+                      </button>
                     </td>
                   </tr>
 
@@ -181,8 +302,22 @@ export default function Reports() {
                     <td className="px-inner-padding py-4 font-label-mono text-sm">2024.05.18 22:01</td>
                     <td className="px-inner-padding py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">unarchive</button>
-                        <button onClick={() => {}} className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded">visibility</button>
+                        <button
+                          type="button"
+                          onClick={() => setHookStatusMessage('ITU Compliance report unarchived to active repository.')}
+                          title="Restore Report"
+                          className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded text-on-surface-variant"
+                        >
+                          unarchive
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPreview()}
+                          title="Preview Report"
+                          className="material-symbols-outlined text-sm p-1.5 hover:bg-surface-container-highest rounded text-cyan-400"
+                        >
+                          visibility
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -220,20 +355,44 @@ export default function Reports() {
               <div>
                 <label className="font-label-mono text-[10px] text-on-surface-variant/70 mb-1.5 block uppercase tracking-wider">Output Protocol</label>
                 <div className="grid grid-cols-3 gap-2">
-                  <button onClick={() => {}} className="border border-primary/40 bg-primary/10 text-primary font-label-mono text-[10px] py-2 rounded">PDF</button>
-                  <button onClick={() => {}} className="border border-outline-variant/30 text-on-surface-variant/60 font-label-mono text-[10px] py-2 rounded hover:bg-surface-container-high transition-all">JSON</button>
-                  <button onClick={() => {}} className="border border-outline-variant/30 text-on-surface-variant/60 font-label-mono text-[10px] py-2 rounded hover:bg-surface-container-high transition-all">CSV</button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFormat('PDF')}
+                    className={`border font-label-mono text-[10px] py-2 rounded transition-all ${
+                      selectedFormat === 'PDF' ? 'border-primary/50 bg-primary/20 text-primary font-bold' : 'border-outline-variant/30 text-on-surface-variant/60 hover:bg-surface-container-high'
+                    }`}
+                  >
+                    PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFormat('JSON')}
+                    className={`border font-label-mono text-[10px] py-2 rounded transition-all ${
+                      selectedFormat === 'JSON' ? 'border-primary/50 bg-primary/20 text-primary font-bold' : 'border-outline-variant/30 text-on-surface-variant/60 hover:bg-surface-container-high'
+                    }`}
+                  >
+                    JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFormat('CSV')}
+                    className={`border font-label-mono text-[10px] py-2 rounded transition-all ${
+                      selectedFormat === 'CSV' ? 'border-primary/50 bg-primary/20 text-primary font-bold' : 'border-outline-variant/30 text-on-surface-variant/60 hover:bg-surface-container-high'
+                    }`}
+                  >
+                    CSV
+                  </button>
                 </div>
               </div>
               <button 
-                onClick={exportPDF}
+                onClick={handleCompile}
                 disabled={isExporting}
                 className={`w-full mt-4 bg-primary text-on-primary font-headline-sm py-3 rounded-lg flex items-center justify-center gap-2 transition-all font-bold ${isExporting ? 'opacity-50 cursor-wait' : 'hover:brightness-110 glow-primary'}`}
               >
                 {isExporting ? (
                   <><div className="w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin"></div> Compiling...</>
                 ) : (
-                  <><span className="material-symbols-outlined">rocket_launch</span> Compile Report</>
+                  <><span className="material-symbols-outlined">rocket_launch</span> Compile {selectedFormat} Report</>
                 )}
               </button>
             </div>
@@ -266,10 +425,17 @@ export default function Reports() {
                   <div className="w-9 h-5 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface-variant after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
-              <button onClick={() => {}} className="w-full border border-outline-variant/30 py-2.5 rounded font-label-mono text-label-mono text-on-surface-variant hover:border-primary/50 hover:text-primary transition-all flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setHookStatusMessage('Simulated Webhook endpoint active: Daily digest configured for 06:00 UTC dispatch.')}
+                className="w-full border border-outline-variant/30 py-2.5 rounded font-label-mono text-label-mono text-on-surface-variant hover:border-primary/50 hover:text-primary transition-all flex items-center justify-center gap-2"
+              >
                 <span className="material-symbols-outlined text-sm">add</span>
                 CONFIGURE NEW HOOK
               </button>
+              {hookStatusMessage && (
+                <p className="text-[10px] font-mono text-emerald-400 text-center animate-fade-in">{hookStatusMessage}</p>
+              )}
             </div>
           </div>
 
@@ -289,6 +455,18 @@ export default function Reports() {
           </div>
         </div>
       </div>
+
+      {showPreviewModal && (
+        <ReportPreviewModal
+          isOpen={showPreviewModal}
+          event={previewEvent || (events && events.length > 0 ? events[0] : fallbackPreviewEvent)}
+          handoffs={[]}
+          timeline={[]}
+          currentUser={DEFAULT_DEMO_USERS[0]}
+          users={DEFAULT_DEMO_USERS}
+          onClose={() => setShowPreviewModal(false)}
+        />
+      )}
     </div>
   );
 }

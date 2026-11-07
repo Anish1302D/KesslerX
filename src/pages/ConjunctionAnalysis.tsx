@@ -4,6 +4,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, ReferenceLine
 } from 'recharts';
+import ProvenanceBadge from '../components/ui/ProvenanceBadge';
+import IntentNegotiatorCockpit, { type NegotiationData } from '../components/negotiator/IntentNegotiatorCockpit';
 
 interface Preset {
   id: string;
@@ -43,6 +45,39 @@ const RISK_BG: Record<string, string> = {
   CRITICAL: 'bg-red-500/10 border-red-500/30 text-red-400',
 };
 
+interface ConjunctionAnalysisResult {
+  object_a_name: string;
+  object_b_name: string;
+  tca: string;
+  min_distance_km: number;
+  relative_velocity_km_s: number;
+  collision_probability: number;
+  risk_level: string;
+  recommended_action: string;
+  total_steps?: number;
+  separation_timeline?: {
+    time: string;
+    minutes: number;
+    distance_km: number;
+    relative_velocity_km_s: number;
+  }[];
+  object_a_state?: {
+    altitude_km: number;
+    speed_km_s: number;
+    x: number; y: number; z: number;
+  };
+  object_b_state?: {
+    altitude_km: number;
+    speed_km_s: number;
+    x: number; y: number; z: number;
+  };
+  events?: {
+    object_a_state: { altitude_km: number; speed_km_s: number; x?: number; y?: number; z?: number };
+    object_b_state: { altitude_km: number; speed_km_s: number; x?: number; y?: number; z?: number };
+  }[];
+  error?: string;
+}
+
 export default function ConjunctionAnalysis() {
   // Form state
   const [tle1Line1, setTle1Line1] = useState('');
@@ -56,11 +91,12 @@ export default function ConjunctionAnalysis() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ConjunctionAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Maneuver state
   const [maneuverPlan, setManeuverPlan] = useState<ManeuverPlan | null>(null);
+  const [negotiationData, setNegotiationData] = useState<NegotiationData | null>(null);
   const [maneuverLoading, setManeuverLoading] = useState(false);
 
   // Load presets
@@ -80,6 +116,7 @@ export default function ConjunctionAnalysis() {
     setNameB(preset.object_b.name);
     setResult(null);
     setManeuverPlan(null);
+    setNegotiationData(null);
     setError(null);
   };
 
@@ -92,6 +129,7 @@ export default function ConjunctionAnalysis() {
     setProgress(0);
     setResult(null);
     setManeuverPlan(null);
+    setNegotiationData(null);
     setError(null);
 
     // Simulate progress bar
@@ -120,8 +158,8 @@ export default function ConjunctionAnalysis() {
       } else {
         setResult(data);
       }
-    } catch (e: any) {
-      setError(`Analysis failed: ${e.message}`);
+    } catch (e: unknown) {
+      setError(`Analysis failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
       clearInterval(progressInterval);
       setProgress(100);
@@ -133,6 +171,26 @@ export default function ConjunctionAnalysis() {
     if (!result) return;
     setManeuverLoading(true);
     try {
+      // 1. Evaluate Intent-to-Action Negotiation
+      const negResponse = await fetch(`${API}/api/negotiator/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: `EVT-${Date.now().toString(36).toUpperCase()}`,
+          name_a: result.object_a_name,
+          name_b: result.object_b_name,
+          altitude_km: result.events?.[0]?.object_a_state?.altitude_km || 420.0,
+          miss_distance_km: result.min_distance_km,
+          collision_probability: result.collision_probability,
+          tca: result.tca,
+        }),
+      });
+      if (negResponse.ok) {
+        const negData = await negResponse.json();
+        setNegotiationData(negData);
+      }
+
+      // 2. Fetch specific AI maneuver parameters
       const response = await fetch(`${API}/api/ai/maneuver`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,8 +198,8 @@ export default function ConjunctionAnalysis() {
       });
       const plan = await response.json();
       setManeuverPlan(plan);
-    } catch (e: any) {
-      setError(`Maneuver planning failed: ${e.message}`);
+    } catch (e: unknown) {
+      setError(`Maneuver planning failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
       setManeuverLoading(false);
     }
@@ -311,6 +369,20 @@ export default function ConjunctionAnalysis() {
             exit={{ opacity: 0 }}
             className="space-y-6"
           >
+            {/* Provenance & Engine Banner */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl glass border border-white/10">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-mono text-white/50 uppercase">Analysis Engine</span>
+                <div className="text-xs font-mono font-semibold text-white">SGP4 Analytical Orbit Propagation (WGS-84)</div>
+              </div>
+              <ProvenanceBadge
+                source="space-track"
+                mode="derived"
+                generatedAt={result.tca}
+                warnings={result.min_distance_km < 1.0 ? ['Close approach warning: miss distance < 1 km'] : []}
+              />
+            </div>
+
             {/* KPI Summary */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-card-gap">
               {/* Risk Level */}
@@ -385,8 +457,8 @@ export default function ConjunctionAnalysis() {
                       />
                       <Tooltip
                         contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}
-                        formatter={(value: any) => [`${Number(value).toFixed(2)} km`, 'Distance']}
-                        labelFormatter={(label: any) => `T+${Number(label).toFixed(0)} min`}
+                        formatter={(value: unknown) => [`${Number(value).toFixed(2)} km`, 'Distance']}
+                        labelFormatter={(label: unknown) => `T+${Number(label).toFixed(0)} min`}
                       />
                       <Area type="monotone" dataKey="distance_km" stroke={RISK_COLORS[riskLevel]} fill="url(#distGrad)" strokeWidth={2} dot={false} />
                       <ReferenceLine y={result.min_distance_km} stroke="#ef4444" strokeDasharray="5 5" label={{ value: 'TCA', fill: '#ef4444', fontSize: 10 }} />
@@ -407,8 +479,8 @@ export default function ConjunctionAnalysis() {
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div><span className="text-on-surface-variant">Altitude:</span> <span className="font-label-mono text-primary">{result.events[0].object_a_state.altitude_km?.toFixed(1)} km</span></div>
                       <div><span className="text-on-surface-variant">Speed:</span> <span className="font-label-mono text-primary">{result.events[0].object_a_state.speed_km_s?.toFixed(3)} km/s</span></div>
-                      <div><span className="text-on-surface-variant">X:</span> <span className="font-label-mono">{result.events[0].object_a_state.x?.toFixed(1)}</span></div>
-                      <div><span className="text-on-surface-variant">Y:</span> <span className="font-label-mono">{result.events[0].object_a_state.y?.toFixed(1)}</span></div>
+                      <div><span className="text-on-surface-variant">X:</span> <span className="font-label-mono">{result.events[0].object_a_state.x?.toFixed(1) ?? 'N/A'}</span></div>
+                      <div><span className="text-on-surface-variant">Y:</span> <span className="font-label-mono">{result.events[0].object_a_state.y?.toFixed(1) ?? 'N/A'}</span></div>
                     </div>
                   </div>
                 )}
@@ -422,8 +494,8 @@ export default function ConjunctionAnalysis() {
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div><span className="text-on-surface-variant">Altitude:</span> <span className="font-label-mono text-red-400">{result.events[0].object_b_state.altitude_km?.toFixed(1)} km</span></div>
                       <div><span className="text-on-surface-variant">Speed:</span> <span className="font-label-mono text-red-400">{result.events[0].object_b_state.speed_km_s?.toFixed(3)} km/s</span></div>
-                      <div><span className="text-on-surface-variant">X:</span> <span className="font-label-mono">{result.events[0].object_b_state.x?.toFixed(1)}</span></div>
-                      <div><span className="text-on-surface-variant">Y:</span> <span className="font-label-mono">{result.events[0].object_b_state.y?.toFixed(1)}</span></div>
+                      <div><span className="text-on-surface-variant">X:</span> <span className="font-label-mono">{result.events[0].object_b_state.x?.toFixed(1) ?? 'N/A'}</span></div>
+                      <div><span className="text-on-surface-variant">Y:</span> <span className="font-label-mono">{result.events[0].object_b_state.y?.toFixed(1) ?? 'N/A'}</span></div>
                     </div>
                   </div>
                 )}
@@ -463,7 +535,7 @@ export default function ConjunctionAnalysis() {
                     <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
                     <Tooltip
                       contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}
-                      formatter={(value: any) => [`${Number(value).toFixed(4)} km/s`, 'Rel. Velocity']}
+                      formatter={(value: unknown) => [`${Number(value).toFixed(4)} km/s`, 'Rel. Velocity']}
                     />
                     <Line type="monotone" dataKey="relative_velocity_km_s" stroke="#f59e0b" strokeWidth={2} dot={false} />
                   </LineChart>
@@ -479,10 +551,15 @@ export default function ConjunctionAnalysis() {
                   animate={{ opacity: 1, y: 0 }}
                   className="glass rounded-xl p-6 border border-secondary/30"
                 >
-                  <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <span className="material-symbols-outlined">smart_toy</span>
-                    AI Collision Avoidance Maneuver Plan
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-secondary uppercase tracking-wider flex items-center gap-2">
+                      <span className="material-symbols-outlined">smart_toy</span>
+                      Single-Burn Advisory Plan
+                    </h3>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                      Decision support only — human approval required
+                    </span>
+                  </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
                     <div className="bg-surface-container-low/50 p-3 rounded-lg">
                       <div className="text-[10px] text-on-surface-variant uppercase mb-1">Burn Direction</div>
@@ -525,6 +602,19 @@ export default function ConjunctionAnalysis() {
                     </div>
                     <p className="text-sm text-on-surface/90 leading-relaxed">{maneuverPlan.explanation}</p>
                   </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Intent-to-Action Negotiator Cockpit */}
+            <AnimatePresence>
+              {negotiationData && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6"
+                >
+                  <IntentNegotiatorCockpit data={negotiationData} />
                 </motion.div>
               )}
             </AnimatePresence>

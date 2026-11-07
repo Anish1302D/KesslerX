@@ -2,6 +2,8 @@ import { Suspense, lazy, useState, useRef, useCallback, useEffect } from 'react'
 import { useSearchParams, useLocation } from 'react-router-dom';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
 import type { CesiumGlobeRef, FollowState } from '../components/dashboard/CesiumGlobe';
+import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
+import { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import { useSatellites } from '../hooks/useKesslerAPI';
 
 const CesiumGlobe = lazy(() => import('../components/dashboard/CesiumGlobe'));
@@ -18,9 +20,9 @@ const defaultFilters: Record<string, boolean> = {
 
 export default function OrbitalMap() {
   const { satellites, loading } = useSatellites();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const location = useLocation();
-  const [selectedObject, setSelectedObject] = useState<any | null>(null);
+  const [selectedObject, setSelectedObject] = useState<SatelliteItem | null>(null);
   const [filters, setFilters] = useState(defaultFilters);
   const [showFilters, setShowFilters] = useState(true);
   const [showOrbitLines, setShowOrbitLines] = useState(true);
@@ -30,7 +32,32 @@ export default function OrbitalMap() {
   const [followState, setFollowState] = useState<FollowState>({ mode: 'FREE' });
   const [satSearch, setSatSearch] = useState('');
   const [showSatList, setShowSatList] = useState(true);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const globeRef = useRef<CesiumGlobeRef>(null);
+
+  const togglePlayback = () => {
+    globeRef.current?.toggleAutoRotate();
+    setIsPlaying(p => !p);
+  };
+
+  const handleExportFrame = () => {
+    const exportData = {
+      timestamp: new Date().toISOString(),
+      source: 'Space-Track & Local Ephemeris',
+      mode: 'observed',
+      selected_object: selectedObject,
+      total_tracked: satellites.length,
+      camera_follow: followState,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kesslerx-orbit-frame-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Statistics from real data
   const activePayLoads = satellites.filter(s => s.OBJECT_TYPE === 'PAYLOAD').length;
@@ -45,11 +72,10 @@ export default function OrbitalMap() {
   }, []);
 
   // When a satellite is clicked, select it AND immediately fly the camera to it
-  const handleSelectObject = useCallback((sat: any | null) => {
+  const handleSelectObject = useCallback((sat: SatelliteItem | null) => {
     setSelectedObject(sat);
     if (sat) {
-      const id = sat.NORAD_CAT_ID?.toString() || sat.id;
-      // Small delay to ensure the entity highlight is applied first
+      const id = String(sat.NORAD_CAT_ID || sat.id || '');
       requestAnimationFrame(() => {
         globeRef.current?.flyToSatellite(id);
       });
@@ -58,24 +84,27 @@ export default function OrbitalMap() {
 
   // Auto-select satellite from query param (?select=NORAD or ?select=NAME) or location state
   useEffect(() => {
-    const selectTarget = searchParams.get('select') || (location.state as any)?.selectedNoradId;
+    const selectTarget = searchParams.get('select') || (location.state as { selectedNoradId?: string })?.selectedNoradId;
     if (selectTarget && satellites.length > 0) {
       const targetStr = selectTarget.toString().toUpperCase().trim();
       const foundSat = satellites.find(s => {
-        const norad = s.NORAD_CAT_ID?.toString() || s.id?.toString() || '';
-        const name = (s.OBJECT_NAME || s.name || '').toUpperCase();
+        const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
+        const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
         return norad === targetStr || name === targetStr || name.includes(targetStr);
       });
 
-      if (foundSat) {
-        handleSelectObject(foundSat);
+      if (foundSat && (!selectedObject || (selectedObject.NORAD_CAT_ID?.toString() !== foundSat.NORAD_CAT_ID?.toString()))) {
+        const timer = setTimeout(() => {
+          handleSelectObject(foundSat);
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
-  }, [searchParams, location.state, satellites, handleSelectObject]);
+  }, [searchParams, location.state, satellites, handleSelectObject, selectedObject]);
 
   const handleFollowSatellite = useCallback(() => {
     if (selectedObject) {
-      globeRef.current?.flyToSatellite(selectedObject.NORAD_CAT_ID?.toString() || selectedObject.id);
+      globeRef.current?.flyToSatellite(String(selectedObject.NORAD_CAT_ID ?? selectedObject.id ?? ''));
     }
   }, [selectedObject]);
 
@@ -115,16 +144,24 @@ export default function OrbitalMap() {
                 </div>
               </div>
             ) : (
-              <CesiumGlobe
-                ref={globeRef}
+              <CesiumErrorBoundary
                 satellites={satellites}
                 onSelectObject={handleSelectObject}
+                selectedObject={selectedObject}
                 filters={filters}
-                showOrbitLines={showOrbitLines}
-                enableLighting={enableLighting}
-                showSunMoon={showSunMoon}
-                onFollowStateChange={handleFollowStateChange}
-              />
+              >
+                <CesiumGlobe
+                  ref={globeRef}
+                  satellites={satellites}
+                  onSelectObject={handleSelectObject}
+                  selectedObject={selectedObject}
+                  filters={filters}
+                  showOrbitLines={showOrbitLines}
+                  enableLighting={enableLighting}
+                  showSunMoon={showSunMoon}
+                  onFollowStateChange={handleFollowStateChange}
+                />
+              </CesiumErrorBoundary>
             )}
           </div>
         </Suspense>
@@ -291,6 +328,12 @@ export default function OrbitalMap() {
                     <span className="material-symbols-outlined text-sm text-blue-300">bedtime</span>
                     <span className="text-xs font-medium text-on-surface">Sun & Moon</span>
                   </div>
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={showSunMoon}
+                    onChange={(e) => setShowSunMoon(e.target.checked)}
+                  />
                   <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors ${showSunMoon ? 'bg-primary' : 'bg-outline-variant/40'}`}>
                     <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${showSunMoon ? 'translate-x-3.5' : 'translate-x-0'}`} />
                   </div>
@@ -302,6 +345,12 @@ export default function OrbitalMap() {
                     <span className="material-symbols-outlined text-sm text-primary">polyline</span>
                     <span className="text-xs font-medium text-on-surface">Orbital Lines</span>
                   </div>
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={showOrbitLines}
+                    onChange={(e) => setShowOrbitLines(e.target.checked)}
+                  />
                   <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors ${showOrbitLines ? 'bg-primary' : 'bg-outline-variant/40'}`}>
                     <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${showOrbitLines ? 'translate-x-3.5' : 'translate-x-0'}`} />
                   </div>
@@ -336,9 +385,9 @@ export default function OrbitalMap() {
                       if (e.key === 'Enter') {
                         const q = satSearch.toUpperCase().trim();
                         const matching = satellites.filter(s => {
-                          const name = (s.OBJECT_NAME || s.name || '').toUpperCase();
-                          const norad = s.NORAD_CAT_ID?.toString() || s.id?.toString() || '';
-                          const cat = (s.CATEGORY || s.type || s.OBJECT_TYPE || '').toUpperCase();
+                          const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
+                          const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
+                          const cat = String(s.CATEGORY || s.type || s.OBJECT_TYPE || '').toUpperCase();
                           if (cat === 'DEBRIS') return false;
                           if (!q) return true;
                           return name.includes(q) || norad.includes(q);
@@ -362,9 +411,9 @@ export default function OrbitalMap() {
               <div className="overflow-y-auto custom-scrollbar max-h-48">
                 {satellites
                   .filter(s => {
-                    const name = (s.OBJECT_NAME || s.name || '').toUpperCase();
-                    const norad = s.NORAD_CAT_ID?.toString() || s.id?.toString() || '';
-                    const cat = (s.CATEGORY || s.type || s.OBJECT_TYPE || '').toUpperCase();
+                    const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
+                    const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
+                    const cat = String(s.CATEGORY || s.type || s.OBJECT_TYPE || '').toUpperCase();
                     if (cat === 'DEBRIS') return false; // hide debris from list
                     if (!satSearch) return true;
                     const q = satSearch.toUpperCase().trim();
@@ -372,18 +421,18 @@ export default function OrbitalMap() {
                   })
                   .slice(0, 50) // cap for performance
                   .map((sat) => {
-                    const name = sat.OBJECT_NAME || sat.name || `Unknown`;
-                    const id = sat.NORAD_CAT_ID?.toString() || sat.id;
-                    const isSelected = selectedObject?.NORAD_CAT_ID?.toString() === id || selectedObject?.id === id;
+                    const name = String(sat.OBJECT_NAME || sat.name || `Unknown`);
+                    const id = String(sat.NORAD_CAT_ID ?? sat.id ?? '');
+                    const isSelected = selectedObject?.NORAD_CAT_ID?.toString() === id || String(selectedObject?.id ?? '') === id;
                     const catColors: Record<string, string> = {
                       Communication: '#00AEEF', ISS: '#FFFFFF', Weather: '#EAB308',
                       Military: '#F97316', GPS: '#10B981', Scientific: '#A855F7',
                     };
-                    const cat = sat.CATEGORY || sat.type || '';
+                    const cat = String(sat.CATEGORY || sat.type || '');
                     const dotColor = catColors[cat] || '#94A3B8';
                     return (
                       <button
-                        key={id}
+                        key={id || name}
                         onClick={() => handleSelectObject(sat)}
                         className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors hover:bg-primary/10 ${
                           isSelected ? 'bg-primary/15' : ''
@@ -448,22 +497,58 @@ export default function OrbitalMap() {
             <span className="material-symbols-outlined">remove</span>
           </button>
         </div>
-        <button onClick={() => {}} className="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:brightness-110 active:scale-90 transition-all" title="Help">
+        <button
+          onClick={() => setShowHelpModal(prev => !prev)}
+          className="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:brightness-110 active:scale-90 transition-all"
+          title="3D Navigation Help"
+          aria-label="Help"
+        >
           <span className="material-symbols-outlined">help_center</span>
         </button>
       </div>
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <div className="absolute top-20 right-20 z-50 p-4 rounded-xl glass border border-primary/30 text-xs font-mono text-white/90 shadow-2xl max-w-xs space-y-2">
+          <div className="flex justify-between items-center pb-2 border-b border-white/10">
+            <span className="font-bold text-primary">3D Globe Controls</span>
+            <button onClick={() => setShowHelpModal(false)} className="text-white/40 hover:text-white">✕</button>
+          </div>
+          <p>• <strong>Left Click + Drag:</strong> Rotate globe</p>
+          <p>• <strong>Right Click + Drag:</strong> Zoom in / out</p>
+          <p>• <strong>Middle Click + Drag:</strong> Pan camera</p>
+          <p>• <strong>Click Satellite:</strong> Inspect & track orbit</p>
+        </div>
+      )}
       
       {/* Timeline Slider (Bottom Anchor) */}
       <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-5xl glass rounded-2xl p-4 flex flex-col gap-4 border border-primary/10 transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <button onClick={() => {}} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
+            <button
+              onClick={() => globeRef.current?.resetView()}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors"
+              title="Reset View"
+              aria-label="Reset View"
+            >
               <span className="material-symbols-outlined">skip_previous</span>
             </button>
-            <button onClick={() => {}} className="w-10 h-10 flex items-center justify-center rounded-full bg-primary/20 text-primary hover:bg-primary/30 transition-colors">
-              <span className="material-symbols-outlined">play_arrow</span>
+            <button
+              onClick={togglePlayback}
+              className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
+                isPlaying ? 'bg-secondary/30 text-secondary' : 'bg-primary/20 text-primary hover:bg-primary/30'
+              }`}
+              title={isPlaying ? 'Pause Auto-Rotate' : 'Start Auto-Rotate'}
+              aria-label="Play/Pause"
+            >
+              <span className="material-symbols-outlined">{isPlaying ? 'pause' : 'play_arrow'}</span>
             </button>
-            <button onClick={() => {}} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors">
+            <button
+              onClick={() => globeRef.current?.zoomIn()}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors"
+              title="Zoom Step Forward"
+              aria-label="Next Step"
+            >
               <span className="material-symbols-outlined">skip_next</span>
             </button>
           </div>
@@ -494,7 +579,11 @@ export default function OrbitalMap() {
               <span className="material-symbols-outlined text-sm">speed</span>
               <span className="font-label-mono text-[12px]">1.0x</span>
             </div>
-            <button onClick={() => {}} className="px-4 py-1.5 bg-surface-container-highest rounded-lg font-body-md text-body-md hover:bg-surface-container-high transition-colors">
+            <button
+              onClick={handleExportFrame}
+              className="px-4 py-1.5 bg-surface-container-highest rounded-lg font-body-md text-body-md hover:bg-surface-container-high transition-colors"
+              title="Export Current Frame JSON"
+            >
               Export Frame
             </button>
           </div>

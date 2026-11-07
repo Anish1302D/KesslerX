@@ -10,7 +10,7 @@ import { useCurrentUser } from './UserContext';
 import { useUsers } from '../../hooks/useHandoffAPI';
 import { createHandoff, generateNote, updateNote, confirmTransfer } from '../../hooks/useHandoffAPI';
 import { HANDOFF_REASONS } from '../../data/handoffTypes';
-import type { HandoffUser, Handoff } from '../../data/handoffTypes';
+import type { Handoff } from '../../data/handoffTypes';
 
 interface HandoffModalProps {
   eventId: string;
@@ -51,17 +51,20 @@ export default function HandoffModal({ eventId, eventTitle, isOpen, onClose, onC
 
   useEffect(() => {
     if (isOpen) {
-      setStep('form');
-      setError('');
-      setHandoff(null);
-      setToUserId('');
-      setReason('Shift Change');
-      setPriority('Normal');
-      setNextAction('');
-      setDeadline('');
-      setMessage('');
-      setIncludeEvidence(true);
-      setIsEditingNote(false);
+      const timer = setTimeout(() => {
+        setStep('form');
+        setError('');
+        setHandoff(null);
+        setToUserId('');
+        setReason('Shift Change');
+        setPriority('Normal');
+        setNextAction('');
+        setDeadline('');
+        setMessage('');
+        setIncludeEvidence(true);
+        setIsEditingNote(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -99,8 +102,8 @@ export default function HandoffModal({ eventId, eventTitle, isOpen, onClose, onC
       setHandoff(withNote);
       setEditedNote(withNote.generated_note);
       setStep('preview');
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate handoff note');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to generate handoff note');
     } finally {
       setLoading(false);
     }
@@ -122,8 +125,8 @@ export default function HandoffModal({ eventId, eventTitle, isOpen, onClose, onC
         onComplete();
         onClose();
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to confirm transfer');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to confirm transfer');
     } finally {
       setLoading(false);
     }

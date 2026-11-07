@@ -12,16 +12,20 @@ export default function RightPanel() {
 
   // Convert raw WS messages into alert objects format
   const liveAlerts = useMemo(() => {
-    return messages.map((msg, idx) => ({
-      id: `live-${idx}`,
-      object_id: 'LIVE-UPDATE',
-      title: msg.type || 'Live Update',
-      type: msg.type?.includes('collision') ? 'COLLISION' : msg.type?.includes('weather') ? 'SPACE_WEATHER' : 'DEBRIS',
-      severity: (msg.data?.includes?.('WARNING') || msg.severity === 'HIGH' ? 'HIGH' : msg.severity === 'MEDIUM' ? 'MEDIUM' : 'LOW') as 'HIGH' | 'MEDIUM' | 'LOW',
-      timestamp: msg.timestamp || new Date().toISOString(),
-      description: msg.message || msg.data || '',
-      probability: null
-    })).reverse();
+    return messages.map((msg, idx) => {
+      const dataStr = typeof msg.data === 'string' ? msg.data : '';
+      const isWarning = dataStr.includes('WARNING') || msg.severity === 'HIGH';
+      return {
+        id: `live-${idx}`,
+        object_id: 'LIVE-UPDATE',
+        title: msg.type || 'Live Update',
+        type: msg.type?.includes('collision') ? 'COLLISION' : msg.type?.includes('weather') ? 'SPACE_WEATHER' : 'DEBRIS',
+        severity: (isWarning ? 'HIGH' : msg.severity === 'MEDIUM' ? 'MEDIUM' : 'LOW') as 'HIGH' | 'MEDIUM' | 'LOW',
+        timestamp: msg.timestamp || new Date().toISOString(),
+        description: msg.message || dataStr || '',
+        probability: null
+      };
+    }).reverse();
   }, [messages]);
 
   // Convert stored backend alerts to display format

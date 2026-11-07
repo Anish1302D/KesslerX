@@ -42,7 +42,9 @@ function formatShortTime(tcaStr: string): string {
       if (!isNaN(dt.getTime())) {
         return dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC' }) + ' UTC';
       }
-    } catch {}
+    } catch {
+      // Return original unparsed string on parse failure
+    }
   }
   return tcaStr;
 }
@@ -90,9 +92,9 @@ export default function ReportPreviewModal({
         (msg) => setProgress(msg),
       );
       setStatus('success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Report generation failed:', err);
-      setError(err.message || 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Unknown error');
       setStatus('error');
     }
   };
