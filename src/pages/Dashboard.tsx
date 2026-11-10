@@ -9,9 +9,10 @@ import { useCurrentUser } from '../components/handoff/UserContext';
 import ReportPreviewModal from '../components/handoff/ReportPreviewModal';
 import { API_BASE_URL } from '../config/api';
 import SystemHealthPanel from '../components/dashboard/SystemHealthPanel';
+import { resolveDataState, formatObjectCount } from '../utils/dataState';
 
 export default function Dashboard() {
-  const { satellites, loading } = useSatellites();
+  const { satellites, loading, error: satError, isFallback: satFallback, refresh: refreshSatellites } = useSatellites();
   const { alerts, isConnected, connectionStatus, reconnect } = useWebsocket();
   const { data: weather } = useSpaceWeather();
   const { data: congestion } = useCongestion();
@@ -90,12 +91,35 @@ export default function Dashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const satDataState = resolveDataState({
+    data: satellites,
+    loading,
+    error: satError,
+    hasFallback: satFallback,
+  });
+
   return (
     <div className="grid grid-cols-12 gap-card-gap relative">
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 glass-strong border border-primary px-6 py-3 rounded-xl text-primary font-bold animate-in slide-in-from-top fade-in">
           {toast}
+        </div>
+      )}
+
+      {/* API Error Warning Banner */}
+      {satError && satellites.length === 0 && (
+        <div className="col-span-12 glass border border-rose-500/40 bg-rose-500/10 p-3 rounded-xl flex items-center justify-between text-rose-300 font-mono text-xs">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-rose-400 text-sm">warning</span>
+            <span>Orbital catalog feed failed. Objects temporarily unavailable.</span>
+          </div>
+          <button
+            onClick={() => void refreshSatellites()}
+            className="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 transition-colors"
+          >
+            Retry Catalog
+          </button>
         </div>
       )}
 
@@ -109,11 +133,21 @@ export default function Dashboard() {
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Active Payloads</div>
             <div className="font-stat-lg text-stat-lg font-bold leading-tight">
-              {loading ? '...' : activeCount.toLocaleString()}
+              {formatObjectCount(activeCount, satDataState)}
             </div>
-            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${satellites.length > 50 ? 'text-emerald-400' : 'text-amber-400'}`}>
+            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${
+              satDataState === 'error'
+                ? 'text-rose-400'
+                : satFallback || satellites.length <= 50
+                ? 'text-amber-400'
+                : 'text-emerald-400'
+            }`}>
               <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-              {satellites.length > 50 ? 'OBSERVED (LIVE)' : 'SIMULATED (DEMO)'}
+              {satDataState === 'error'
+                ? 'FEED ERROR'
+                : satFallback || satellites.length <= 50
+                ? 'SIMULATED (DEMO)'
+                : 'OBSERVED (LIVE)'}
             </div>
           </div>
         </div>
@@ -125,11 +159,21 @@ export default function Dashboard() {
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Tracked Debris</div>
             <div className="font-stat-lg text-stat-lg font-bold leading-tight">
-              {loading ? '...' : debrisCount.toLocaleString()}
+              {formatObjectCount(debrisCount, satDataState)}
             </div>
-            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${satellites.length > 50 ? 'text-emerald-400' : 'text-amber-400'}`}>
+            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${
+              satDataState === 'error'
+                ? 'text-rose-400'
+                : satFallback || satellites.length <= 50
+                ? 'text-amber-400'
+                : 'text-emerald-400'
+            }`}>
               <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-              {satellites.length > 50 ? 'OBSERVED (LIVE)' : 'SIMULATED (DEMO)'}
+              {satDataState === 'error'
+                ? 'FEED ERROR'
+                : satFallback || satellites.length <= 50
+                ? 'SIMULATED (DEMO)'
+                : 'OBSERVED (LIVE)'}
             </div>
           </div>
         </div>

@@ -87,17 +87,25 @@ export function useUsers() {
 export function useEvents() {
   const [events, setEvents] = useState<HandoffEvent[]>(DEFAULT_DEMO_EVENTS);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(true);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
       const data = await handoffFetch<{ events: HandoffEvent[] }>(`${API}/api/events`);
-      if (mountedRef.current && Array.isArray(data.events) && data.events.length > 0) {
+      if (mountedRef.current && Array.isArray(data.events)) {
         setEvents(data.events);
+        setError(null);
+        setIsFallback(false);
       }
     } catch (err) {
       console.warn('Failed to fetch events, using default demo events:', err);
-      if (mountedRef.current) setEvents(DEFAULT_DEMO_EVENTS);
+      if (mountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setEvents(DEFAULT_DEMO_EVENTS);
+        setIsFallback(true);
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -109,13 +117,17 @@ export function useEvents() {
     const fetchEvents = async () => {
       try {
         const data = await handoffFetch<{ events: HandoffEvent[] }>(`${API}/api/events`);
-        if (!isCancelled && Array.isArray(data.events) && data.events.length > 0) {
+        if (!isCancelled && Array.isArray(data.events)) {
           setEvents(data.events);
+          setError(null);
+          setIsFallback(false);
         }
       } catch (err) {
         if (!isCancelled) {
           console.warn('Failed to fetch events, using default demo events:', err);
+          setError(err instanceof Error ? err.message : 'Unknown error');
           setEvents(DEFAULT_DEMO_EVENTS);
+          setIsFallback(true);
         }
       } finally {
         if (!isCancelled) setLoading(false);
@@ -128,7 +140,7 @@ export function useEvents() {
     };
   }, []);
 
-  return { events, loading, refresh };
+  return { events, loading, error, isFallback, refresh };
 }
 
 export function useEvent(eventId: string) {

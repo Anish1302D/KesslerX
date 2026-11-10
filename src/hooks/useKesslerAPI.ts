@@ -26,6 +26,7 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
   const [data, setData] = useState<T>(fallback);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -34,10 +35,12 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
       if (mountedRef.current) {
         setData(result);
         setError(null);
+        setIsFallback(false);
       }
     } catch (err) {
       if (mountedRef.current) {
         setError(err instanceof Error ? err.message : 'Unknown error');
+        setIsFallback(true);
       }
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -54,10 +57,12 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
         if (mountedRef.current && !isCancelled) {
           setData(result);
           setError(null);
+          setIsFallback(false);
         }
       } catch (err) {
         if (mountedRef.current && !isCancelled) {
           setError(err instanceof Error ? err.message : 'Unknown error');
+          setIsFallback(true);
         }
       } finally {
         if (mountedRef.current && !isCancelled) setLoading(false);
@@ -76,7 +81,7 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
     };
   }, [endpoint, refreshMs]);
 
-  return { data, loading, error, refresh };
+  return { data, loading, error, isFallback, refresh };
 }
 
 // ============================================================
@@ -96,42 +101,56 @@ export interface SatelliteData {
   [key: string]: unknown;
 }
 
-export function useSatellites() {
+export interface UseSatellitesReturn {
+  satellites: SatelliteData[];
+  loading: boolean;
+  error: string | null;
+  isFallback: boolean;
+  refresh: () => Promise<void>;
+}
+
+export function useSatellites(): UseSatellitesReturn {
   const [satellites, setSatellites] = useState<SatelliteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
 
-  useEffect(() => {
-    async function fetchSatellites() {
-      try {
-        const data = await apiRequest<{ satellites: SatelliteData[] }>(
-          getApiUrl(API_ENDPOINTS.SATELLITES + '?limit=500'),
-          { timeoutMs: 15000, retries: 2 }
-        );
-        if (Array.isArray(data.satellites)) {
-          setSatellites(data.satellites);
-        } else {
-          throw new Error('Invalid satellite data format received');
-        }
-      } catch (err) {
-        console.warn('API fetch failed, using mock data fallback', err);
-        const mappedMock: SatelliteData[] = mockSatellites.map(s => ({
-          ...s,
-          NORAD_CAT_ID: s.id,
-          OBJECT_NAME: s.name,
-          OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
-          CATEGORY: s.type,
-        }));
-        setSatellites(mappedMock);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
+  const fetchSatellites = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiRequest<{ satellites: SatelliteData[] }>(
+        getApiUrl(API_ENDPOINTS.SATELLITES + '?limit=500'),
+        { timeoutMs: 15000, retries: 2 }
+      );
+      if (data && Array.isArray(data.satellites)) {
+        setSatellites(data.satellites);
+        setError(null);
+        setIsFallback(false);
+      } else {
+        throw new Error('Invalid satellite data format received');
       }
+    } catch (err) {
+      console.warn('API fetch failed, using mock data fallback', err);
+      const mappedMock: SatelliteData[] = mockSatellites.map(s => ({
+        ...s,
+        NORAD_CAT_ID: s.id,
+        OBJECT_NAME: s.name,
+        OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
+        CATEGORY: s.type,
+      }));
+      setSatellites(mappedMock);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setIsFallback(true);
+    } finally {
+      setLoading(false);
     }
-    fetchSatellites();
   }, []);
 
-  return { satellites, loading, error };
+  useEffect(() => {
+    void fetchSatellites();
+  }, [fetchSatellites]);
+
+  return { satellites, loading, error, isFallback, refresh: fetchSatellites };
 }
 
 // ============================================================

@@ -6,6 +6,7 @@ import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
 import { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import { useSatellites } from '../hooks/useKesslerAPI';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
+import { resolveDataState, formatObjectCount } from '../utils/dataState';
 
 const CesiumGlobe = lazy(() => import('../components/dashboard/CesiumGlobe'));
 
@@ -20,7 +21,7 @@ const defaultFilters: Record<string, boolean> = {
 };
 
 export default function OrbitalMap() {
-  const { satellites, loading } = useSatellites();
+  const { satellites, loading, error: satError, isFallback: satFallback, refresh: refreshSatellites } = useSatellites();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const [selectedObject, setSelectedObject] = useState<SatelliteItem | null>(null);
@@ -61,6 +62,13 @@ export default function OrbitalMap() {
   };
 
   // Statistics from real data
+  const satDataState = resolveDataState({
+    data: satellites,
+    loading,
+    error: satError,
+    hasFallback: satFallback,
+  });
+
   const activePayLoads = satellites.filter(s => s.OBJECT_TYPE === 'PAYLOAD').length;
   const debrisCount = satellites.filter(s => s.OBJECT_TYPE === 'DEBRIS').length;
 
@@ -227,6 +235,20 @@ export default function OrbitalMap() {
         </div>
       )}
 
+      {/* Catalog Load Failure Banner */}
+      {satError && satellites.length === 0 && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 glass border border-rose-500/50 bg-surface-container-lowest/90 px-4 py-2.5 rounded-xl flex items-center gap-3 text-rose-300 font-mono text-xs pointer-events-auto shadow-2xl">
+          <span className="material-symbols-outlined text-rose-400 text-sm">warning</span>
+          <span>Failed to load orbital catalog. Object counts unavailable.</span>
+          <button
+            onClick={() => void refreshSatellites()}
+            className="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* UI Visibility Toggle (Always Visible) */}
       <button 
         className="absolute top-6 right-6 z-50 w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90"
@@ -259,7 +281,7 @@ export default function OrbitalMap() {
             <div className="flex justify-between items-end">
               <div>
                 <p className="font-label-mono text-[10px] text-outline uppercase">Active Satellites</p>
-                <h2 className="font-stat-lg text-stat-lg text-primary">{activePayLoads.toLocaleString()}</h2>
+                <h2 className="font-stat-lg text-stat-lg text-primary">{formatObjectCount(activePayLoads, satDataState)}</h2>
               </div>
               <div className="text-emerald-400 text-[12px] font-label-mono flex items-center">
                 <span className="material-symbols-outlined text-xs">trending_up</span> 2.35%
@@ -268,7 +290,7 @@ export default function OrbitalMap() {
             <div className="flex justify-between items-end">
               <div>
                 <p className="font-label-mono text-[10px] text-outline uppercase">Tracked Debris</p>
-                <h2 className="font-stat-lg text-stat-lg">{debrisCount.toLocaleString()}</h2>
+                <h2 className="font-stat-lg text-stat-lg">{formatObjectCount(debrisCount, satDataState)}</h2>
               </div>
               <div className="text-error text-[12px] font-label-mono flex items-center">
                 <span className="material-symbols-outlined text-xs">trending_up</span> 1.89%
