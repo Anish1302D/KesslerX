@@ -12,7 +12,7 @@ import SystemHealthPanel from '../components/dashboard/SystemHealthPanel';
 
 export default function Dashboard() {
   const { satellites, loading } = useSatellites();
-  const { alerts, isConnected } = useWebsocket();
+  const { alerts, isConnected, connectionStatus } = useWebsocket();
   const { data: weather } = useSpaceWeather();
   const { data: congestion } = useCongestion();
   const { data: collisions } = useCollisions();
@@ -333,10 +333,31 @@ export default function Dashboard() {
               <h3 className="font-headline-sm text-headline-sm uppercase">Mission Feed (Live WebSocket)</h3>
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
-                  {isConnected && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                  <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                  {connectionStatus === 'connected' && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  )}
+                  {(connectionStatus === 'reconnecting' || connectionStatus === 'connecting') && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  )}
+                  <span
+                    className={`relative inline-flex rounded-full h-2 w-2 ${
+                      connectionStatus === 'connected'
+                        ? 'bg-emerald-500'
+                        : connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
+                        ? 'bg-amber-400'
+                        : 'bg-rose-500'
+                    }`}
+                  ></span>
                 </span>
-                <span className="text-[10px] font-bold uppercase text-on-surface-variant/60">{isConnected ? 'Receiving Data' : 'Disconnected'}</span>
+                <span className="text-[10px] font-bold font-mono uppercase text-on-surface-variant/80">
+                  {connectionStatus === 'connected'
+                    ? 'Receiving Data (Live)'
+                    : connectionStatus === 'reconnecting'
+                    ? 'Reconnecting...'
+                    : connectionStatus === 'connecting'
+                    ? 'Connecting...'
+                    : 'Feed Offline'}
+                </span>
               </div>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto pr-1 max-h-[300px] custom-scrollbar">

@@ -9,9 +9,12 @@ export interface WebSocketMessage {
   message?: string;
 }
 
+export type WebSocketConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+
 export function useWebSocket(pathOrUrl: string) {
   const [messages, setMessages] = useState<WebSocketMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<WebSocketConnectionStatus>('connecting');
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -23,12 +26,16 @@ export function useWebSocket(pathOrUrl: string) {
 
     const connect = () => {
       if (!isMounted) return;
+      setConnectionStatus((prev) => (prev === 'connected' ? 'reconnecting' : 'connecting'));
 
       try {
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-          if (isMounted) setIsConnected(true);
+          if (isMounted) {
+            setIsConnected(true);
+            setConnectionStatus('connected');
+          }
         };
 
         ws.onmessage = (event) => {
@@ -44,6 +51,7 @@ export function useWebSocket(pathOrUrl: string) {
         ws.onclose = () => {
           if (!isMounted) return;
           setIsConnected(false);
+          setConnectionStatus('reconnecting');
           // Reconnect after 5 seconds with cancellation guard
           reconnectTimeout = setTimeout(() => {
             if (isMounted) connect();
@@ -51,13 +59,17 @@ export function useWebSocket(pathOrUrl: string) {
         };
 
         ws.onerror = () => {
-          if (isMounted) setIsConnected(false);
+          if (isMounted) {
+            setIsConnected(false);
+            setConnectionStatus('reconnecting');
+          }
         };
 
         wsRef.current = ws;
       } catch {
         if (isMounted) {
           setIsConnected(false);
+          setConnectionStatus('reconnecting');
           reconnectTimeout = setTimeout(() => {
             if (isMounted) connect();
           }, 5000);
@@ -79,5 +91,5 @@ export function useWebSocket(pathOrUrl: string) {
     };
   }, [pathOrUrl]);
 
-  return { messages, isConnected };
+  return { messages, isConnected, connectionStatus };
 }

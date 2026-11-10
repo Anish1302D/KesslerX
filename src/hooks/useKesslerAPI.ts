@@ -146,9 +146,12 @@ export interface AlertMessage {
   timestamp?: string;
 }
 
+export type WebSocketConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+
 export function useWebsocket() {
   const [alerts, setAlerts] = useState<AlertMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<WebSocketConnectionStatus>('connecting');
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -157,16 +160,21 @@ export function useWebsocket() {
 
     function connect() {
       const wsUrl = getWsUrl(API_ENDPOINTS.WS_ALERTS);
+      setConnectionStatus((prev) => (prev === 'connected' ? 'reconnecting' : 'connecting'));
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (mounted) setIsConnected(true);
+        if (mounted) {
+          setIsConnected(true);
+          setConnectionStatus('connected');
+        }
       };
 
       ws.onclose = () => {
         if (mounted) {
           setIsConnected(false);
+          setConnectionStatus('reconnecting');
           // Auto-reconnect after 3 seconds
           reconnectRef.current = setTimeout(() => {
             if (mounted) connect();
@@ -175,6 +183,10 @@ export function useWebsocket() {
       };
 
       ws.onerror = () => {
+        if (mounted) {
+          setIsConnected(false);
+          setConnectionStatus('reconnecting');
+        }
         ws.close();
       };
 
@@ -207,7 +219,7 @@ export function useWebsocket() {
     };
   }, []);
 
-  return { alerts, isConnected };
+  return { alerts, isConnected, connectionStatus };
 }
 
 // ============================================================
