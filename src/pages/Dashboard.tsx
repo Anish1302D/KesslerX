@@ -12,7 +12,7 @@ import SystemHealthPanel from '../components/dashboard/SystemHealthPanel';
 
 export default function Dashboard() {
   const { satellites, loading } = useSatellites();
-  const { alerts, isConnected, connectionStatus } = useWebsocket();
+  const { alerts, isConnected, connectionStatus, reconnect } = useWebsocket();
   const { data: weather } = useSpaceWeather();
   const { data: congestion } = useCongestion();
   const { data: collisions } = useCollisions();
@@ -358,6 +358,15 @@ export default function Dashboard() {
                     ? 'Connecting...'
                     : 'Feed Offline'}
                 </span>
+                {connectionStatus === 'disconnected' && (
+                  <button
+                    onClick={reconnect}
+                    title="Retry WebSocket connection"
+                    className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-surface-container-highest hover:bg-surface-container-high text-primary border border-outline-variant/30 transition-colors"
+                  >
+                    Retry
+                  </button>
+                )}
               </div>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto pr-1 max-h-[300px] custom-scrollbar">

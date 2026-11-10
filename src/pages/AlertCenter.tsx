@@ -60,7 +60,7 @@ function getTimeAgo(ts: string): string {
 }
 
 export default function AlertCenter() {
-  const { messages, isConnected, connectionStatus } = useWebSocket('/ws/alerts');
+  const { messages, isConnected, connectionStatus, reconnect } = useWebSocket('/ws/alerts');
   const [alerts, setAlerts] = useState<Alert[]>(INITIAL_ALERTS);
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [selectedAlertId, setSelectedAlertId] = useState<string>('1');
@@ -187,6 +187,15 @@ export default function AlertCenter() {
                   ? 'RECONNECTING WS'
                   : 'REST POLL (10s)'}
               </span>
+              {connectionStatus === 'disconnected' && (
+                <button
+                  onClick={reconnect}
+                  title="Retry WebSocket connection"
+                  className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-surface-container-highest hover:bg-surface-container-high text-primary border border-outline-variant/30 transition-colors"
+                >
+                  Retry WS
+                </button>
+              )}
               {criticalCount > 0 && (
                 <span className="bg-error/20 text-error font-label-mono text-[10px] px-2 py-0.5 rounded-full border border-error/30 animate-pulse">
                   {criticalCount} CRITICAL

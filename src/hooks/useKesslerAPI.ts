@@ -148,49 +148,107 @@ export interface AlertMessage {
 
 export type WebSocketConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
-export function useWebsocket() {
+export interface UseWebsocketOptions {
+  maxRetries?: number;
+  initialDelay?: number;
+  maxDelay?: number;
+}
+
+export interface UseWebsocketReturn {
+  alerts: AlertMessage[];
+  isConnected: boolean;
+  connectionStatus: WebSocketConnectionStatus;
+  retryCount: number;
+  maxRetries: number;
+  reconnect: () => void;
+}
+
+export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketReturn {
+  const { maxRetries = 5, initialDelay = 1000, maxDelay = 15000 } = options;
   const [alerts, setAlerts] = useState<AlertMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<WebSocketConnectionStatus>('connecting');
+  const [retryCount, setRetryCount] = useState(0);
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const retryCountRef = useRef(0);
+  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    let mounted = true;
+  const connect = useCallback(() => {
+    if (!mountedRef.current) return;
 
-    function connect() {
-      const wsUrl = getWsUrl(API_ENDPOINTS.WS_ALERTS);
-      setConnectionStatus((prev) => (prev === 'connected' ? 'reconnecting' : 'connecting'));
+    if (reconnectRef.current) {
+      clearTimeout(reconnectRef.current);
+      reconnectRef.current = null;
+    }
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+    if (wsRef.current) {
+      try {
+        wsRef.current.onclose = null;
+        wsRef.current.onerror = null;
+        wsRef.current.onmessage = null;
+        wsRef.current.onopen = null;
+        wsRef.current.close();
+      } catch {}
+      wsRef.current = null;
+    }
+
+    const wsUrl = getWsUrl(API_ENDPOINTS.WS_ALERTS);
+    setConnectionStatus((prev) => (prev === 'connected' ? 'reconnecting' : prev === 'disconnected' ? 'connecting' : prev));
+
+    try {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (mounted) {
-          setIsConnected(true);
-          setConnectionStatus('connected');
+        if (!mountedRef.current) {
+          try { ws.close(); } catch {}
+          return;
         }
+        retryCountRef.current = 0;
+        setRetryCount(0);
+        setIsConnected(true);
+        setConnectionStatus('connected');
       };
 
       ws.onclose = () => {
-        if (mounted) {
-          setIsConnected(false);
+        if (!mountedRef.current) return;
+        setIsConnected(false);
+
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = null;
+        }
+
+        if (retryCountRef.current < maxRetries) {
+          const attempt = retryCountRef.current + 1;
+          retryCountRef.current = attempt;
+          setRetryCount(attempt);
           setConnectionStatus('reconnecting');
-          // Auto-reconnect after 3 seconds
+          const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
           reconnectRef.current = setTimeout(() => {
-            if (mounted) connect();
-          }, 3000);
+            if (mountedRef.current) connect();
+          }, delay);
+        } else {
+          setConnectionStatus('disconnected');
         }
       };
 
       ws.onerror = () => {
-        if (mounted) {
-          setIsConnected(false);
-          setConnectionStatus('reconnecting');
+        if (!mountedRef.current) return;
+        setIsConnected(false);
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          try { ws.close(); } catch {}
         }
-        ws.close();
       };
 
       ws.onmessage = (event) => {
+        if (!mountedRef.current) return;
         try {
           const message = JSON.parse(event.data);
           if (message.type === 'pong') return; // Ignore heartbeat responses
@@ -201,25 +259,60 @@ export function useWebsocket() {
       };
 
       // Send heartbeat every 25 seconds
-      const pingInterval = setInterval(() => {
+      pingIntervalRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send('ping');
         }
       }, 25000);
-
-      ws.addEventListener('close', () => clearInterval(pingInterval));
+    } catch {
+      if (!mountedRef.current) return;
+      setIsConnected(false);
+      if (retryCountRef.current < maxRetries) {
+        const attempt = retryCountRef.current + 1;
+        retryCountRef.current = attempt;
+        setRetryCount(attempt);
+        setConnectionStatus('reconnecting');
+        const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
+        reconnectRef.current = setTimeout(() => {
+          if (mountedRef.current) connect();
+        }, delay);
+      } else {
+        setConnectionStatus('disconnected');
+      }
     }
+  }, [maxRetries, initialDelay, maxDelay]);
 
+  const reconnect = useCallback(() => {
+    retryCountRef.current = 0;
+    setRetryCount(0);
+    setConnectionStatus('connecting');
+    connect();
+  }, [connect]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    retryCountRef.current = 0;
+    setRetryCount(0);
+    setConnectionStatus('connecting');
     connect();
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
-      if (wsRef.current) wsRef.current.close();
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+      if (wsRef.current) {
+        try {
+          wsRef.current.onclose = null;
+          wsRef.current.onerror = null;
+          wsRef.current.onmessage = null;
+          wsRef.current.onopen = null;
+          wsRef.current.close();
+        } catch {}
+      }
     };
-  }, []);
+  }, [connect]);
 
-  return { alerts, isConnected, connectionStatus };
+  return { alerts, isConnected, connectionStatus, retryCount, maxRetries, reconnect };
 }
 
 // ============================================================
