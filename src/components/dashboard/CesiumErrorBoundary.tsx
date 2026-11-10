@@ -8,6 +8,7 @@ interface Props {
   selectedObject?: SatelliteItem | null;
   filters?: Record<string, boolean>;
   onRetry?: () => void;
+  onOpen2DTable?: () => void;
 }
 
 interface State {
@@ -55,6 +56,7 @@ export class CesiumErrorBoundary extends Component<Props, State> {
           selectedObject={this.props.selectedObject}
           reason={`3D Globe crashed: ${this.state.errorMessage}`}
           onRetry3D={this.handleRetry}
+          onOpen2DTable={this.props.onOpen2DTable}
           filters={this.props.filters}
         />
       );

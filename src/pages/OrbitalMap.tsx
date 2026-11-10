@@ -26,6 +26,7 @@ export default function OrbitalMap() {
   const webglSupport = detectWebGLSupport();
   const [searchParams] = useSearchParams();
   const location = useLocation();
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
   const [selectedObject, setSelectedObject] = useState<SatelliteItem | null>(null);
   const [filters, setFilters] = useState(defaultFilters);
   const [showFilters, setShowFilters] = useState(true);
@@ -154,12 +155,13 @@ export default function OrbitalMap() {
                   <span className="text-sm font-label-mono text-outline uppercase tracking-widest">Fetching Satellite Data...</span>
                 </div>
               </div>
-            ) : !webglSupport.supported ? (
+            ) : viewMode === '2d' || !webglSupport.supported ? (
               <GlobeFallbackTable
                 satellites={satellites}
                 onSelectObject={handleSelectObject}
                 selectedObject={selectedObject}
-                reason={webglSupport.errorMessage || 'WebGL hardware acceleration is unavailable in this environment'}
+                reason={!webglSupport.supported ? (webglSupport.errorMessage || 'WebGL hardware acceleration is unavailable in this environment') : '2D Tracking Directory requested by user'}
+                onRetry3D={() => setViewMode('3d')}
                 filters={filters}
               />
             ) : (
@@ -168,6 +170,7 @@ export default function OrbitalMap() {
                 onSelectObject={handleSelectObject}
                 selectedObject={selectedObject}
                 filters={filters}
+                onOpen2DTable={() => setViewMode('2d')}
               >
                 <CesiumGlobe
                   ref={globeRef}
@@ -258,6 +261,18 @@ export default function OrbitalMap() {
           </button>
         </div>
       )}
+
+      {/* 2D / 3D Tracking Navigation Action */}
+      <button 
+        className="absolute top-6 right-20 z-50 px-3.5 py-2 glass rounded-xl flex items-center gap-2 hover:bg-primary/20 hover:text-primary transition-all active:scale-95 text-xs font-mono font-bold"
+        title={viewMode === '3d' ? "Open 2D Tracking Table" : "Switch to 3D Globe"}
+        onClick={() => setViewMode(prev => prev === '3d' ? '2d' : '3d')}
+      >
+        <span className="material-symbols-outlined text-sm">
+          {viewMode === '3d' ? 'table_rows' : 'public'}
+        </span>
+        {viewMode === '3d' ? 'Open 2D Tracking Table' : 'Switch to 3D Globe'}
+      </button>
 
       {/* UI Visibility Toggle (Always Visible) */}
       <button 

@@ -716,7 +716,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
                 onClick={() => setUseFallback(true)}
                 className="px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition-colors"
               >
-                Switch to 2D Fallback View
+                Open 2D Tracking Table
               </button>
               <button
                 onClick={handleRetry}

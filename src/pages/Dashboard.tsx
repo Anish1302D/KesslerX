@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import CesiumGlobe, { CesiumGlobeRef } from '../components/dashboard/CesiumGlobe';
 import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
-import { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
+import GlobeFallbackTable, { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
 import { useSatellites, useWebsocket, useSpaceWeather, useCongestion, useCollisions, useTelemetry } from '../hooks/useKesslerAPI';
 import { useEvents, useUsers } from '../hooks/useHandoffAPI';
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const { currentUser } = useCurrentUser();
   
   const [selectedSatellite, setSelectedSatellite] = useState<SatelliteItem | null>(null);
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
   const [showDashboardReportModal, setShowDashboardReportModal] = useState(false);
   const globeRef = useRef<CesiumGlobeRef>(null);
 
@@ -260,24 +261,50 @@ export default function Dashboard() {
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 map-gradient pointer-events-none"></div>
             <div className="h-full [&>div]:!h-full [&>div>div]:!h-full">
-              <CesiumErrorBoundary
-                satellites={filteredSatellites}
-                onSelectObject={setSelectedSatellite}
-                selectedObject={selectedSatellite}
-                filters={activeFilters}
-              >
-                <CesiumGlobe
-                  ref={globeRef}
+              {viewMode === '2d' ? (
+                <GlobeFallbackTable
+                  satellites={filteredSatellites}
+                  onSelectObject={setSelectedSatellite}
+                  selectedObject={selectedSatellite}
+                  reason="2D Tracking View active"
+                  onRetry3D={() => setViewMode('3d')}
+                  filters={activeFilters}
+                />
+              ) : (
+                <CesiumErrorBoundary
                   satellites={filteredSatellites}
                   onSelectObject={setSelectedSatellite}
                   selectedObject={selectedSatellite}
                   filters={activeFilters}
-                />
-              </CesiumErrorBoundary>
+                  onOpen2DTable={() => setViewMode('2d')}
+                >
+                  <CesiumGlobe
+                    ref={globeRef}
+                    satellites={filteredSatellites}
+                    onSelectObject={setSelectedSatellite}
+                    selectedObject={selectedSatellite}
+                    filters={activeFilters}
+                  />
+                </CesiumErrorBoundary>
+              )}
             </div>
           </div>
           
           <ObjectDetailsPanel satelliteData={selectedSatellite} onClose={() => setSelectedSatellite(null)} />
+
+          {/* View Mode Switcher Action */}
+          <div className="absolute top-6 right-6 z-10 flex items-center gap-2 pointer-events-auto">
+            <button
+              onClick={() => setViewMode(prev => prev === '3d' ? '2d' : '3d')}
+              className="px-3 py-1.5 rounded-lg glass-darker text-xs font-mono font-bold flex items-center gap-1.5 hover:bg-surface-container-highest transition-all border border-outline-variant/30 text-on-surface"
+              title={viewMode === '3d' ? "Open 2D Tracking Table" : "Switch to 3D Globe"}
+            >
+              <span className="material-symbols-outlined text-sm">
+                {viewMode === '3d' ? 'table_rows' : 'public'}
+              </span>
+              {viewMode === '3d' ? 'Open 2D Tracking Table' : 'Switch to 3D Globe'}
+            </button>
+          </div>
 
           {/* Map Controls */}
           <div className="absolute top-6 left-6 z-10 glass-darker p-4 rounded-xl w-64 pointer-events-auto">

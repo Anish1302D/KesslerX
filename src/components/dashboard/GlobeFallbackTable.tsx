@@ -29,6 +29,7 @@ export interface GlobeFallbackTableProps {
   selectedObject?: SatelliteItem | null;
   reason?: string;
   onRetry3D?: () => void;
+  onOpen2DTable?: () => void;
   filters?: Record<string, boolean>;
 }
 
@@ -41,6 +42,7 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
   selectedObject,
   reason = '3D Globe unavailable or running in 2D mode',
   onRetry3D,
+  onOpen2DTable,
   filters,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
