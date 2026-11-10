@@ -3,7 +3,7 @@ import CesiumGlobe, { CesiumGlobeRef } from '../components/dashboard/CesiumGlobe
 import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
 import { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
-import { useSatellites, useWebsocket, useSpaceWeather, useCongestion, useCollisions } from '../hooks/useKesslerAPI';
+import { useSatellites, useWebsocket, useSpaceWeather, useCongestion, useCollisions, useTelemetry } from '../hooks/useKesslerAPI';
 import { useEvents, useUsers } from '../hooks/useHandoffAPI';
 import { useCurrentUser } from '../components/handoff/UserContext';
 import ReportPreviewModal from '../components/handoff/ReportPreviewModal';
@@ -16,6 +16,7 @@ export default function Dashboard() {
   const { data: weather } = useSpaceWeather();
   const { data: congestion } = useCongestion();
   const { data: collisions } = useCollisions();
+  const { data: telemetry, loading: telemetryLoading, error: telemetryError } = useTelemetry();
   const { events } = useEvents();
   const { users } = useUsers();
   const { currentUser } = useCurrentUser();
@@ -132,16 +133,37 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        {/* Connection Status */}
+        {/* Telemetry Status */}
         <div className="glass p-inner-padding rounded-xl flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-lg flex items-center justify-center border ${isConnected ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
-            <span className="material-symbols-outlined text-3xl">{isConnected ? 'cell_tower' : 'signal_disconnected'}</span>
+          <div className={`w-12 h-12 rounded-lg flex items-center justify-center border ${
+            telemetryLoading
+              ? 'bg-primary/10 text-primary border-primary/20'
+              : telemetryError
+              ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+              : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+          }`}>
+            <span className="material-symbols-outlined text-3xl">
+              {telemetryLoading ? 'sync' : telemetryError ? 'signal_disconnected' : 'cell_tower'}
+            </span>
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Telemetry</div>
-            <div className="font-stat-lg text-stat-lg font-bold leading-tight">{isConnected ? 'Online' : 'Offline'}</div>
-            <div className={`text-[11px] font-bold flex items-center gap-1 ${isConnected ? 'text-emerald-400' : 'text-red-500'}`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span> {isConnected ? 'Connected' : 'Reconnecting...'}
+            <div className="font-stat-lg text-stat-lg font-bold leading-tight">
+              {telemetryLoading ? 'Syncing...' : telemetryError ? 'Degraded' : telemetry.status}
+            </div>
+            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${
+              telemetryLoading
+                ? 'text-primary'
+                : telemetryError
+                ? 'text-rose-400'
+                : 'text-emerald-400'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full bg-current ${telemetryLoading ? 'animate-spin' : 'animate-pulse'}`}></span>
+              {telemetryLoading
+                ? 'Polling Feed'
+                : telemetryError
+                ? 'Fallback Mode'
+                : `CPU ${telemetry.cpu}% · ${telemetry.network} KB/s`}
             </div>
           </div>
         </div>
