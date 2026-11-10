@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, RotateCw, Satellite, ShieldAlert, Radio, AlertTriangle } from 'lucide-react';
+import { Search, RotateCw, Satellite, ShieldAlert, Radio, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react';
 
 export interface SatelliteItem {
   NORAD_CAT_ID?: string | number;
@@ -23,7 +23,7 @@ export interface SatelliteItem {
   status?: string;
 }
 
-interface GlobeFallbackTableProps {
+export interface GlobeFallbackTableProps {
   satellites: SatelliteItem[];
   onSelectObject?: (sat: SatelliteItem | null) => void;
   selectedObject?: SatelliteItem | null;
@@ -31,6 +31,9 @@ interface GlobeFallbackTableProps {
   onRetry3D?: () => void;
   filters?: Record<string, boolean>;
 }
+
+type SortField = 'name' | 'id' | 'category' | 'altitude' | 'epoch';
+type SortDirection = 'asc' | 'desc';
 
 export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
   satellites,
@@ -42,6 +45,9 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [orbitLayer, setOrbitLayer] = useState<'ALL' | 'LEO' | 'MEO' | 'GEO'>('ALL');
+  const [sortField, setSortField] = useState<SortField>('altitude');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Derive altitude from item or TLE
   const getAltitude = (sat: SatelliteItem): number => {
@@ -91,11 +97,42 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
     return 'Active Operational';
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleExportCsv = () => {
+    const headers = ['NORAD_ID', 'Name', 'Category', 'Altitude_km', 'Epoch', 'Source', 'Status'];
+    const rows = filteredSatellites.map(sat => [
+      String(sat.NORAD_CAT_ID || sat.id || ''),
+      `"${(sat.OBJECT_NAME || sat.name || '').replace(/"/g, '""')}"`,
+      getCategory(sat),
+      getAltitude(sat),
+      `"${getEpoch(sat)}"`,
+      `"${getSource(sat)}"`,
+      `"${getStatus(sat)}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kesslerx-tracking-table-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const filteredSatellites = useMemo(() => {
-    return satellites.filter((sat) => {
+    const list = satellites.filter((sat) => {
       const name = (sat.OBJECT_NAME || sat.name || '').toLowerCase();
       const id = String(sat.NORAD_CAT_ID || sat.id || '').toLowerCase();
       const cat = getCategory(sat);
+      const alt = getAltitude(sat);
 
       if (filters && filters[cat] === false) {
         return false;
@@ -105,6 +142,10 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
         return false;
       }
 
+      if (orbitLayer === 'LEO' && alt >= 2000) return false;
+      if (orbitLayer === 'MEO' && (alt < 2000 || alt >= 35786)) return false;
+      if (orbitLayer === 'GEO' && alt < 35786) return false;
+
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         return name.includes(term) || id.includes(term);
@@ -112,7 +153,29 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
 
       return true;
     });
-  }, [satellites, searchTerm, selectedCategory, filters]);
+
+    list.sort((a, b) => {
+      let comp = 0;
+      if (sortField === 'name') {
+        const nameA = (a.OBJECT_NAME || a.name || '').toLowerCase();
+        const nameB = (b.OBJECT_NAME || b.name || '').toLowerCase();
+        comp = nameA.localeCompare(nameB);
+      } else if (sortField === 'id') {
+        const idA = Number(a.NORAD_CAT_ID || a.id || 0);
+        const idB = Number(b.NORAD_CAT_ID || b.id || 0);
+        comp = idA - idB;
+      } else if (sortField === 'category') {
+        comp = getCategory(a).localeCompare(getCategory(b));
+      } else if (sortField === 'altitude') {
+        comp = getAltitude(a) - getAltitude(b);
+      } else if (sortField === 'epoch') {
+        comp = getEpoch(a).localeCompare(getEpoch(b));
+      }
+      return sortDirection === 'asc' ? comp : -comp;
+    });
+
+    return list;
+  }, [satellites, searchTerm, selectedCategory, orbitLayer, sortField, sortDirection, filters]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -120,8 +183,21 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
     return Array.from(set);
   }, [satellites]);
 
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-500 opacity-60 ml-1 inline" />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="w-3 h-3 text-cyan-400 ml-1 inline" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-cyan-400 ml-1 inline" />
+    );
+  };
+
   return (
     <div
+      role="region"
+      aria-label="2D Satellite Tracking Table"
       className="relative w-full h-[540px] flex flex-col bg-[#050816] rounded-xl overflow-hidden border border-cyan-500/20 text-slate-200"
       data-testid="globe-fallback-view"
     >
@@ -133,15 +209,25 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
             <strong>2D Planetary Fallback Mode:</strong> {reason}
           </span>
         </div>
-        {onRetry3D && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={onRetry3D}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs transition-colors cursor-pointer"
+            onClick={handleExportCsv}
+            title="Export CSV"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs transition-colors cursor-pointer"
           >
-            <RotateCw className="w-3.5 h-3.5" />
-            <span>Retry 3D Globe</span>
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
           </button>
-        )}
+          {onRetry3D && (
+            <button
+              onClick={onRetry3D}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs transition-colors cursor-pointer"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+              <span>Retry 3D Globe</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Control bar */}
@@ -155,6 +241,19 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-950/80 border border-slate-700/60 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
           />
+        </div>
+
+        {/* Orbit Layer Filter */}
+        <div className="flex items-center gap-1 bg-slate-950/60 p-0.5 rounded border border-slate-800 font-mono text-[11px]">
+          {(['ALL', 'LEO', 'MEO', 'GEO'] as const).map(layer => (
+            <button
+              key={layer}
+              onClick={() => setOrbitLayer(layer)}
+              className={`px-2 py-0.5 rounded transition-colors ${orbitLayer === layer ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              {layer}
+            </button>
+          ))}
         </div>
 
         <div className="flex items-center gap-2">
@@ -183,13 +282,41 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
         <table className="w-full text-left text-xs border-collapse">
           <thead className="sticky top-0 bg-slate-950/90 backdrop-blur z-10 text-[11px] font-mono uppercase tracking-wider text-slate-400 border-b border-slate-800">
             <tr>
-              <th className="py-2.5 px-4 font-semibold">Object / NORAD</th>
-              <th className="py-2.5 px-3 font-semibold">Category</th>
-              <th className="py-2.5 px-3 font-semibold">Altitude</th>
-              <th className="py-2.5 px-3 font-semibold">TLE Epoch / Timestamp</th>
-              <th className="py-2.5 px-3 font-semibold">Provenance Source</th>
-              <th className="py-2.5 px-3 font-semibold">Status</th>
-              <th className="py-2.5 px-3 font-semibold text-right">Action</th>
+              <th
+                scope="col"
+                onClick={() => handleSort('name')}
+                aria-sort={sortField === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                className="py-2.5 px-4 font-semibold cursor-pointer select-none hover:text-slate-200"
+              >
+                Object / NORAD {renderSortIcon('name')}
+              </th>
+              <th
+                scope="col"
+                onClick={() => handleSort('category')}
+                aria-sort={sortField === 'category' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                className="py-2.5 px-3 font-semibold cursor-pointer select-none hover:text-slate-200"
+              >
+                Category {renderSortIcon('category')}
+              </th>
+              <th
+                scope="col"
+                onClick={() => handleSort('altitude')}
+                aria-sort={sortField === 'altitude' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                className="py-2.5 px-3 font-semibold cursor-pointer select-none hover:text-slate-200"
+              >
+                Altitude {renderSortIcon('altitude')}
+              </th>
+              <th
+                scope="col"
+                onClick={() => handleSort('epoch')}
+                aria-sort={sortField === 'epoch' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                className="py-2.5 px-3 font-semibold cursor-pointer select-none hover:text-slate-200"
+              >
+                TLE Epoch / Timestamp {renderSortIcon('epoch')}
+              </th>
+              <th scope="col" className="py-2.5 px-3 font-semibold">Provenance Source</th>
+              <th scope="col" className="py-2.5 px-3 font-semibold">Status</th>
+              <th scope="col" className="py-2.5 px-3 font-semibold text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60 font-sans">
@@ -214,8 +341,16 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
                 return (
                   <tr
                     key={id}
+                    tabIndex={0}
+                    role="row"
                     onClick={() => onSelectObject?.(sat)}
-                    className={`transition-colors cursor-pointer ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelectObject?.(sat);
+                      }
+                    }}
+                    className={`transition-colors cursor-pointer outline-none focus:bg-cyan-500/10 ${
                       isSelected
                         ? 'bg-cyan-500/15 border-l-2 border-cyan-400'
                         : 'hover:bg-slate-800/40'

@@ -25,7 +25,7 @@ const mockSatellites: SatelliteItem[] = [
     NORAD_CAT_ID: 90001,
     OBJECT_NAME: 'DEBRIS-90001',
     CATEGORY: 'Debris',
-    altitude: 780,
+    altitude: 35800, // GEO altitude
     epoch: '2026-11-06 22:00:00',
     source: 'SGP4 Model',
     status: 'Tracked Debris',
@@ -75,6 +75,31 @@ describe('GlobeFallbackTable', () => {
     expect(screen.queryByText('ISS (ZARYA)')).toBeNull();
   });
 
+  it('filters by orbit layer (e.g. LEO vs GEO)', () => {
+    render(<GlobeFallbackTable satellites={mockSatellites} />);
+
+    const leoBtn = screen.getByRole('button', { name: 'LEO' });
+    fireEvent.click(leoBtn);
+
+    expect(screen.getByText('ISS (ZARYA)')).toBeDefined();
+    expect(screen.getByText('STARLINK-1007')).toBeDefined();
+    expect(screen.queryByText('DEBRIS-90001')).toBeNull(); // GEO altitude excluded in LEO
+  });
+
+  it('supports keyboard navigation via Enter key on rows', () => {
+    const onSelect = vi.fn();
+    render(<GlobeFallbackTable satellites={mockSatellites} onSelectObject={onSelect} />);
+
+    const issRow = screen.getByText('ISS (ZARYA)').closest('tr');
+    expect(issRow).not.toBeNull();
+    if (issRow) {
+      fireEvent.keyDown(issRow, { key: 'Enter' });
+      expect(onSelect).toHaveBeenCalledWith(
+        expect.objectContaining({ NORAD_CAT_ID: 25544, OBJECT_NAME: 'ISS (ZARYA)' })
+      );
+    }
+  });
+
   it('calls onSelectObject when row is clicked', () => {
     const onSelect = vi.fn();
     render(<GlobeFallbackTable satellites={mockSatellites} onSelectObject={onSelect} />);
@@ -87,4 +112,3 @@ describe('GlobeFallbackTable', () => {
     );
   });
 });
-
