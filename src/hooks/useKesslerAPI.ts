@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { satellites as mockSatellites } from '../data/mockData';
 import { API_BASE_URL, getApiUrl, getWsUrl, API_ENDPOINTS } from '../config/api';
+import { apiRequest } from '../utils/apiClient';
 
 const API = API_BASE_URL;
 
@@ -9,23 +10,12 @@ const API = API_BASE_URL;
 // ============================================================
 
 async function fetchWithRetry<T>(url: string, fallback: T, retries = 2): Promise<T> {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
-    } catch (err) {
-      if (i === retries) {
-        console.warn(`[KesslerAPI] ${url} failed after ${retries + 1} attempts, using fallback`, err);
-        return fallback;
-      }
-      await new Promise(r => setTimeout(r, 1000 * (i + 1))); // backoff
-    }
+  try {
+    return await apiRequest<T>(url, { retries, timeoutMs: 15000 });
+  } catch (err) {
+    console.warn(`[KesslerAPI] ${url} failed, using fallback`, err);
+    return fallback;
   }
-  return fallback;
 }
 
 // ============================================================
@@ -114,10 +104,15 @@ export function useSatellites() {
   useEffect(() => {
     async function fetchSatellites() {
       try {
-        const response = await fetch(`${API}/api/satellites?limit=500`);
-        if (!response.ok) throw new Error('Failed to fetch satellites');
-        const data = await response.json();
-        setSatellites(data.satellites);
+        const data = await apiRequest<{ satellites: SatelliteData[] }>(
+          getApiUrl(API_ENDPOINTS.SATELLITES + '?limit=500'),
+          { timeoutMs: 15000, retries: 2 }
+        );
+        if (Array.isArray(data.satellites)) {
+          setSatellites(data.satellites);
+        } else {
+          throw new Error('Invalid satellite data format received');
+        }
       } catch (err) {
         console.warn('API fetch failed, using mock data fallback', err);
         const mappedMock: SatelliteData[] = mockSatellites.map(s => ({

@@ -9,6 +9,7 @@ import {
   type HandoffCreatePayload, DEFAULT_DEMO_USERS, DEFAULT_DEMO_EVENTS,
 } from '../data/handoffTypes';
 import { API_BASE_URL } from '../config/api';
+import { apiRequest } from '../utils/apiClient';
 
 const API = API_BASE_URL;
 
@@ -18,24 +19,18 @@ const API = API_BASE_URL;
 
 async function handoffFetch<T>(
   url: string,
-  options?: RequestInit & { userId?: string },
+  options?: RequestInit & { userId?: string; timeoutMs?: number },
 ): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.userId ? { 'x-user-id': options.userId } : {}),
   };
 
-  const response = await fetch(url, {
+  return apiRequest<T>(url, {
     ...options,
+    timeoutMs: options?.timeoutMs || 15000,
     headers: { ...headers, ...(options?.headers as Record<string, string> || {}) },
   });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error(err.error || `HTTP ${response.status}`);
-  }
-
-  return response.json();
 }
 
 // ============================================================
