@@ -154,8 +154,8 @@ export default function ConjunctionAnalysis() {
         }),
       });
       const data = await response.json();
-      if (data.error) {
-        setError(data.error);
+      if (!response.ok || data.error || data.detail) {
+        setError(data.detail || data.error || `HTTP ${response.status}: Analysis rejected`);
       } else {
         setResult(data);
       }
@@ -198,6 +198,9 @@ export default function ConjunctionAnalysis() {
         body: JSON.stringify({ conjunction_data: result }),
       });
       const plan = await response.json();
+      if (!response.ok || plan.error || plan.detail) {
+        throw new Error(plan.detail || plan.error || `HTTP ${response.status}`);
+      }
       setManeuverPlan(plan);
     } catch (e: unknown) {
       setError(`Maneuver planning failed: ${e instanceof Error ? e.message : 'Unknown error'}`);

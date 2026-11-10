@@ -74,7 +74,7 @@ export default function Dashboard() {
         body: JSON.stringify({ prompt: query, context: { page: 'dashboard' } })
       });
       const data = await res.json();
-      setChatResponse(data.response);
+      setChatResponse(data.response || data.detail || data.error || 'No response received');
     } catch {
       setChatResponse("Error: Unable to connect to KesslerX AI.");
     } finally {

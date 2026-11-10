@@ -30,7 +30,7 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
 
   const refresh = useCallback(async () => {
     try {
-      const result = await fetchWithRetry(`${API}${endpoint}`, fallback);
+      const result = await apiRequest<T>(getApiUrl(endpoint), { timeoutMs: 15000, retries: 1 });
       if (mountedRef.current) {
         setData(result);
         setError(null);
@@ -42,7 +42,7 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [endpoint, fallback]);
+  }, [endpoint]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -50,7 +50,7 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
 
     const executeFetch = async () => {
       try {
-        const result = await fetchWithRetry(`${API}${endpoint}`, fallback);
+        const result = await apiRequest<T>(getApiUrl(endpoint), { timeoutMs: 15000, retries: 1 });
         if (mountedRef.current && !isCancelled) {
           setData(result);
           setError(null);
@@ -74,7 +74,7 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
       mountedRef.current = false;
       clearInterval(interval);
     };
-  }, [endpoint, fallback, refreshMs]);
+  }, [endpoint, refreshMs]);
 
   return { data, loading, error, refresh };
 }
@@ -309,6 +309,16 @@ export interface SpaceWeatherAPIData {
   kp_index: number;
   geomagnetic_storm: string;
   radiation_level: string;
+  radiation_belt?: string;
+  solar_wind_speed?: number;
+  bz_component?: number;
+  proton_density?: number;
+  atmospheric_density_multiplier?: number;
+  satellite_drag_impact?: string;
+  status?: string;
+  source?: string;
+  mode?: string;
+  warnings?: string[];
   updated_at?: string;
 }
 

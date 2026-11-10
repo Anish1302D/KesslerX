@@ -60,7 +60,7 @@ export default function AICopilot() {
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        content: data.response
+        content: data.response || data.detail || data.error || 'No response received'
       };
       
       setMessages(prev => [...prev, aiMessage]);
