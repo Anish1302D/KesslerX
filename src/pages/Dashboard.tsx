@@ -8,6 +8,7 @@ import { useEvents, useUsers } from '../hooks/useHandoffAPI';
 import { useCurrentUser } from '../components/handoff/UserContext';
 import ReportPreviewModal from '../components/handoff/ReportPreviewModal';
 import { API_BASE_URL } from '../config/api';
+import SystemHealthPanel from '../components/dashboard/SystemHealthPanel';
 
 export default function Dashboard() {
   const { satellites, loading } = useSatellites();
@@ -177,6 +178,11 @@ export default function Dashboard() {
             <div className={`text-[11px] font-bold ${congestion.leo.risk === 'HIGH' ? 'text-red-500/80' : 'text-on-surface-variant/60'}`}>{Math.round(congestion.leo.density * 100)}% Density</div>
           </div>
         </div>
+      </div>
+
+      {/* System Health Status Panel */}
+      <div className="col-span-12">
+        <SystemHealthPanel isWsConnected={isConnected} />
       </div>
 
       {/* Main Section: Map & Sidebar */}
