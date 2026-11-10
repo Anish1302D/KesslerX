@@ -2,6 +2,7 @@ import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Gauge, Clock, Compass, Shield, Download, Crosshair, Satellite } from 'lucide-react';
 import StatusBadge from '../ui/StatusBadge';
+import StaleDataWarning from '../ui/StaleDataWarning';
 import * as satellite from 'satellite.js';
 import { getSatelliteMedia, type SatelliteMedia } from '../../data/satelliteMedia';
 import type { FollowState } from './CesiumGlobe';
@@ -314,6 +315,9 @@ export default function ObjectDetailsPanel({
                   </div>
                 </div>
               )}
+
+              {/* Stale TLE & Freshness Warning */}
+              <StaleDataWarning tleLine1={satelliteData.TLE_LINE1} />
             </div>
 
               <div className="flex flex-col gap-2">
