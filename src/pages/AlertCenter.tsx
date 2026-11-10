@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
+import { API_BASE_URL } from '../config/api';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API = API_BASE_URL;
 
 type AlertSeverity = 'critical' | 'warning' | 'info';
 

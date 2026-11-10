@@ -8,8 +8,9 @@ import {
   type HandoffUser, type HandoffEvent, type Handoff, type TimelineEntry,
   type HandoffCreatePayload, DEFAULT_DEMO_USERS, DEFAULT_DEMO_EVENTS,
 } from '../data/handoffTypes';
+import { API_BASE_URL } from '../config/api';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API = API_BASE_URL;
 
 // ============================================================
 // Generic fetch helper

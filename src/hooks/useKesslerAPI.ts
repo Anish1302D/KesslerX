@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { satellites as mockSatellites } from '../data/mockData';
+import { API_BASE_URL, getApiUrl, getWsUrl, API_ENDPOINTS } from '../config/api';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API = API_BASE_URL;
 
 // ============================================================
 // Generic fetcher with retry + fallback
@@ -160,7 +161,7 @@ export function useWebsocket() {
     let mounted = true;
 
     function connect() {
-      const wsUrl = `${API.replace('http', 'ws')}/ws/alerts`;
+      const wsUrl = getWsUrl(API_ENDPOINTS.WS_ALERTS);
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 

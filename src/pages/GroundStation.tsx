@@ -4,6 +4,7 @@ import {
   AreaChart, Area
 } from 'recharts';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
+import { getWsUrl as resolveWsUrl, API_ENDPOINTS } from '../config/api';
 
 interface TelemetryPacket {
   packet_id: number;
@@ -26,19 +27,7 @@ interface TelemetryPacket {
 }
 
 function getWsUrl(): string {
-  const explicitWs = import.meta.env.VITE_WS_URL;
-  if (explicitWs) {
-    const base = explicitWs.endsWith('/') ? explicitWs.slice(0, -1) : explicitWs;
-    return `${base}/ws/ground-station`;
-  }
-  const apiBase = import.meta.env.VITE_API_BASE_URL;
-  if (apiBase) {
-    const scheme = apiBase.startsWith('https') ? 'wss:' : 'ws:';
-    const hostPath = apiBase.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    return `${scheme}//${hostPath}/ws/ground-station`;
-  }
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//localhost:8000/ws/ground-station`;
+  return resolveWsUrl(API_ENDPOINTS.WS_GROUND_STATION);
 }
 
 function formatUptime(seconds: number): string {

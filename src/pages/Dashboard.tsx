@@ -7,6 +7,7 @@ import { useSatellites, useWebsocket, useSpaceWeather, useCongestion, useCollisi
 import { useEvents, useUsers } from '../hooks/useHandoffAPI';
 import { useCurrentUser } from '../components/handoff/UserContext';
 import ReportPreviewModal from '../components/handoff/ReportPreviewModal';
+import { API_BASE_URL } from '../config/api';
 
 export default function Dashboard() {
   const { satellites, loading } = useSatellites();
@@ -65,7 +66,7 @@ export default function Dashboard() {
     setChatInput('');
     try {
       // Assuming Vite proxy or absolute URL setup
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const baseUrl = API_BASE_URL;
       const res = await fetch(`${baseUrl}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

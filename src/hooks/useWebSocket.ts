@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { getWsUrl } from '../config/api';
 
 export interface WebSocketMessage {
   type?: string;
@@ -17,28 +18,8 @@ export function useWebSocket(pathOrUrl: string) {
     let isMounted = true;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    // Resolve target WebSocket URL
-    let wsUrl: string;
-    if (pathOrUrl.startsWith('ws://') || pathOrUrl.startsWith('wss://')) {
-      wsUrl = pathOrUrl;
-    } else {
-      const explicitWsBase = import.meta.env.VITE_WS_URL;
-      const apiBase = import.meta.env.VITE_API_BASE_URL;
-
-      if (explicitWsBase) {
-        const base = explicitWsBase.endsWith('/') ? explicitWsBase.slice(0, -1) : explicitWsBase;
-        const path = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
-        wsUrl = `${base}${path}`;
-      } else if (apiBase) {
-        const wsScheme = apiBase.startsWith('https') ? 'wss:' : 'ws:';
-        const hostPath = apiBase.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const path = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`;
-        wsUrl = `${wsScheme}//${hostPath}${path}`;
-      } else {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        wsUrl = `${protocol}//localhost:8000${pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`}`;
-      }
-    }
+    // Resolve target WebSocket URL using centralized config
+    const wsUrl = getWsUrl(pathOrUrl);
 
     const connect = () => {
       if (!isMounted) return;

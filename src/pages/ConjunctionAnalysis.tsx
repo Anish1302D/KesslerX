@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 import IntentNegotiatorCockpit, { type NegotiationData } from '../components/negotiator/IntentNegotiatorCockpit';
+import { API_BASE_URL } from '../config/api';
 
 interface Preset {
   id: string;
@@ -27,7 +28,7 @@ interface ManeuverPlan {
   explanation: string;
 }
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API = API_BASE_URL;
 
 const RISK_COLORS: Record<string, string> = {
   SAFE: '#22c55e',
