@@ -7,6 +7,7 @@ import {
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 import IntentNegotiatorCockpit, { type NegotiationData } from '../components/negotiator/IntentNegotiatorCockpit';
 import { API_BASE_URL } from '../config/api';
+import { validateTcaTimestamp, validateManeuverAssessment } from '../utils/maneuverValidation';
 
 interface Preset {
   id: string;
@@ -99,6 +100,7 @@ export default function ConjunctionAnalysis() {
   const [maneuverPlan, setManeuverPlan] = useState<ManeuverPlan | null>(null);
   const [negotiationData, setNegotiationData] = useState<NegotiationData | null>(null);
   const [maneuverLoading, setManeuverLoading] = useState(false);
+  const [assessmentWarnings, setAssessmentWarnings] = useState<string[]>([]);
 
   // Load presets
   useEffect(() => {
@@ -126,6 +128,24 @@ export default function ConjunctionAnalysis() {
       setError('Please fill in all TLE fields');
       return;
     }
+
+    const validation = validateManeuverAssessment({
+      tle1_line1: tle1Line1,
+      tle1_line2: tle1Line2,
+      tle2_line1: tle2Line1,
+      tle2_line2: tle2Line2,
+      object_a_name: nameA,
+      object_b_name: nameB,
+      duration_hours: 24,
+      step_seconds: 10,
+    });
+
+    if (!validation.valid) {
+      setError(`Assessment inputs rejected: ${validation.errors.join('; ')}`);
+      return;
+    }
+
+    setAssessmentWarnings(validation.warnings);
     setLoading(true);
     setProgress(0);
     setResult(null);
@@ -170,6 +190,31 @@ export default function ConjunctionAnalysis() {
 
   const generateManeuver = async () => {
     if (!result) return;
+
+    // Validate TCA timestamp and assessment inputs before maneuver evaluation
+    const tcaVal = validateTcaTimestamp(result.tca);
+    if (!tcaVal.valid && tcaVal.error) {
+      setError(`Maneuver assessment rejected: ${tcaVal.error}`);
+      return;
+    }
+
+    const assessmentVal = validateManeuverAssessment({
+      tca: result.tca,
+      object_a_name: result.object_a_name,
+      object_b_name: result.object_b_name,
+      miss_distance_km: result.min_distance_km,
+      collision_probability: result.collision_probability,
+    });
+
+    if (!assessmentVal.valid) {
+      setError(`Unsupported maneuver assessment inputs: ${assessmentVal.errors.join('; ')}`);
+      return;
+    }
+
+    if (assessmentVal.warnings.length > 0) {
+      setAssessmentWarnings(prev => Array.from(new Set([...prev, ...assessmentVal.warnings])));
+    }
+
     setManeuverLoading(true);
     try {
       // 1. Evaluate Intent-to-Action Negotiation
@@ -333,6 +378,19 @@ export default function ConjunctionAnalysis() {
                 </div>
               )}
             </div>
+
+            {/* Assessment Advisories */}
+            {assessmentWarnings.length > 0 && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs font-mono text-amber-300 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="material-symbols-outlined text-sm">warning</span>
+                  <span>Assessment Inputs Advisory:</span>
+                </div>
+                {assessmentWarnings.map((w, idx) => (
+                  <div key={idx}>• {w}</div>
+                ))}
+              </div>
+            )}
 
             {/* Progress bar */}
             <AnimatePresence>
