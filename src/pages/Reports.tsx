@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import ReportPreviewModal from '../components/handoff/ReportPreviewModal';
 import { useEvents } from '../hooks/useHandoffAPI';
 import { type HandoffEvent, DEFAULT_DEMO_USERS, DEFAULT_DEMO_EVENTS } from '../data/handoffTypes';
+import { sealEvidencePacket } from '../utils/evidenceHash';
 
 export default function Reports() {
   const reportRef = useRef<HTMLDivElement>(null);
@@ -37,8 +38,8 @@ export default function Reports() {
     }
   };
 
-  const exportJSON = () => {
-    const evidencePackage = {
+  const exportJSON = async () => {
+    const rawPackage = {
       report_title: 'KesslerX Orbital Safety & Conjunction Intelligence Synthesis',
       software_version: '2.1.0',
       generated_at: new Date().toISOString(),
@@ -76,6 +77,7 @@ export default function Reports() {
         space_weather_kp: 3,
       },
     };
+    const evidencePackage = await sealEvidencePacket(rawPackage);
     const blob = new Blob([JSON.stringify(evidencePackage, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
