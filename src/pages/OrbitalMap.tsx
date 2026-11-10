@@ -3,10 +3,11 @@ import { useSearchParams, useLocation } from 'react-router-dom';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
 import type { CesiumGlobeRef, FollowState } from '../components/dashboard/CesiumGlobe';
 import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
-import { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
+import GlobeFallbackTable, { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import { useSatellites } from '../hooks/useKesslerAPI';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 import { resolveDataState, formatObjectCount } from '../utils/dataState';
+import { detectWebGLSupport } from '../utils/webglDetection';
 
 const CesiumGlobe = lazy(() => import('../components/dashboard/CesiumGlobe'));
 
@@ -22,6 +23,7 @@ const defaultFilters: Record<string, boolean> = {
 
 export default function OrbitalMap() {
   const { satellites, loading, error: satError, isFallback: satFallback, refresh: refreshSatellites } = useSatellites();
+  const webglSupport = detectWebGLSupport();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const [selectedObject, setSelectedObject] = useState<SatelliteItem | null>(null);
@@ -152,6 +154,14 @@ export default function OrbitalMap() {
                   <span className="text-sm font-label-mono text-outline uppercase tracking-widest">Fetching Satellite Data...</span>
                 </div>
               </div>
+            ) : !webglSupport.supported ? (
+              <GlobeFallbackTable
+                satellites={satellites}
+                onSelectObject={handleSelectObject}
+                selectedObject={selectedObject}
+                reason={webglSupport.errorMessage || 'WebGL hardware acceleration is unavailable in this environment'}
+                filters={filters}
+              />
             ) : (
               <CesiumErrorBoundary
                 satellites={satellites}
