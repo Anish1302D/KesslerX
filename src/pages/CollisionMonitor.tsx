@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEvents } from '../hooks/useHandoffAPI';
 import { useCurrentUser } from '../components/handoff/UserContext';
 import HandoffModal from '../components/handoff/HandoffModal';
+import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 
 export default function CollisionMonitor() {
   const navigate = useNavigate();
@@ -25,8 +26,16 @@ export default function CollisionMonitor() {
     <div className="space-y-card-gap">
       {/* Dashboard Header */}
       <div className="flex justify-between items-end">
-        <div>
-          <h2 className="font-headline-md text-headline-md text-primary">Collision Monitor</h2>
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h2 className="font-headline-md text-headline-md text-primary">Collision Monitor</h2>
+            <ProvenanceBadge
+              compact
+              source="space-track"
+              mode={events.length > 0 ? "derived" : "fallback"}
+              warnings={['Decision support only — human approval required.']}
+            />
+          </div>
           <p className="text-on-surface-variant/80">Real-time tracking of conjunction events and orbital safety metrics.</p>
         </div>
         <div className="flex gap-2 relative">

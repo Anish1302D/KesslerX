@@ -110,8 +110,9 @@ export default function Dashboard() {
             <div className="font-stat-lg text-stat-lg font-bold leading-tight">
               {loading ? '...' : activeCount.toLocaleString()}
             </div>
-            <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">trending_up</span> Live
+            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${satellites.length > 50 ? 'text-emerald-400' : 'text-amber-400'}`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+              {satellites.length > 50 ? 'OBSERVED (LIVE)' : 'SIMULATED (DEMO)'}
             </div>
           </div>
         </div>
@@ -125,8 +126,9 @@ export default function Dashboard() {
             <div className="font-stat-lg text-stat-lg font-bold leading-tight">
               {loading ? '...' : debrisCount.toLocaleString()}
             </div>
-            <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">trending_up</span> Live
+            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${satellites.length > 50 ? 'text-emerald-400' : 'text-amber-400'}`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+              {satellites.length > 50 ? 'OBSERVED (LIVE)' : 'SIMULATED (DEMO)'}
             </div>
           </div>
         </div>
@@ -151,8 +153,8 @@ export default function Dashboard() {
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Collisions</div>
             <div className="font-stat-lg text-stat-lg font-bold leading-tight">{Array.isArray(collisions) ? collisions.length : 0} <span className="text-xs font-medium text-on-surface-variant/60 ml-1">Next 24h</span></div>
-            <div className="text-[11px] text-orange-500 font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">trending_up</span> Live
+            <div className="text-[10px] text-amber-400 font-mono font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span> DEMO FIXTURE
             </div>
           </div>
         </div>

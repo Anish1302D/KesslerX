@@ -167,6 +167,15 @@ export default function ObjectDetailsPanel({
                 {satelliteData.CATEGORY || satelliteData.OBJECT_TYPE || 'UNKNOWN'}
               </span>
               <span className="text-[11px] font-space" style={{ color: '#64748B' }}>NORAD: {satelliteData.NORAD_CAT_ID}</span>
+              <span
+                className={`text-[9px] font-mono px-2 py-0.5 rounded border uppercase ml-auto ${
+                  satelliteData.source === 'space-track'
+                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                    : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                }`}
+              >
+                {satelliteData.source === 'space-track' ? 'LIVE TLE' : 'SIMULATED'}
+              </span>
             </div>
 
             {/* ── Satellite Image Section ────────────────────── */}

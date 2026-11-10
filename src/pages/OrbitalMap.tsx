@@ -5,6 +5,7 @@ import type { CesiumGlobeRef, FollowState } from '../components/dashboard/Cesium
 import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
 import { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import { useSatellites } from '../hooks/useKesslerAPI';
+import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 
 const CesiumGlobe = lazy(() => import('../components/dashboard/CesiumGlobe'));
 
@@ -247,7 +248,12 @@ export default function OrbitalMap() {
               <span className="material-symbols-outlined text-sm">analytics</span>
               Live Telemetry
             </h3>
-            <span className="material-symbols-outlined text-outline cursor-pointer">more_vert</span>
+            <ProvenanceBadge
+              compact
+              source={satellites.length > 50 ? 'space-track' : 'demo'}
+              mode={satellites.length > 50 ? 'observed' : 'fallback'}
+              warnings={satellites.length > 50 ? [] : ['Simulated Demo Fixtures']}
+            />
           </div>
           <div className="space-y-4">
             <div className="flex justify-between items-end">
