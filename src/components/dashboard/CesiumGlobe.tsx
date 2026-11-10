@@ -40,6 +40,7 @@ export interface CesiumGlobeRef {
   flyToSatellite: (noradId: string) => void;
   stopFollowing: () => void;
   getFollowState: () => FollowState;
+  retryInitialization: () => void;
 }
 
 // SGP4 propagation helper
@@ -131,6 +132,15 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
   const [cesiumReady, setCesiumReady] = useState(false);
   const [useFallback, setUseFallback] = useState(forceFallback);
   const [fallbackReason, setFallbackReason] = useState<string>('');
+  const [retryCount, setRetryCount] = useState(0);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setCesiumReady(false);
+    setUseFallback(false);
+    setFallbackReason('');
+    setRetryCount((prev) => prev + 1);
+  }, []);
 
   const followStateRef = useRef<FollowState>({ mode: 'FREE' });
   const selectedEntityOriginalRef = useRef<{
@@ -262,6 +272,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
       });
     },
     getFollowState: () => followStateRef.current,
+    retryInitialization: handleRetry,
   }));
 
   function highlightEntity(entity: CesiumModule.Entity) {
@@ -484,6 +495,21 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
           lastTracked = currentTracked;
         });
 
+        // Attach WebGL context loss handlers
+        const canvas = viewer.scene.canvas;
+        const handleContextLost = (e: Event) => {
+          e.preventDefault();
+          console.warn('[CesiumGlobe] WebGL context lost.');
+          setError('WebGL context lost. Hardware acceleration or GPU reset occurred.');
+        };
+        const handleContextRestored = () => {
+          console.info('[CesiumGlobe] WebGL context restored. Reinitializing viewer.');
+          handleRetry();
+        };
+
+        canvas.addEventListener('webglcontextlost', handleContextLost, false);
+        canvas.addEventListener('webglcontextrestored', handleContextRestored, false);
+
         clearTimeout(initTimeout);
         setCesiumReady(true);
         setError(null);
@@ -602,11 +628,15 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
       clearTimeout(initTimeout);
       if (animFrameId) cancelAnimationFrame(animFrameId);
       if (viewer && !viewer.isDestroyed()) {
-        viewer.destroy();
+        try {
+          viewer.destroy();
+        } catch {
+          // ignore destroy errors
+        }
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [satellites, useFallback]);
+  }, [satellites, useFallback, retryCount, handleRetry]);
 
   // Update entity and path visibility when filters or showOrbitLines change
   useEffect(() => {
@@ -656,11 +686,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
         onSelectObject={onSelectObject}
         selectedObject={selectedObject}
         reason={fallbackReason || 'WebGL disabled or 3D Globe fallback requested'}
-        onRetry3D={() => {
-          setUseFallback(false);
-          setCesiumReady(false);
-          setError(null);
-        }}
+        onRetry3D={handleRetry}
         filters={filters}
       />
     );
@@ -693,10 +719,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
                 Switch to 2D Fallback View
               </button>
               <button
-                onClick={() => {
-                  setError(null);
-                  setCesiumReady(false);
-                }}
+                onClick={handleRetry}
                 className="px-4 py-2 rounded-lg bg-slate-800 text-slate-200 text-xs hover:bg-slate-700 transition-colors"
               >
                 Retry 3D Globe
