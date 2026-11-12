@@ -64,7 +64,7 @@ export function validateEnv(
   }
 
   // --- WebSocket URL Validation & Derivation ---
-  let wsBaseUrl = '';
+  let wsBaseUrl: string;
   const rawWsUrl = typeof rawEnv.VITE_WS_URL === 'string'
     ? rawEnv.VITE_WS_URL.trim().replace(/\/+$/, '')
     : '';

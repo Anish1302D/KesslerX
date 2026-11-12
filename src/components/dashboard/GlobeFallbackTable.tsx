@@ -36,13 +36,22 @@ export interface GlobeFallbackTableProps {
 type SortField = 'name' | 'id' | 'category' | 'altitude' | 'epoch';
 type SortDirection = 'asc' | 'desc';
 
+function downloadCsvFile(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
   satellites,
   onSelectObject,
   selectedObject,
   reason = '3D Globe unavailable or running in 2D mode',
   onRetry3D,
-  onOpen2DTable,
   filters,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -120,13 +129,7 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
       `"${getStatus(sat)}"`,
     ]);
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `kesslerx-tracking-table-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsvFile(csvContent, 'kesslerx-tracking-table.csv');
   };
 
   const filteredSatellites = useMemo(() => {

@@ -26,7 +26,7 @@ describe('detectWebGLSupport', () => {
     document.createElement = vi.fn().mockImplementation((tagName: string) => {
       if (tagName === 'canvas') {
         return {
-          getContext: (_type: string, _opts?: unknown) => mockGl2,
+          getContext: () => mockGl2,
         };
       }
       return originalCreateElement(tagName);

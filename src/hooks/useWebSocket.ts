@@ -41,6 +41,7 @@ export function useWebSocket(
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCountRef = useRef(0);
   const isMountedRef = useRef(true);
+  const connectRef = useRef<() => void>(() => {});
 
   // Resolve target WebSocket URL using centralized config
   const wsUrl = getWsUrl(pathOrUrl);
@@ -76,7 +77,7 @@ export function useWebSocket(
 
       ws.onopen = () => {
         if (!isMountedRef.current) {
-          try { ws.close(); } catch {}
+          try { ws.close(); } catch { /* ignore */ }
           return;
         }
         retryCountRef.current = 0;
@@ -109,7 +110,7 @@ export function useWebSocket(
           const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
           reconnectTimeoutRef.current = setTimeout(() => {
             if (isMountedRef.current) {
-              connect();
+              connectRef.current();
             }
           }, delay);
         } else {
@@ -141,7 +142,7 @@ export function useWebSocket(
         const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
         reconnectTimeoutRef.current = setTimeout(() => {
           if (isMountedRef.current) {
-            connect();
+            connectRef.current();
           }
         }, delay);
       } else {
@@ -149,6 +150,10 @@ export function useWebSocket(
       }
     }
   }, [wsUrl, maxRetries, initialDelay, maxDelay]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const reconnect = useCallback(() => {
     retryCountRef.current = 0;
@@ -159,9 +164,6 @@ export function useWebSocket(
 
   useEffect(() => {
     isMountedRef.current = true;
-    retryCountRef.current = 0;
-    setRetryCount(0);
-    setConnectionStatus('connecting');
     connect();
 
     return () => {

@@ -1,22 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { satellites as mockSatellites } from '../data/mockData';
-import { API_BASE_URL, getApiUrl, getWsUrl, API_ENDPOINTS } from '../config/api';
+import { getApiUrl, getWsUrl, API_ENDPOINTS } from '../config/api';
 import { apiRequest } from '../utils/apiClient';
-
-const API = API_BASE_URL;
-
-// ============================================================
-// Generic fetcher with retry + fallback
-// ============================================================
-
-async function fetchWithRetry<T>(url: string, fallback: T, retries = 2): Promise<T> {
-  try {
-    return await apiRequest<T>(url, { retries, timeoutMs: 15000 });
-  } catch (err) {
-    console.warn(`[KesslerAPI] ${url} failed, using fallback`, err);
-    return fallback;
-  }
-}
 
 // ============================================================
 // Generic hook for periodic data fetching
@@ -147,8 +132,42 @@ export function useSatellites(): UseSatellitesReturn {
   }, []);
 
   useEffect(() => {
-    void fetchSatellites();
-  }, [fetchSatellites]);
+    let active = true;
+    apiRequest<{ satellites: SatelliteData[] }>(
+      getApiUrl(API_ENDPOINTS.SATELLITES + '?limit=500'),
+      { timeoutMs: 15000, retries: 2 }
+    )
+      .then((data) => {
+        if (!active) return;
+        if (data && Array.isArray(data.satellites)) {
+          setSatellites(data.satellites);
+          setError(null);
+          setIsFallback(false);
+        } else {
+          throw new Error('Invalid satellite data format received');
+        }
+      })
+      .catch((err) => {
+        if (!active) return;
+        const mappedMock: SatelliteData[] = mockSatellites.map(s => ({
+          ...s,
+          NORAD_CAT_ID: s.id,
+          OBJECT_NAME: s.name,
+          OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
+          CATEGORY: s.type,
+        }));
+        setSatellites(mappedMock);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setIsFallback(true);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return { satellites, loading, error, isFallback, refresh: fetchSatellites };
 }
@@ -194,6 +213,7 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryCountRef = useRef(0);
   const mountedRef = useRef(true);
+  const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
     if (!mountedRef.current) return;
@@ -213,7 +233,7 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
         wsRef.current.onmessage = null;
         wsRef.current.onopen = null;
         wsRef.current.close();
-      } catch {}
+      } catch { /* ignore */ }
       wsRef.current = null;
     }
 
@@ -226,7 +246,7 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
 
       ws.onopen = () => {
         if (!mountedRef.current) {
-          try { ws.close(); } catch {}
+          try { ws.close(); } catch { /* ignore */ }
           return;
         }
         retryCountRef.current = 0;
@@ -251,7 +271,7 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
           setConnectionStatus('reconnecting');
           const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
           reconnectRef.current = setTimeout(() => {
-            if (mountedRef.current) connect();
+            if (mountedRef.current) connectRef.current();
           }, delay);
         } else {
           setConnectionStatus('disconnected');
@@ -262,7 +282,7 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
         if (!mountedRef.current) return;
         setIsConnected(false);
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-          try { ws.close(); } catch {}
+          try { ws.close(); } catch { /* ignore */ }
         }
       };
 
@@ -293,13 +313,17 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
         setConnectionStatus('reconnecting');
         const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
         reconnectRef.current = setTimeout(() => {
-          if (mountedRef.current) connect();
+          if (mountedRef.current) connectRef.current();
         }, delay);
       } else {
         setConnectionStatus('disconnected');
       }
     }
   }, [maxRetries, initialDelay, maxDelay]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const reconnect = useCallback(() => {
     retryCountRef.current = 0;
@@ -310,9 +334,6 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
 
   useEffect(() => {
     mountedRef.current = true;
-    retryCountRef.current = 0;
-    setRetryCount(0);
-    setConnectionStatus('connecting');
     connect();
 
     return () => {
@@ -326,7 +347,7 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
           wsRef.current.onmessage = null;
           wsRef.current.onopen = null;
           wsRef.current.close();
-        } catch {}
+        } catch { /* ignore */ }
       }
     };
   }, [connect]);
