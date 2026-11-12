@@ -416,31 +416,57 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
         viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#081224');
         viewer.scene.globe.showGroundAtmosphere = true;
         viewer.scene.globe.enableLighting = enableLighting;
-
-        // Imagery layer: try Ion Bing Maps if token is set, else OSM tiles
         try {
-          if (token && token.length > 20) {
+          // Soften harsh night shadows so the unlit hemisphere remains naturally visible
+          viewer.scene.globe.atmosphereLightIntensity = 12.0;
+        } catch {
+          // atmosphereLightIntensity optional
+        }
+
+        // Imagery layer: try Ion Bing/World Imagery if token is set, else ArcGIS World Satellite Imagery
+        let imageryAdded = false;
+        if (token && token.length > 20) {
+          try {
             const ionProvider = await Cesium.IonImageryProvider.fromAssetId(2);
             viewer.imageryLayers.addImageryProvider(ionProvider);
-          } else {
-            // OpenStreetMap tiles without requiring an Ion token
-            viewer.imageryLayers.addImageryProvider(
-              new Cesium.UrlTemplateImageryProvider({
-                url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                maximumLevel: 19,
-              })
-            );
+            imageryAdded = true;
+          } catch (err) {
+            console.warn('[CesiumGlobe] Ion imagery failed, falling back to satellite imagery', err);
           }
-        } catch {
+        }
+
+        if (!imageryAdded) {
+          // High-resolution photorealistic satellite imagery (ESRI ArcGIS World Imagery) - no token required
           try {
-            viewer.imageryLayers.addImageryProvider(
-              new Cesium.UrlTemplateImageryProvider({
-                url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                maximumLevel: 19,
-              })
+            const esriProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+              'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+              { enablePickFeatures: false }
             );
+            viewer.imageryLayers.addImageryProvider(esriProvider);
+            imageryAdded = true;
           } catch {
-            console.warn('Globe imagery fallback to base color');
+            try {
+              // Direct ArcGIS World Imagery tile template
+              viewer.imageryLayers.addImageryProvider(
+                new Cesium.UrlTemplateImageryProvider({
+                  url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                  maximumLevel: 19,
+                })
+              );
+              imageryAdded = true;
+            } catch {
+              // Last-resort fallback to OpenStreetMap
+              try {
+                viewer.imageryLayers.addImageryProvider(
+                  new Cesium.UrlTemplateImageryProvider({
+                    url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    maximumLevel: 19,
+                  })
+                );
+              } catch {
+                console.warn('[CesiumGlobe] Globe imagery fallback to base color');
+              }
+            }
           }
         }
 
