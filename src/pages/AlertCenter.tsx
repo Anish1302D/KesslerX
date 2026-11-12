@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
+import { API_BASE_URL } from '../config/api';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API = API_BASE_URL;
 
 type AlertSeverity = 'critical' | 'warning' | 'info';
 
@@ -59,7 +60,7 @@ function getTimeAgo(ts: string): string {
 }
 
 export default function AlertCenter() {
-  const { messages, isConnected } = useWebSocket('/ws/alerts');
+  const { messages, isConnected, connectionStatus, reconnect } = useWebSocket('/ws/alerts');
   const [alerts, setAlerts] = useState<Alert[]>(INITIAL_ALERTS);
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [selectedAlertId, setSelectedAlertId] = useState<string>('1');
@@ -172,10 +173,29 @@ export default function AlertCenter() {
               Active Alerts
             </h2>
             <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+              <span className={`w-2 h-2 rounded-full ${
+                connectionStatus === 'connected'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
+                  ? 'bg-amber-400 animate-ping'
+                  : 'bg-rose-500'
+              }`}></span>
               <span className="font-mono text-[10px] text-on-surface-variant">
-                {isConnected ? 'LIVE WS' : 'REST POLL (10s)'}
+                {connectionStatus === 'connected'
+                  ? 'LIVE WS'
+                  : connectionStatus === 'reconnecting'
+                  ? 'RECONNECTING WS'
+                  : 'REST POLL (10s)'}
               </span>
+              {connectionStatus === 'disconnected' && (
+                <button
+                  onClick={reconnect}
+                  title="Retry WebSocket connection"
+                  className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-surface-container-highest hover:bg-surface-container-high text-primary border border-outline-variant/30 transition-colors"
+                >
+                  Retry WS
+                </button>
+              )}
               {criticalCount > 0 && (
                 <span className="bg-error/20 text-error font-label-mono text-[10px] px-2 py-0.5 rounded-full border border-error/30 animate-pulse">
                   {criticalCount} CRITICAL

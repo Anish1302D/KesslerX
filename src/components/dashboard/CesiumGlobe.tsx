@@ -40,6 +40,7 @@ export interface CesiumGlobeRef {
   flyToSatellite: (noradId: string) => void;
   stopFollowing: () => void;
   getFollowState: () => FollowState;
+  retryInitialization: () => void;
 }
 
 // SGP4 propagation helper
@@ -131,6 +132,15 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
   const [cesiumReady, setCesiumReady] = useState(false);
   const [useFallback, setUseFallback] = useState(forceFallback);
   const [fallbackReason, setFallbackReason] = useState<string>('');
+  const [retryCount, setRetryCount] = useState(0);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setCesiumReady(false);
+    setUseFallback(false);
+    setFallbackReason('');
+    setRetryCount((prev) => prev + 1);
+  }, []);
 
   const followStateRef = useRef<FollowState>({ mode: 'FREE' });
   const selectedEntityOriginalRef = useRef<{
@@ -262,6 +272,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
       });
     },
     getFollowState: () => followStateRef.current,
+    retryInitialization: handleRetry,
   }));
 
   function highlightEntity(entity: CesiumModule.Entity) {
@@ -405,31 +416,57 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
         viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#081224');
         viewer.scene.globe.showGroundAtmosphere = true;
         viewer.scene.globe.enableLighting = enableLighting;
-
-        // Imagery layer: try Ion Bing Maps if token is set, else OSM tiles
         try {
-          if (token && token.length > 20) {
+          // Soften harsh night shadows so the unlit hemisphere remains naturally visible
+          viewer.scene.globe.atmosphereLightIntensity = 12.0;
+        } catch {
+          // atmosphereLightIntensity optional
+        }
+
+        // Imagery layer: try Ion Bing/World Imagery if token is set, else ArcGIS World Satellite Imagery
+        let imageryAdded = false;
+        if (token && token.length > 20) {
+          try {
             const ionProvider = await Cesium.IonImageryProvider.fromAssetId(2);
             viewer.imageryLayers.addImageryProvider(ionProvider);
-          } else {
-            // OpenStreetMap tiles without requiring an Ion token
-            viewer.imageryLayers.addImageryProvider(
-              new Cesium.UrlTemplateImageryProvider({
-                url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                maximumLevel: 19,
-              })
-            );
+            imageryAdded = true;
+          } catch (err) {
+            console.warn('[CesiumGlobe] Ion imagery failed, falling back to satellite imagery', err);
           }
-        } catch {
+        }
+
+        if (!imageryAdded) {
+          // High-resolution photorealistic satellite imagery (ESRI ArcGIS World Imagery) - no token required
           try {
-            viewer.imageryLayers.addImageryProvider(
-              new Cesium.UrlTemplateImageryProvider({
-                url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                maximumLevel: 19,
-              })
+            const esriProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+              'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+              { enablePickFeatures: false }
             );
+            viewer.imageryLayers.addImageryProvider(esriProvider);
+            imageryAdded = true;
           } catch {
-            console.warn('Globe imagery fallback to base color');
+            try {
+              // Direct ArcGIS World Imagery tile template
+              viewer.imageryLayers.addImageryProvider(
+                new Cesium.UrlTemplateImageryProvider({
+                  url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                  maximumLevel: 19,
+                })
+              );
+              imageryAdded = true;
+            } catch {
+              // Last-resort fallback to OpenStreetMap
+              try {
+                viewer.imageryLayers.addImageryProvider(
+                  new Cesium.UrlTemplateImageryProvider({
+                    url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    maximumLevel: 19,
+                  })
+                );
+              } catch {
+                console.warn('[CesiumGlobe] Globe imagery fallback to base color');
+              }
+            }
           }
         }
 
@@ -483,6 +520,21 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
           }
           lastTracked = currentTracked;
         });
+
+        // Attach WebGL context loss handlers
+        const canvas = viewer.scene.canvas;
+        const handleContextLost = (e: Event) => {
+          e.preventDefault();
+          console.warn('[CesiumGlobe] WebGL context lost.');
+          setError('WebGL context lost. Hardware acceleration or GPU reset occurred.');
+        };
+        const handleContextRestored = () => {
+          console.info('[CesiumGlobe] WebGL context restored. Reinitializing viewer.');
+          handleRetry();
+        };
+
+        canvas.addEventListener('webglcontextlost', handleContextLost, false);
+        canvas.addEventListener('webglcontextrestored', handleContextRestored, false);
 
         clearTimeout(initTimeout);
         setCesiumReady(true);
@@ -602,11 +654,15 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
       clearTimeout(initTimeout);
       if (animFrameId) cancelAnimationFrame(animFrameId);
       if (viewer && !viewer.isDestroyed()) {
-        viewer.destroy();
+        try {
+          viewer.destroy();
+        } catch {
+          // ignore destroy errors
+        }
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [satellites, useFallback]);
+  }, [satellites, useFallback, retryCount, handleRetry]);
 
   // Update entity and path visibility when filters or showOrbitLines change
   useEffect(() => {
@@ -656,11 +712,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
         onSelectObject={onSelectObject}
         selectedObject={selectedObject}
         reason={fallbackReason || 'WebGL disabled or 3D Globe fallback requested'}
-        onRetry3D={() => {
-          setUseFallback(false);
-          setCesiumReady(false);
-          setError(null);
-        }}
+        onRetry3D={handleRetry}
         filters={filters}
       />
     );
@@ -690,13 +742,10 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
                 onClick={() => setUseFallback(true)}
                 className="px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition-colors"
               >
-                Switch to 2D Fallback View
+                Open 2D Tracking Table
               </button>
               <button
-                onClick={() => {
-                  setError(null);
-                  setCesiumReady(false);
-                }}
+                onClick={handleRetry}
                 className="px-4 py-2 rounded-lg bg-slate-800 text-slate-200 text-xs hover:bg-slate-700 transition-colors"
               >
                 Retry 3D Globe

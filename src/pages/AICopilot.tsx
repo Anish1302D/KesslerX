@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent } from 'react';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
+import { getApiUrl, API_ENDPOINTS } from '../config/api';
 
 interface Message {
   id: string;
@@ -46,7 +47,7 @@ export default function AICopilot() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/ai/chat`, {
+      const response = await fetch(getApiUrl(API_ENDPOINTS.AI_CHAT), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,7 +60,7 @@ export default function AICopilot() {
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        content: data.response
+        content: data.response || data.detail || data.error || 'No response received'
       };
       
       setMessages(prev => [...prev, aiMessage]);
