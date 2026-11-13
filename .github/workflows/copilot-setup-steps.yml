@@ -1,0 +1,63 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+      - package.json
+      - package-lock.json
+      - backend/requirements.txt
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+      - package.json
+      - package-lock.json
+      - backend/requirements.txt
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` for GitHub Copilot Agent recognition
+  copilot-setup-steps:
+    name: Copilot Environment & Pre-Merge Test Setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest httpx
+
+      - name: Verify Frontend Lint, Build & Tests
+        run: |
+          npm run lint
+          npm run build
+          npm test -- --run
+
+      - name: Verify Backend Test Suite
+        env:
+          TESTING: "1"
+          PYTHONPATH: backend
+        run: |
+          python -m pytest -q backend
+

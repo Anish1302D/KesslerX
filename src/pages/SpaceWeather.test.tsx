@@ -25,9 +25,11 @@ describe('SpaceWeather Page', () => {
     }));
   });
 
-  it('renders page header and solar influence title', () => {
+  it('renders page header and solar influence title', async () => {
     render(<SpaceWeather />);
-    expect(screen.getByText(/SOLAR INFLUENCE & SPACE WEATHER MONITOR/i)).toBeDefined();
+    await waitFor(() => {
+      expect(screen.getByText(/SOLAR INFLUENCE & SPACE WEATHER MONITOR/i)).toBeDefined();
+    });
   });
 
   it('displays the atmospheric density drag multiplier', async () => {
