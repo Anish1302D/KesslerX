@@ -1,22 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { satellites as mockSatellites } from '../data/mockData';
-import { API_BASE_URL, getApiUrl, getWsUrl, API_ENDPOINTS } from '../config/api';
+import { getApiUrl, getWsUrl, API_ENDPOINTS } from '../config/api';
 import { apiRequest } from '../utils/apiClient';
-
-const API = API_BASE_URL;
-
-// ============================================================
-// Generic fetcher with retry + fallback
-// ============================================================
-
-async function fetchWithRetry<T>(url: string, fallback: T, retries = 2): Promise<T> {
-  try {
-    return await apiRequest<T>(url, { retries, timeoutMs: 15000 });
-  } catch (err) {
-    console.warn(`[KesslerAPI] ${url} failed, using fallback`, err);
-    return fallback;
-  }
-}
 
 // ============================================================
 // Generic hook for periodic data fetching
@@ -147,8 +132,49 @@ export function useSatellites(): UseSatellitesReturn {
   }, []);
 
   useEffect(() => {
-    void fetchSatellites();
-  }, [fetchSatellites]);
+    let isCancelled = false;
+
+    const loadInitial = async () => {
+      try {
+        const data = await apiRequest<{ satellites: SatelliteData[] }>(
+          getApiUrl(API_ENDPOINTS.SATELLITES + '?limit=500'),
+          { timeoutMs: 15000, retries: 2 }
+        );
+        if (!isCancelled) {
+          if (data && Array.isArray(data.satellites)) {
+            setSatellites(data.satellites);
+            setError(null);
+            setIsFallback(false);
+          } else {
+            throw new Error('Invalid satellite data format received');
+          }
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.warn('API fetch failed, using mock data fallback', err);
+          const mappedMock: SatelliteData[] = mockSatellites.map(s => ({
+            ...s,
+            NORAD_CAT_ID: s.id,
+            OBJECT_NAME: s.name,
+            OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
+            CATEGORY: s.type,
+          }));
+          setSatellites(mappedMock);
+          setError(err instanceof Error ? err.message : 'Unknown error');
+          setIsFallback(true);
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadInitial();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   return { satellites, loading, error, isFallback, refresh: fetchSatellites };
 }
@@ -194,6 +220,7 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryCountRef = useRef(0);
   const mountedRef = useRef(true);
+  const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
     if (!mountedRef.current) return;
@@ -213,12 +240,13 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
         wsRef.current.onmessage = null;
         wsRef.current.onopen = null;
         wsRef.current.close();
-      } catch {}
+      } catch {
+        // Ignore close errors
+      }
       wsRef.current = null;
     }
 
     const wsUrl = getWsUrl(API_ENDPOINTS.WS_ALERTS);
-    setConnectionStatus((prev) => (prev === 'connected' ? 'reconnecting' : prev === 'disconnected' ? 'connecting' : prev));
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -226,7 +254,11 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
 
       ws.onopen = () => {
         if (!mountedRef.current) {
-          try { ws.close(); } catch {}
+          try {
+            ws.close();
+          } catch {
+            // Ignore close errors
+          }
           return;
         }
         retryCountRef.current = 0;
@@ -251,7 +283,7 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
           setConnectionStatus('reconnecting');
           const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
           reconnectRef.current = setTimeout(() => {
-            if (mountedRef.current) connect();
+            if (mountedRef.current) connectRef.current();
           }, delay);
         } else {
           setConnectionStatus('disconnected');
@@ -262,7 +294,11 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
         if (!mountedRef.current) return;
         setIsConnected(false);
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-          try { ws.close(); } catch {}
+          try {
+            ws.close();
+          } catch {
+            // Ignore close errors
+          }
         }
       };
 
@@ -285,18 +321,24 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
       }, 25000);
     } catch {
       if (!mountedRef.current) return;
-      setIsConnected(false);
       if (retryCountRef.current < maxRetries) {
         const attempt = retryCountRef.current + 1;
         retryCountRef.current = attempt;
-        setRetryCount(attempt);
-        setConnectionStatus('reconnecting');
         const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
         reconnectRef.current = setTimeout(() => {
-          if (mountedRef.current) connect();
+          if (mountedRef.current) {
+            setRetryCount(attempt);
+            setConnectionStatus('reconnecting');
+            connectRef.current();
+          }
         }, delay);
       } else {
-        setConnectionStatus('disconnected');
+        reconnectRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setIsConnected(false);
+            setConnectionStatus('disconnected');
+          }
+        }, 0);
       }
     }
   }, [maxRetries, initialDelay, maxDelay]);
@@ -309,10 +351,9 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
   }, [connect]);
 
   useEffect(() => {
+    connectRef.current = connect;
     mountedRef.current = true;
     retryCountRef.current = 0;
-    setRetryCount(0);
-    setConnectionStatus('connecting');
     connect();
 
     return () => {
@@ -326,7 +367,9 @@ export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketRet
           wsRef.current.onmessage = null;
           wsRef.current.onopen = null;
           wsRef.current.close();
-        } catch {}
+        } catch {
+          // Ignore close errors
+        }
       }
     };
   }, [connect]);

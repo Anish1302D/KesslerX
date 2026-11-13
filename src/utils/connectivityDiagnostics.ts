@@ -47,7 +47,13 @@ export async function checkBackendHealth(
     });
 
     const latencyMs = Math.round(performance.now() - startTime);
-    const deps = data.dependencies || {};
+    const rawDeps = data.dependencies || {};
+    const deps: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rawDeps)) {
+      if (typeof value === 'string') {
+        deps[key] = value;
+      }
+    }
 
     // If any critical dependency is failing, mark degraded
     const hasDegradedDeps = Object.values(deps).some(

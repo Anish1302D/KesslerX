@@ -38,7 +38,8 @@ function sha256Fallback(str: string): string {
   const mathPow = Math.pow;
   const maxWord = mathPow(2, 32);
   const lengthProperty = 'length';
-  let i = 0, j = 0;
+  let i: number;
+  let j: number;
   let result = '';
 
   const words: number[] = [];
@@ -156,7 +157,9 @@ export async function sealEvidencePacket<T extends Record<string, unknown>>(
 ): Promise<T & { sha256_hash: string; signed_at: string }> {
   const signedAt = new Date().toISOString();
   // Strip any existing hash fields to prevent circularity
-  const { sha256_hash, audit_hash, ...payloadWithoutHash } = packet as Record<string, unknown>;
+  const payloadWithoutHash: Record<string, unknown> = { ...(packet as Record<string, unknown>) };
+  delete payloadWithoutHash.sha256_hash;
+  delete payloadWithoutHash.audit_hash;
   const payloadToSign = { ...payloadWithoutHash, signed_at: signedAt };
   const hash = await computeEvidenceHash(payloadToSign);
 
@@ -183,7 +186,9 @@ export async function verifySealedPacket(
   }
 
   // Compute hash over payload excluding self-referential hash field
-  const { sha256_hash, audit_hash, ...payload } = packet;
+  const payload: Record<string, unknown> = { ...packet };
+  delete payload.sha256_hash;
+  delete payload.audit_hash;
   const computedHash = await computeEvidenceHash(payload);
   const normalizedExpected = expectedHash.trim().toLowerCase().replace(/^sha256:/i, '');
 

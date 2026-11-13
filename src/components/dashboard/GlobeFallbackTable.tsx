@@ -42,7 +42,6 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
   selectedObject,
   reason = '3D Globe unavailable or running in 2D mode',
   onRetry3D,
-  onOpen2DTable,
   filters,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -124,7 +123,7 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `kesslerx-tracking-table-${Date.now()}.csv`;
+    a.download = 'kesslerx-tracking-table.csv';
     a.click();
     URL.revokeObjectURL(url);
   };
