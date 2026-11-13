@@ -1,30 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { satellites as mockSatellites } from '../data/mockData';
+import { API_BASE_URL, getApiUrl, getWsUrl, API_ENDPOINTS } from '../config/api';
+import { apiRequest } from '../utils/apiClient';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API = API_BASE_URL;
 
 // ============================================================
 // Generic fetcher with retry + fallback
 // ============================================================
 
 async function fetchWithRetry<T>(url: string, fallback: T, retries = 2): Promise<T> {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
-    } catch (err) {
-      if (i === retries) {
-        console.warn(`[KesslerAPI] ${url} failed after ${retries + 1} attempts, using fallback`, err);
-        return fallback;
-      }
-      await new Promise(r => setTimeout(r, 1000 * (i + 1))); // backoff
-    }
+  try {
+    return await apiRequest<T>(url, { retries, timeoutMs: 15000 });
+  } catch (err) {
+    console.warn(`[KesslerAPI] ${url} failed, using fallback`, err);
+    return fallback;
   }
-  return fallback;
 }
 
 // ============================================================
@@ -35,23 +26,26 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
   const [data, setData] = useState<T>(fallback);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
-      const result = await fetchWithRetry(`${API}${endpoint}`, fallback);
+      const result = await apiRequest<T>(getApiUrl(endpoint), { timeoutMs: 15000, retries: 1 });
       if (mountedRef.current) {
         setData(result);
         setError(null);
+        setIsFallback(false);
       }
     } catch (err) {
       if (mountedRef.current) {
         setError(err instanceof Error ? err.message : 'Unknown error');
+        setIsFallback(true);
       }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [endpoint, fallback]);
+  }, [endpoint]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -59,14 +53,16 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
 
     const executeFetch = async () => {
       try {
-        const result = await fetchWithRetry(`${API}${endpoint}`, fallback);
+        const result = await apiRequest<T>(getApiUrl(endpoint), { timeoutMs: 15000, retries: 1 });
         if (mountedRef.current && !isCancelled) {
           setData(result);
           setError(null);
+          setIsFallback(false);
         }
       } catch (err) {
         if (mountedRef.current && !isCancelled) {
           setError(err instanceof Error ? err.message : 'Unknown error');
+          setIsFallback(true);
         }
       } finally {
         if (mountedRef.current && !isCancelled) setLoading(false);
@@ -83,9 +79,9 @@ function usePeriodicFetch<T>(endpoint: string, fallback: T, refreshMs: number = 
       mountedRef.current = false;
       clearInterval(interval);
     };
-  }, [endpoint, fallback, refreshMs]);
+  }, [endpoint, refreshMs]);
 
-  return { data, loading, error, refresh };
+  return { data, loading, error, isFallback, refresh };
 }
 
 // ============================================================
@@ -105,37 +101,56 @@ export interface SatelliteData {
   [key: string]: unknown;
 }
 
-export function useSatellites() {
+export interface UseSatellitesReturn {
+  satellites: SatelliteData[];
+  loading: boolean;
+  error: string | null;
+  isFallback: boolean;
+  refresh: () => Promise<void>;
+}
+
+export function useSatellites(): UseSatellitesReturn {
   const [satellites, setSatellites] = useState<SatelliteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
 
-  useEffect(() => {
-    async function fetchSatellites() {
-      try {
-        const response = await fetch(`${API}/api/satellites?limit=500`);
-        if (!response.ok) throw new Error('Failed to fetch satellites');
-        const data = await response.json();
+  const fetchSatellites = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiRequest<{ satellites: SatelliteData[] }>(
+        getApiUrl(API_ENDPOINTS.SATELLITES + '?limit=500'),
+        { timeoutMs: 15000, retries: 2 }
+      );
+      if (data && Array.isArray(data.satellites)) {
         setSatellites(data.satellites);
-      } catch (err) {
-        console.warn('API fetch failed, using mock data fallback', err);
-        const mappedMock: SatelliteData[] = mockSatellites.map(s => ({
-          ...s,
-          NORAD_CAT_ID: s.id,
-          OBJECT_NAME: s.name,
-          OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
-          CATEGORY: s.type,
-        }));
-        setSatellites(mappedMock);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
+        setError(null);
+        setIsFallback(false);
+      } else {
+        throw new Error('Invalid satellite data format received');
       }
+    } catch (err) {
+      console.warn('API fetch failed, using mock data fallback', err);
+      const mappedMock: SatelliteData[] = mockSatellites.map(s => ({
+        ...s,
+        NORAD_CAT_ID: s.id,
+        OBJECT_NAME: s.name,
+        OBJECT_TYPE: s.type === 'Debris' ? 'DEBRIS' : 'PAYLOAD',
+        CATEGORY: s.type,
+      }));
+      setSatellites(mappedMock);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setIsFallback(true);
+    } finally {
+      setLoading(false);
     }
-    fetchSatellites();
   }, []);
 
-  return { satellites, loading, error };
+  useEffect(() => {
+    void fetchSatellites();
+  }, [fetchSatellites]);
+
+  return { satellites, loading, error, isFallback, refresh: fetchSatellites };
 }
 
 // ============================================================
@@ -150,39 +165,109 @@ export interface AlertMessage {
   timestamp?: string;
 }
 
-export function useWebsocket() {
+export type WebSocketConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+
+export interface UseWebsocketOptions {
+  maxRetries?: number;
+  initialDelay?: number;
+  maxDelay?: number;
+}
+
+export interface UseWebsocketReturn {
+  alerts: AlertMessage[];
+  isConnected: boolean;
+  connectionStatus: WebSocketConnectionStatus;
+  retryCount: number;
+  maxRetries: number;
+  reconnect: () => void;
+}
+
+export function useWebsocket(options: UseWebsocketOptions = {}): UseWebsocketReturn {
+  const { maxRetries = 5, initialDelay = 1000, maxDelay = 15000 } = options;
   const [alerts, setAlerts] = useState<AlertMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<WebSocketConnectionStatus>('connecting');
+  const [retryCount, setRetryCount] = useState(0);
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const retryCountRef = useRef(0);
+  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    let mounted = true;
+  const connect = useCallback(() => {
+    if (!mountedRef.current) return;
 
-    function connect() {
-      const wsUrl = `${API.replace('http', 'ws')}/ws/alerts`;
+    if (reconnectRef.current) {
+      clearTimeout(reconnectRef.current);
+      reconnectRef.current = null;
+    }
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+    if (wsRef.current) {
+      try {
+        wsRef.current.onclose = null;
+        wsRef.current.onerror = null;
+        wsRef.current.onmessage = null;
+        wsRef.current.onopen = null;
+        wsRef.current.close();
+      } catch {}
+      wsRef.current = null;
+    }
+
+    const wsUrl = getWsUrl(API_ENDPOINTS.WS_ALERTS);
+    setConnectionStatus((prev) => (prev === 'connected' ? 'reconnecting' : prev === 'disconnected' ? 'connecting' : prev));
+
+    try {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (mounted) setIsConnected(true);
+        if (!mountedRef.current) {
+          try { ws.close(); } catch {}
+          return;
+        }
+        retryCountRef.current = 0;
+        setRetryCount(0);
+        setIsConnected(true);
+        setConnectionStatus('connected');
       };
 
       ws.onclose = () => {
-        if (mounted) {
-          setIsConnected(false);
-          // Auto-reconnect after 3 seconds
+        if (!mountedRef.current) return;
+        setIsConnected(false);
+
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = null;
+        }
+
+        if (retryCountRef.current < maxRetries) {
+          const attempt = retryCountRef.current + 1;
+          retryCountRef.current = attempt;
+          setRetryCount(attempt);
+          setConnectionStatus('reconnecting');
+          const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
           reconnectRef.current = setTimeout(() => {
-            if (mounted) connect();
-          }, 3000);
+            if (mountedRef.current) connect();
+          }, delay);
+        } else {
+          setConnectionStatus('disconnected');
         }
       };
 
       ws.onerror = () => {
-        ws.close();
+        if (!mountedRef.current) return;
+        setIsConnected(false);
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          try { ws.close(); } catch {}
+        }
       };
 
       ws.onmessage = (event) => {
+        if (!mountedRef.current) return;
         try {
           const message = JSON.parse(event.data);
           if (message.type === 'pong') return; // Ignore heartbeat responses
@@ -193,25 +278,60 @@ export function useWebsocket() {
       };
 
       // Send heartbeat every 25 seconds
-      const pingInterval = setInterval(() => {
+      pingIntervalRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send('ping');
         }
       }, 25000);
-
-      ws.addEventListener('close', () => clearInterval(pingInterval));
+    } catch {
+      if (!mountedRef.current) return;
+      setIsConnected(false);
+      if (retryCountRef.current < maxRetries) {
+        const attempt = retryCountRef.current + 1;
+        retryCountRef.current = attempt;
+        setRetryCount(attempt);
+        setConnectionStatus('reconnecting');
+        const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay);
+        reconnectRef.current = setTimeout(() => {
+          if (mountedRef.current) connect();
+        }, delay);
+      } else {
+        setConnectionStatus('disconnected');
+      }
     }
+  }, [maxRetries, initialDelay, maxDelay]);
 
+  const reconnect = useCallback(() => {
+    retryCountRef.current = 0;
+    setRetryCount(0);
+    setConnectionStatus('connecting');
+    connect();
+  }, [connect]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    retryCountRef.current = 0;
+    setRetryCount(0);
+    setConnectionStatus('connecting');
     connect();
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
-      if (wsRef.current) wsRef.current.close();
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+      if (wsRef.current) {
+        try {
+          wsRef.current.onclose = null;
+          wsRef.current.onerror = null;
+          wsRef.current.onmessage = null;
+          wsRef.current.onopen = null;
+          wsRef.current.close();
+        } catch {}
+      }
     };
-  }, []);
+  }, [connect]);
 
-  return { alerts, isConnected };
+  return { alerts, isConnected, connectionStatus, retryCount, maxRetries, reconnect };
 }
 
 // ============================================================
@@ -313,6 +433,16 @@ export interface SpaceWeatherAPIData {
   kp_index: number;
   geomagnetic_storm: string;
   radiation_level: string;
+  radiation_belt?: string;
+  solar_wind_speed?: number;
+  bz_component?: number;
+  proton_density?: number;
+  atmospheric_density_multiplier?: number;
+  satellite_drag_impact?: string;
+  status?: string;
+  source?: string;
+  mode?: string;
+  warnings?: string[];
   updated_at?: string;
 }
 

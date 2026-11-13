@@ -1,24 +1,29 @@
 import { useState, useRef, useMemo } from 'react';
 import CesiumGlobe, { CesiumGlobeRef } from '../components/dashboard/CesiumGlobe';
 import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
-import { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
+import GlobeFallbackTable, { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
-import { useSatellites, useWebsocket, useSpaceWeather, useCongestion, useCollisions } from '../hooks/useKesslerAPI';
+import { useSatellites, useWebsocket, useSpaceWeather, useCongestion, useCollisions, useTelemetry } from '../hooks/useKesslerAPI';
 import { useEvents, useUsers } from '../hooks/useHandoffAPI';
 import { useCurrentUser } from '../components/handoff/UserContext';
 import ReportPreviewModal from '../components/handoff/ReportPreviewModal';
+import { API_BASE_URL } from '../config/api';
+import SystemHealthPanel from '../components/dashboard/SystemHealthPanel';
+import { resolveDataState, formatObjectCount } from '../utils/dataState';
 
 export default function Dashboard() {
-  const { satellites, loading } = useSatellites();
-  const { alerts, isConnected } = useWebsocket();
+  const { satellites, loading, error: satError, isFallback: satFallback, refresh: refreshSatellites } = useSatellites();
+  const { alerts, isConnected, connectionStatus, reconnect } = useWebsocket();
   const { data: weather } = useSpaceWeather();
   const { data: congestion } = useCongestion();
   const { data: collisions } = useCollisions();
+  const { data: telemetry, loading: telemetryLoading, error: telemetryError } = useTelemetry();
   const { events } = useEvents();
   const { users } = useUsers();
   const { currentUser } = useCurrentUser();
   
   const [selectedSatellite, setSelectedSatellite] = useState<SatelliteItem | null>(null);
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
   const [showDashboardReportModal, setShowDashboardReportModal] = useState(false);
   const globeRef = useRef<CesiumGlobeRef>(null);
 
@@ -65,14 +70,14 @@ export default function Dashboard() {
     setChatInput('');
     try {
       // Assuming Vite proxy or absolute URL setup
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const baseUrl = API_BASE_URL;
       const res = await fetch(`${baseUrl}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: query, context: { page: 'dashboard' } })
       });
       const data = await res.json();
-      setChatResponse(data.response);
+      setChatResponse(data.response || data.detail || data.error || 'No response received');
     } catch {
       setChatResponse("Error: Unable to connect to KesslerX AI.");
     } finally {
@@ -87,12 +92,35 @@ export default function Dashboard() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const satDataState = resolveDataState({
+    data: satellites,
+    loading,
+    error: satError,
+    hasFallback: satFallback,
+  });
+
   return (
     <div className="grid grid-cols-12 gap-card-gap relative">
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 glass-strong border border-primary px-6 py-3 rounded-xl text-primary font-bold animate-in slide-in-from-top fade-in">
           {toast}
+        </div>
+      )}
+
+      {/* API Error Warning Banner */}
+      {satError && satellites.length === 0 && (
+        <div className="col-span-12 glass border border-rose-500/40 bg-rose-500/10 p-3 rounded-xl flex items-center justify-between text-rose-300 font-mono text-xs">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-rose-400 text-sm">warning</span>
+            <span>Orbital catalog feed failed. Objects temporarily unavailable.</span>
+          </div>
+          <button
+            onClick={() => void refreshSatellites()}
+            className="px-2.5 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 transition-colors"
+          >
+            Retry Catalog
+          </button>
         </div>
       )}
 
@@ -106,10 +134,21 @@ export default function Dashboard() {
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Active Payloads</div>
             <div className="font-stat-lg text-stat-lg font-bold leading-tight">
-              {loading ? '...' : activeCount.toLocaleString()}
+              {formatObjectCount(activeCount, satDataState)}
             </div>
-            <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">trending_up</span> Live
+            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${
+              satDataState === 'error'
+                ? 'text-rose-400'
+                : satFallback || satellites.length <= 50
+                ? 'text-amber-400'
+                : 'text-emerald-400'
+            }`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+              {satDataState === 'error'
+                ? 'FEED ERROR'
+                : satFallback || satellites.length <= 50
+                ? 'SIMULATED (DEMO)'
+                : 'OBSERVED (LIVE)'}
             </div>
           </div>
         </div>
@@ -121,23 +160,55 @@ export default function Dashboard() {
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Tracked Debris</div>
             <div className="font-stat-lg text-stat-lg font-bold leading-tight">
-              {loading ? '...' : debrisCount.toLocaleString()}
+              {formatObjectCount(debrisCount, satDataState)}
             </div>
-            <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">trending_up</span> Live
+            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${
+              satDataState === 'error'
+                ? 'text-rose-400'
+                : satFallback || satellites.length <= 50
+                ? 'text-amber-400'
+                : 'text-emerald-400'
+            }`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+              {satDataState === 'error'
+                ? 'FEED ERROR'
+                : satFallback || satellites.length <= 50
+                ? 'SIMULATED (DEMO)'
+                : 'OBSERVED (LIVE)'}
             </div>
           </div>
         </div>
-        {/* Connection Status */}
+        {/* Telemetry Status */}
         <div className="glass p-inner-padding rounded-xl flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-lg flex items-center justify-center border ${isConnected ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
-            <span className="material-symbols-outlined text-3xl">{isConnected ? 'cell_tower' : 'signal_disconnected'}</span>
+          <div className={`w-12 h-12 rounded-lg flex items-center justify-center border ${
+            telemetryLoading
+              ? 'bg-primary/10 text-primary border-primary/20'
+              : telemetryError
+              ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+              : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+          }`}>
+            <span className="material-symbols-outlined text-3xl">
+              {telemetryLoading ? 'sync' : telemetryError ? 'signal_disconnected' : 'cell_tower'}
+            </span>
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Telemetry</div>
-            <div className="font-stat-lg text-stat-lg font-bold leading-tight">{isConnected ? 'Online' : 'Offline'}</div>
-            <div className={`text-[11px] font-bold flex items-center gap-1 ${isConnected ? 'text-emerald-400' : 'text-red-500'}`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span> {isConnected ? 'Connected' : 'Reconnecting...'}
+            <div className="font-stat-lg text-stat-lg font-bold leading-tight">
+              {telemetryLoading ? 'Syncing...' : telemetryError ? 'Degraded' : telemetry.status}
+            </div>
+            <div className={`text-[10px] font-mono font-bold flex items-center gap-1 ${
+              telemetryLoading
+                ? 'text-primary'
+                : telemetryError
+                ? 'text-rose-400'
+                : 'text-emerald-400'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full bg-current ${telemetryLoading ? 'animate-spin' : 'animate-pulse'}`}></span>
+              {telemetryLoading
+                ? 'Polling Feed'
+                : telemetryError
+                ? 'Fallback Mode'
+                : `CPU ${telemetry.cpu}% · ${telemetry.network} KB/s`}
             </div>
           </div>
         </div>
@@ -149,8 +220,8 @@ export default function Dashboard() {
           <div>
             <div className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Collisions</div>
             <div className="font-stat-lg text-stat-lg font-bold leading-tight">{Array.isArray(collisions) ? collisions.length : 0} <span className="text-xs font-medium text-on-surface-variant/60 ml-1">Next 24h</span></div>
-            <div className="text-[11px] text-orange-500 font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">trending_up</span> Live
+            <div className="text-[10px] text-amber-400 font-mono font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span> DEMO FIXTURE
             </div>
           </div>
         </div>
@@ -178,6 +249,11 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* System Health Status Panel */}
+      <div className="col-span-12">
+        <SystemHealthPanel isWsConnected={isConnected} />
+      </div>
+
       {/* Main Section: Map & Sidebar */}
       <div className="col-span-12 lg:col-span-9 flex flex-col gap-card-gap">
         {/* Large Orbital Map */}
@@ -185,24 +261,50 @@ export default function Dashboard() {
           <div className="absolute inset-0 z-0">
             <div className="absolute inset-0 map-gradient pointer-events-none"></div>
             <div className="h-full [&>div]:!h-full [&>div>div]:!h-full">
-              <CesiumErrorBoundary
-                satellites={filteredSatellites}
-                onSelectObject={setSelectedSatellite}
-                selectedObject={selectedSatellite}
-                filters={activeFilters}
-              >
-                <CesiumGlobe
-                  ref={globeRef}
+              {viewMode === '2d' ? (
+                <GlobeFallbackTable
+                  satellites={filteredSatellites}
+                  onSelectObject={setSelectedSatellite}
+                  selectedObject={selectedSatellite}
+                  reason="2D Tracking View active"
+                  onRetry3D={() => setViewMode('3d')}
+                  filters={activeFilters}
+                />
+              ) : (
+                <CesiumErrorBoundary
                   satellites={filteredSatellites}
                   onSelectObject={setSelectedSatellite}
                   selectedObject={selectedSatellite}
                   filters={activeFilters}
-                />
-              </CesiumErrorBoundary>
+                  onOpen2DTable={() => setViewMode('2d')}
+                >
+                  <CesiumGlobe
+                    ref={globeRef}
+                    satellites={filteredSatellites}
+                    onSelectObject={setSelectedSatellite}
+                    selectedObject={selectedSatellite}
+                    filters={activeFilters}
+                  />
+                </CesiumErrorBoundary>
+              )}
             </div>
           </div>
           
           <ObjectDetailsPanel satelliteData={selectedSatellite} onClose={() => setSelectedSatellite(null)} />
+
+          {/* View Mode Switcher Action */}
+          <div className="absolute top-6 right-6 z-10 flex items-center gap-2 pointer-events-auto">
+            <button
+              onClick={() => setViewMode(prev => prev === '3d' ? '2d' : '3d')}
+              className="px-3 py-1.5 rounded-lg glass-darker text-xs font-mono font-bold flex items-center gap-1.5 hover:bg-surface-container-highest transition-all border border-outline-variant/30 text-on-surface"
+              title={viewMode === '3d' ? "Open 2D Tracking Table" : "Switch to 3D Globe"}
+            >
+              <span className="material-symbols-outlined text-sm">
+                {viewMode === '3d' ? 'table_rows' : 'public'}
+              </span>
+              {viewMode === '3d' ? 'Open 2D Tracking Table' : 'Switch to 3D Globe'}
+            </button>
+          </div>
 
           {/* Map Controls */}
           <div className="absolute top-6 left-6 z-10 glass-darker p-4 rounded-xl w-64 pointer-events-auto">
@@ -302,10 +404,40 @@ export default function Dashboard() {
               <h3 className="font-headline-sm text-headline-sm uppercase">Mission Feed (Live WebSocket)</h3>
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
-                  {isConnected && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                  <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                  {connectionStatus === 'connected' && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  )}
+                  {(connectionStatus === 'reconnecting' || connectionStatus === 'connecting') && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  )}
+                  <span
+                    className={`relative inline-flex rounded-full h-2 w-2 ${
+                      connectionStatus === 'connected'
+                        ? 'bg-emerald-500'
+                        : connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
+                        ? 'bg-amber-400'
+                        : 'bg-rose-500'
+                    }`}
+                  ></span>
                 </span>
-                <span className="text-[10px] font-bold uppercase text-on-surface-variant/60">{isConnected ? 'Receiving Data' : 'Disconnected'}</span>
+                <span className="text-[10px] font-bold font-mono uppercase text-on-surface-variant/80">
+                  {connectionStatus === 'connected'
+                    ? 'Receiving Data (Live)'
+                    : connectionStatus === 'reconnecting'
+                    ? 'Reconnecting...'
+                    : connectionStatus === 'connecting'
+                    ? 'Connecting...'
+                    : 'Feed Offline'}
+                </span>
+                {connectionStatus === 'disconnected' && (
+                  <button
+                    onClick={reconnect}
+                    title="Retry WebSocket connection"
+                    className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-surface-container-highest hover:bg-surface-container-high text-primary border border-outline-variant/30 transition-colors"
+                  >
+                    Retry
+                  </button>
+                )}
               </div>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto pr-1 max-h-[300px] custom-scrollbar">

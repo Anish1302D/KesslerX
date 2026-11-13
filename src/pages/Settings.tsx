@@ -1,4 +1,5 @@
 import { useState } from "react";
+import SystemHealthPanel from "../components/dashboard/SystemHealthPanel";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("satellite");
@@ -111,6 +112,12 @@ export default function Settings() {
             onClick={() => setActiveTab('notifications')}
           >
             Notifications
+          </button>
+          <button 
+            className={`pb-4 font-headline-sm border-b-2 transition-all ${activeTab === 'diagnostics' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
+            onClick={() => setActiveTab('diagnostics')}
+          >
+            System Diagnostics
           </button>
         </nav>
         <div className="flex items-center gap-4 pb-4">
@@ -713,6 +720,13 @@ export default function Settings() {
               </button>
             </div>
           </div>
+        </section>
+      )}
+
+      {/* Content: System Diagnostics */}
+      {activeTab === 'diagnostics' && (
+        <section className="space-y-6">
+          <SystemHealthPanel />
         </section>
       )}
 

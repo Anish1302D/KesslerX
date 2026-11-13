@@ -3,8 +3,11 @@ import { useSearchParams, useLocation } from 'react-router-dom';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
 import type { CesiumGlobeRef, FollowState } from '../components/dashboard/CesiumGlobe';
 import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
-import { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
+import GlobeFallbackTable, { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import { useSatellites } from '../hooks/useKesslerAPI';
+import ProvenanceBadge from '../components/ui/ProvenanceBadge';
+import { resolveDataState, formatObjectCount } from '../utils/dataState';
+import { detectWebGLSupport } from '../utils/webglDetection';
 
 const CesiumGlobe = lazy(() => import('../components/dashboard/CesiumGlobe'));
 
@@ -19,9 +22,11 @@ const defaultFilters: Record<string, boolean> = {
 };
 
 export default function OrbitalMap() {
-  const { satellites, loading } = useSatellites();
+  const { satellites, loading, error: satError, isFallback: satFallback, refresh: refreshSatellites } = useSatellites();
+  const webglSupport = detectWebGLSupport();
   const [searchParams] = useSearchParams();
   const location = useLocation();
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
   const [selectedObject, setSelectedObject] = useState<SatelliteItem | null>(null);
   const [filters, setFilters] = useState(defaultFilters);
   const [showFilters, setShowFilters] = useState(true);
@@ -60,6 +65,13 @@ export default function OrbitalMap() {
   };
 
   // Statistics from real data
+  const satDataState = resolveDataState({
+    data: satellites,
+    loading,
+    error: satError,
+    hasFallback: satFallback,
+  });
+
   const activePayLoads = satellites.filter(s => s.OBJECT_TYPE === 'PAYLOAD').length;
   const debrisCount = satellites.filter(s => s.OBJECT_TYPE === 'DEBRIS').length;
 
@@ -143,12 +155,22 @@ export default function OrbitalMap() {
                   <span className="text-sm font-label-mono text-outline uppercase tracking-widest">Fetching Satellite Data...</span>
                 </div>
               </div>
+            ) : viewMode === '2d' || !webglSupport.supported ? (
+              <GlobeFallbackTable
+                satellites={satellites}
+                onSelectObject={handleSelectObject}
+                selectedObject={selectedObject}
+                reason={!webglSupport.supported ? (webglSupport.errorMessage || 'WebGL hardware acceleration is unavailable in this environment') : '2D Tracking Directory requested by user'}
+                onRetry3D={() => setViewMode('3d')}
+                filters={filters}
+              />
             ) : (
               <CesiumErrorBoundary
                 satellites={satellites}
                 onSelectObject={handleSelectObject}
                 selectedObject={selectedObject}
                 filters={filters}
+                onOpen2DTable={() => setViewMode('2d')}
               >
                 <CesiumGlobe
                   ref={globeRef}
@@ -226,6 +248,32 @@ export default function OrbitalMap() {
         </div>
       )}
 
+      {/* Catalog Load Failure Banner */}
+      {satError && satellites.length === 0 && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 glass border border-rose-500/50 bg-surface-container-lowest/90 px-4 py-2.5 rounded-xl flex items-center gap-3 text-rose-300 font-mono text-xs pointer-events-auto shadow-2xl">
+          <span className="material-symbols-outlined text-rose-400 text-sm">warning</span>
+          <span>Failed to load orbital catalog. Object counts unavailable.</span>
+          <button
+            onClick={() => void refreshSatellites()}
+            className="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* 2D / 3D Tracking Navigation Action */}
+      <button 
+        className="absolute top-6 right-20 z-50 px-3.5 py-2 glass rounded-xl flex items-center gap-2 hover:bg-primary/20 hover:text-primary transition-all active:scale-95 text-xs font-mono font-bold"
+        title={viewMode === '3d' ? "Open 2D Tracking Table" : "Switch to 3D Globe"}
+        onClick={() => setViewMode(prev => prev === '3d' ? '2d' : '3d')}
+      >
+        <span className="material-symbols-outlined text-sm">
+          {viewMode === '3d' ? 'table_rows' : 'public'}
+        </span>
+        {viewMode === '3d' ? 'Open 2D Tracking Table' : 'Switch to 3D Globe'}
+      </button>
+
       {/* UI Visibility Toggle (Always Visible) */}
       <button 
         className="absolute top-6 right-6 z-50 w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90"
@@ -247,13 +295,18 @@ export default function OrbitalMap() {
               <span className="material-symbols-outlined text-sm">analytics</span>
               Live Telemetry
             </h3>
-            <span className="material-symbols-outlined text-outline cursor-pointer">more_vert</span>
+            <ProvenanceBadge
+              compact
+              source={satellites.length > 50 ? 'space-track' : 'demo'}
+              mode={satellites.length > 50 ? 'observed' : 'fallback'}
+              warnings={satellites.length > 50 ? [] : ['Simulated Demo Fixtures']}
+            />
           </div>
           <div className="space-y-4">
             <div className="flex justify-between items-end">
               <div>
                 <p className="font-label-mono text-[10px] text-outline uppercase">Active Satellites</p>
-                <h2 className="font-stat-lg text-stat-lg text-primary">{activePayLoads.toLocaleString()}</h2>
+                <h2 className="font-stat-lg text-stat-lg text-primary">{formatObjectCount(activePayLoads, satDataState)}</h2>
               </div>
               <div className="text-emerald-400 text-[12px] font-label-mono flex items-center">
                 <span className="material-symbols-outlined text-xs">trending_up</span> 2.35%
@@ -262,7 +315,7 @@ export default function OrbitalMap() {
             <div className="flex justify-between items-end">
               <div>
                 <p className="font-label-mono text-[10px] text-outline uppercase">Tracked Debris</p>
-                <h2 className="font-stat-lg text-stat-lg">{debrisCount.toLocaleString()}</h2>
+                <h2 className="font-stat-lg text-stat-lg">{formatObjectCount(debrisCount, satDataState)}</h2>
               </div>
               <div className="text-error text-[12px] font-label-mono flex items-center">
                 <span className="material-symbols-outlined text-xs">trending_up</span> 1.89%

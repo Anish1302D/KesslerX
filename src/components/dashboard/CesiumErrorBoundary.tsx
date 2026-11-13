@@ -7,11 +7,14 @@ interface Props {
   onSelectObject?: (sat: SatelliteItem | null) => void;
   selectedObject?: SatelliteItem | null;
   filters?: Record<string, boolean>;
+  onRetry?: () => void;
+  onOpen2DTable?: () => void;
 }
 
 interface State {
   hasError: boolean;
   errorMessage: string;
+  retryCount: number;
 }
 
 export class CesiumErrorBoundary extends Component<Props, State> {
@@ -20,10 +23,11 @@ export class CesiumErrorBoundary extends Component<Props, State> {
     this.state = {
       hasError: false,
       errorMessage: '',
+      retryCount: 0,
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return {
       hasError: true,
       errorMessage: error.message || 'Cesium / WebGL rendering context failure',
@@ -35,7 +39,12 @@ export class CesiumErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, errorMessage: '' });
+    this.setState((prev) => ({
+      hasError: false,
+      errorMessage: '',
+      retryCount: prev.retryCount + 1,
+    }));
+    this.props.onRetry?.();
   };
 
   render() {
@@ -47,14 +56,18 @@ export class CesiumErrorBoundary extends Component<Props, State> {
           selectedObject={this.props.selectedObject}
           reason={`3D Globe crashed: ${this.state.errorMessage}`}
           onRetry3D={this.handleRetry}
+          onOpen2DTable={this.props.onOpen2DTable}
           filters={this.props.filters}
         />
       );
     }
 
-    return this.props.children;
+    return (
+      <React.Fragment key={this.state.retryCount}>
+        {this.props.children}
+      </React.Fragment>
+    );
   }
 }
 
 export default CesiumErrorBoundary;
-

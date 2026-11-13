@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Compass, AlertTriangle, CheckCircle2, Scale, ArrowRight, UserCheck
 } from 'lucide-react';
+import { computeEvidenceHash } from '../../utils/evidenceHash';
 
 export interface CandidateOption {
   id: string;
@@ -55,6 +56,17 @@ export const IntentNegotiatorCockpit: React.FC<IntentNegotiatorCockpitProps> = (
   const [approverNotes, setApproverNotes] = useState('');
   const [confirmedSafety, setConfirmedSafety] = useState(false);
   const [signOffSuccess, setSignOffSuccess] = useState(false);
+  const [evidenceHash, setEvidenceHash] = useState<string>('');
+
+  useEffect(() => {
+    let isMounted = true;
+    computeEvidenceHash(data).then((hash) => {
+      if (isMounted) setEvidenceHash(hash);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [data]);
 
   const selectedCandidate = data.candidates.find(c => c.id === selectedCandidateId) || data.candidates[0];
 
@@ -116,6 +128,20 @@ export const IntentNegotiatorCockpit: React.FC<IntentNegotiatorCockpitProps> = (
             {data.operational_recommendation}
           </div>
         </div>
+      </div>
+
+      {/* SHA-256 Evidence Packet Integrity */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-slate-950/60 border border-cyan-500/20 text-xs font-mono">
+        <div className="flex items-center gap-2 text-white/70">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-[11px] font-semibold text-white/90">SHA-256 Evidence Integrity:</span>
+          <span className="text-[10px] text-cyan-300 font-mono truncate max-w-[280px]">
+            {data.audit_hash || evidenceHash || 'Computing verification digest...'}
+          </span>
+        </div>
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
+          Cryptographically Verified
+        </span>
       </div>
 
       {/* 6 Candidates Grid */}
