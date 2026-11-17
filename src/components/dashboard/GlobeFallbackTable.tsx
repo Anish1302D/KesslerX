@@ -1,5 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Search, RotateCw, Satellite, ShieldAlert, Radio, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Download } from 'lucide-react';
+import { Search, RotateCw, Satellite, ShieldAlert, Radio, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Download, Smartphone } from 'lucide-react';
+import {
+  isPhoneSatelliteItem,
+  phoneSatelliteToItem,
+  PHONE_SATELLITE_SAFETY_LABELS,
+  type PhoneSatelliteData,
+} from '../../utils/phoneSatelliteOrbit';
 
 export interface SatelliteItem {
   NORAD_CAT_ID?: string | number;
@@ -25,6 +31,7 @@ export interface SatelliteItem {
 
 export interface GlobeFallbackTableProps {
   satellites: SatelliteItem[];
+  phoneSatellite?: PhoneSatelliteData | null;
   onSelectObject?: (sat: SatelliteItem | null) => void;
   selectedObject?: SatelliteItem | null;
   reason?: string;
@@ -38,6 +45,7 @@ type SortDirection = 'asc' | 'desc';
 
 export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
   satellites,
+  phoneSatellite,
   onSelectObject,
   selectedObject,
   reason = '3D Globe unavailable or running in 2D mode',
@@ -128,8 +136,15 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const combinedSatellites = useMemo(() => {
+    if (!phoneSatellite) return satellites;
+    const alreadyPresent = satellites.some((s) => isPhoneSatelliteItem(s));
+    if (alreadyPresent) return satellites;
+    return [phoneSatelliteToItem(phoneSatellite), ...satellites];
+  }, [satellites, phoneSatellite]);
+
   const filteredSatellites = useMemo(() => {
-    const list = satellites.filter((sat) => {
+    const list = combinedSatellites.filter((sat) => {
       const name = (sat.OBJECT_NAME || sat.name || '').toLowerCase();
       const id = String(sat.NORAD_CAT_ID || sat.id || '').toLowerCase();
       const cat = getCategory(sat);
@@ -176,13 +191,13 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
     });
 
     return list;
-  }, [satellites, searchTerm, selectedCategory, orbitLayer, sortField, sortDirection, filters]);
+  }, [combinedSatellites, searchTerm, selectedCategory, orbitLayer, sortField, sortDirection, filters]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
-    satellites.forEach((s) => set.add(getCategory(s)));
+    combinedSatellites.forEach((s) => set.add(getCategory(s)));
     return Array.from(set);
-  }, [satellites]);
+  }, [combinedSatellites]);
 
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field) {
@@ -231,6 +246,37 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
         </div>
       </div>
 
+      {/* Live Phone Satellite Strip (remains visible during WebGL failure) */}
+      {phoneSatellite && (
+        <div
+          data-testid="fallback-phone-telemetry"
+          className="px-4 py-2 bg-[#FF2EF5]/10 border-b border-[#FF2EF5]/30 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono"
+        >
+          <div className="flex items-center gap-2 text-[#F9A8D4]">
+            <Smartphone className="w-3.5 h-3.5 text-[#FF2EF5]" />
+            <strong className="text-white">{phoneSatellite.name}</strong>
+            <span className="px-1.5 py-0.5 rounded bg-[#FF2EF5]/20 text-[#FF2EF5] text-[9px] font-bold">
+              {PHONE_SATELLITE_SAFETY_LABELS.simulated}
+            </span>
+            <span className="text-slate-300">GS: {phoneSatellite.telemetry.ground_station_id}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-slate-200">
+            <span>
+              R/P/Y: <strong>{phoneSatellite.telemetry.orientation.roll_deg.toFixed(1)}°</strong> /{' '}
+              <strong>{phoneSatellite.telemetry.orientation.pitch_deg.toFixed(1)}°</strong> /{' '}
+              <strong>{phoneSatellite.telemetry.orientation.yaw_deg.toFixed(1)}°</strong>
+            </span>
+            <span>
+              Demonstration collision probability:{' '}
+              <strong className="text-[#FF2EF5]">
+                {phoneSatellite.conjunction.collision_probability_pct.toFixed(2)}% ({phoneSatellite.conjunction.risk_level})
+              </strong>
+            </span>
+            <span className="text-[10px] text-amber-300">MOCK ORBIT — DEMO SIMULATION</span>
+          </div>
+        </div>
+      )}
+
       {/* Control bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-900/60 border-b border-slate-800 text-xs">
         <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-sm relative">
@@ -264,7 +310,7 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="bg-slate-950/80 border border-slate-700/60 rounded px-2.5 py-1 text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
           >
-            <option value="ALL">All Categories ({satellites.length})</option>
+            <option value="ALL">All Categories ({combinedSatellites.length})</option>
             {categories.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -274,7 +320,7 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
         </div>
 
         <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
-          <span>Showing: <strong className="text-cyan-400">{filteredSatellites.length}</strong> / {satellites.length} objects</span>
+          <span>Showing: <strong className="text-cyan-400">{filteredSatellites.length}</strong> / {combinedSatellites.length} objects</span>
         </div>
       </div>
 
@@ -338,6 +384,7 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
                 const alt = getAltitude(sat);
                 const isSelected = selectedObject && String(selectedObject.NORAD_CAT_ID || selectedObject.id) === id;
                 const isDebris = cat.toUpperCase() === 'DEBRIS';
+                const isPhoneSat = isPhoneSatelliteItem(sat);
 
                 return (
                   <tr
@@ -354,19 +401,25 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
                     className={`transition-colors cursor-pointer outline-none focus:bg-cyan-500/10 ${
                       isSelected
                         ? 'bg-cyan-500/15 border-l-2 border-cyan-400'
+                        : isPhoneSat
+                        ? 'bg-[#FF2EF5]/5 hover:bg-[#FF2EF5]/15'
                         : 'hover:bg-slate-800/40'
                     }`}
                   >
                     <td className="py-2 px-4">
                       <div className="flex items-center gap-2">
-                        {isDebris ? (
+                        {isPhoneSat ? (
+                          <Smartphone className="w-3.5 h-3.5 text-[#FF2EF5] shrink-0" />
+                        ) : isDebris ? (
                           <ShieldAlert className="w-3.5 h-3.5 text-red-400 shrink-0" />
                         ) : (
                           <Satellite className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                         )}
                         <div>
                           <div className="font-medium text-slate-100">{name}</div>
-                          <div className="text-[10px] font-mono text-slate-400">NORAD: {id}</div>
+                          <div className="text-[10px] font-mono text-slate-400">
+                            {isPhoneSat ? `ID: ${id}` : `NORAD: ${id}`}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -374,7 +427,9 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
                     <td className="py-2 px-3">
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${
-                          isDebris
+                          isPhoneSat
+                            ? 'bg-[#FF2EF5]/20 text-[#F9A8D4] border border-[#FF2EF5]/40'
+                            : isDebris
                             ? 'bg-red-500/20 text-red-300 border border-red-500/30'
                             : cat === 'ISS'
                             ? 'bg-white/20 text-white border border-white/30'
@@ -390,7 +445,11 @@ export const GlobeFallbackTable: React.FC<GlobeFallbackTableProps> = ({
                     </td>
 
                     <td className="py-2 px-3 font-mono text-slate-400 text-[11px]">
-                      {getEpoch(sat)}
+                      {isPhoneSat ? (
+                        <span className="text-amber-300 font-semibold">Mock Demonstration Orbit (MOCK_LEO_PHONE_DEMO)</span>
+                      ) : (
+                        getEpoch(sat)
+                      )}
                     </td>
 
                     <td className="py-2 px-3 text-slate-300 text-[11px]">

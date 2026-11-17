@@ -20,6 +20,12 @@ from space_track import SpaceTrackClient
 from ai_service import MockAIService
 from conjunction_engine import analyze_conjunction, CONJUNCTION_PRESETS
 from ground_station import GroundStationSimulator
+from phone_satellite import (
+    phone_satellite_state,
+    get_phone_orbit_response,
+    is_phone_telemetry_payload,
+    GROUND_STATION_ID as RPI_GROUND_STATION_ID,
+)
 from firebase_config import init_firebase, is_firebase_available
 from negotiator_engine import evaluate_intent_negotiation, NegotiationResult, DISCLAIMER_TEXT
 from handoff_service import (
@@ -84,6 +90,16 @@ class TelemetryUpload(BaseModel):
     signal: int = Field(default=-55, ge=-150, le=10)
     velocity: float = Field(default=0.0, ge=0.0, le=25.0)
     orientation: dict = Field(default_factory=dict)
+    # Optional Raspberry Pi 3 phone satellite telemetry fields
+    device_id: Optional[str] = None
+    satellite_name: Optional[str] = None
+    sequence: Optional[Any] = None
+    timestamp: Optional[str] = None
+    received_at: Optional[str] = None
+    angular_velocity: Optional[Any] = None
+    source: Optional[str] = None
+    mode: Optional[str] = None
+    ground_station_id: Optional[str] = None
 
 # --- Handoff Request Models ---
 
@@ -978,9 +994,12 @@ async def ground_station_history(count: int = 60):
 async def ground_station_latest():
     """Get the most recent telemetry packet."""
     history = gs_simulator.get_history(1)
-    if history:
-        return history[-1]
-    return gs_simulator.get_status()
+    base = dict(history[-1]) if history else gs_simulator.get_status()
+    telem = phone_satellite_state.get_telemetry_snapshot()
+    if telem.get("packets_received", 0) > 0:
+        base["phone_telemetry"] = telem
+        base["phone_conjunction"] = phone_satellite_state.get_conjunction()
+    return base
 
 # ============================================================
 # NEW: POST /api/ground-station/telemetry
@@ -988,7 +1007,73 @@ async def ground_station_latest():
 
 @app.post("/api/ground-station/telemetry")
 async def ground_station_upload(payload: TelemetryUpload):
-    """Accept a telemetry upload from an external device (e.g. ESP32)."""
+    """Accept a telemetry upload from an authorized ground station (ESP32 or Raspberry Pi 3 KX-RPI3-GS-001)."""
+    raw_payload = payload.model_dump()
+
+    if is_phone_telemetry_payload(raw_payload):
+        try:
+            validated_phone, conjunction = phone_satellite_state.ingest_telemetry(raw_payload)
+        except ValueError as ve:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(ve),
+            )
+
+        ori = validated_phone["orientation"]
+        gs_simulator.packet_count += 1
+        packet = {
+            "packet_id": gs_simulator.packet_count,
+            "packet_type": "phone_telemetry",
+            "station_id": RPI_GROUND_STATION_ID,
+            "ground_station_id": RPI_GROUND_STATION_ID,
+            "device_id": validated_phone["device_id"],
+            "satellite_name": validated_phone["satellite_name"],
+            "sequence": validated_phone["sequence"],
+            "timestamp": validated_phone["timestamp"],
+            "received_at": validated_phone["received_at"],
+            "orientation": validated_phone["orientation"],
+            "angular_velocity": validated_phone["angular_velocity"],
+            "source": validated_phone["source"],
+            "mode": validated_phone["mode"],
+            "conjunction": conjunction,
+            # Backward-compatible GroundStation telemetry display keys
+            "latitude": gs_simulator.base_lat,
+            "longitude": gs_simulator.base_lon,
+            "altitude_m": gs_simulator.base_alt,
+            "temperature_c": payload.temperature,
+            "battery_pct": payload.battery,
+            "signal_dbm": payload.signal,
+            "velocity_m_s": round(conjunction["tilt_magnitude_deg"], 2),
+            "heading_deg": ori["yaw_deg"],
+            "pitch_deg": ori["pitch_deg"],
+            "roll_deg": ori["roll_deg"],
+            "uptime_seconds": int(time.time() - gs_simulator.start_time),
+            "free_heap_bytes": 200000,
+            "wifi_rssi": payload.signal,
+        }
+        gs_simulator._history.append(packet)
+        if len(gs_simulator._history) > gs_simulator._max_history:
+            gs_simulator._history = gs_simulator._history[-gs_simulator._max_history:]
+
+        message = json.dumps(packet)
+        disconnected = []
+        for ws in gs_connections:
+            try:
+                await ws.send_text(message)
+            except Exception:
+                disconnected.append(ws)
+        for ws in disconnected:
+            if ws in gs_connections:
+                gs_connections.remove(ws)
+
+        return {
+            "status": "received",
+            "packet_id": packet["packet_id"],
+            "device_id": validated_phone["device_id"],
+            "ground_station_id": RPI_GROUND_STATION_ID,
+            "conjunction": conjunction,
+        }
+
     try:
         packet = {
             "packet_id": gs_simulator.packet_count + 1,
@@ -1030,6 +1115,34 @@ async def ground_station_upload(payload: TelemetryUpload):
     except Exception as e:
         logger.error(f"Telemetry upload error: {e}")
         return {"status": "error", "message": str(e)}
+
+
+# ============================================================
+# Additive Phone Satellite Mock Orbit & Conjunction Endpoints
+# ============================================================
+
+@app.get("/api/phone-satellite")
+async def get_phone_satellite(timestamp: Optional[str] = Query(default=None)):
+    """Return PHONE-SATELLITE-001 state, deterministic mock orbit, telemetry, and tilt conjunction."""
+    try:
+        return phone_satellite_state.get_full_state(timestamp=timestamp)
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+
+@app.get("/api/phone-satellite/orbit")
+async def get_phone_satellite_orbit(timestamp: Optional[str] = Query(default=None)):
+    """Return independent deterministic mock orbit (MOCK_LEO_PHONE_DEMO) for PHONE-SATELLITE-001."""
+    try:
+        return get_phone_orbit_response(timestamp=timestamp)
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+
+@app.get("/api/phone-satellite/conjunction")
+async def get_phone_satellite_conjunction():
+    """Return tilt-driven demonstration collision probability for PHONE-DEMO-CONJUNCTION-001."""
+    return phone_satellite_state.get_conjunction()
 
 # ============================================================
 # Startup & Shutdown

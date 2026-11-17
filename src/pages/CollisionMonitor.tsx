@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEvents } from '../hooks/useHandoffAPI';
+import { usePhoneSatellite } from '../hooks/usePhoneSatellite';
+import { PHONE_SATELLITE_SAFETY_LABELS } from '../utils/phoneSatelliteOrbit';
 import { useCurrentUser } from '../components/handoff/UserContext';
 import HandoffModal from '../components/handoff/HandoffModal';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
@@ -8,6 +10,8 @@ import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 export default function CollisionMonitor() {
   const navigate = useNavigate();
   const { events, loading: eventsLoading, refresh: refreshEvents } = useEvents();
+  const { phoneSatellite } = usePhoneSatellite();
+  const phoneConj = phoneSatellite.conjunction;
   const { currentUser } = useCurrentUser();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [showHandoffModal, setShowHandoffModal] = useState(false);
@@ -199,6 +203,62 @@ export default function CollisionMonitor() {
                 </div>
               </>
             )}
+
+            {/* Additive Phone Satellite Tilt-Driven Demonstration Conjunction Event */}
+            <div
+              data-testid="phone-demo-conjunction-card"
+              onClick={() => navigate('/orbital-map?select=PHONE-SATELLITE-001')}
+              className="p-4 border-b border-outline-variant/10 bg-[#FF2EF5]/10 border-l-4 border-l-[#FF2EF5] cursor-pointer hover:bg-[#FF2EF5]/15 transition-all space-y-2"
+            >
+              <div className="flex justify-between items-start gap-2">
+                <div>
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-[#FF2EF5]/20 text-[#F9A8D4] border border-[#FF2EF5]/40">
+                      DEMO SIMULATION
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      {PHONE_SATELLITE_SAFETY_LABELS.simulated}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-sm text-white">
+                    {phoneConj.satellite} vs {phoneConj.object}
+                  </h4>
+                  <p className="text-xs text-on-surface-variant">
+                    Conjunction ID: {phoneConj.id} · Source: {phoneConj.source} ({phoneConj.mode})
+                  </p>
+                </div>
+                <span className="bg-[#FF2EF5]/20 text-[#F9A8D4] border border-[#FF2EF5]/40 text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0">
+                  {phoneConj.risk_level}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">schedule</span> Mock TCA: {phoneConj.tca_hours}h
+                </div>
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">monitoring</span>{' '}
+                  Demonstration collision probability:{' '}
+                  <strong className="text-[#FF2EF5]">{phoneConj.collision_probability_pct.toFixed(2)}%</strong>
+                </div>
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">straighten</span> Mock Miss: {phoneConj.miss_distance_km} km
+                </div>
+                <div className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">screen_rotation</span> Tilt: {phoneConj.tilt_magnitude_deg.toFixed(1)}°
+                </div>
+              </div>
+
+              <div className="text-[10px] font-mono text-slate-300">
+                Confidence: {phoneConj.confidence}% ({phoneConj.confidence_note}) · GS: {phoneConj.ground_station_id}
+              </div>
+              <div className="text-[10px] font-mono text-amber-300">
+                {PHONE_SATELLITE_SAFETY_LABELS.mockOrbit} · {PHONE_SATELLITE_SAFETY_LABELS.demoProbability}
+              </div>
+              <div className="text-[10px] font-mono text-amber-400">
+                {PHONE_SATELLITE_SAFETY_LABELS.disclaimer}
+              </div>
+            </div>
           </div>
           <button
             onClick={() => navigate('/alert-center')}

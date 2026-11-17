@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Gauge, Clock, Compass, Shield, Download, Crosshair, Satellite } from 'lucide-react';
+import { X, MapPin, Gauge, Clock, Compass, Shield, Download, Crosshair, Satellite, Smartphone } from 'lucide-react';
 import StatusBadge from '../ui/StatusBadge';
 import StaleDataWarning from '../ui/StaleDataWarning';
 import * as satellite from 'satellite.js';
@@ -11,9 +11,18 @@ import ReportPreviewModal from '../handoff/ReportPreviewModal';
 import { useEvents, useUsers } from '../../hooks/useHandoffAPI';
 import { useCurrentUser } from '../handoff/UserContext';
 import type { HandoffEvent } from '../../data/handoffTypes';
+import {
+  isPhoneSatelliteItem,
+  createDefaultPhoneSatelliteData,
+  PHONE_SATELLITE_IDENTITY,
+  PHONE_MOCK_ORBIT,
+  PHONE_SATELLITE_SAFETY_LABELS,
+  type PhoneSatelliteData,
+} from '../../utils/phoneSatelliteOrbit';
 
 interface ObjectDetailsPanelProps {
   satelliteData: SatelliteItem | null;
+  phoneSatellite?: PhoneSatelliteData | null;
   onClose: () => void;
   followState?: FollowState;
   onFollowSatellite?: () => void;
@@ -22,6 +31,7 @@ interface ObjectDetailsPanelProps {
 
 export default function ObjectDetailsPanel({
   satelliteData,
+  phoneSatellite,
   onClose,
   followState,
   onFollowSatellite,
@@ -36,13 +46,22 @@ export default function ObjectDetailsPanel({
   const { users } = useUsers();
   const { currentUser } = useCurrentUser();
 
+  // Phone satellite state detection
+  const isPhoneSat = isPhoneSatelliteItem(satelliteData);
+  const resolvedPhone = phoneSatellite || (isPhoneSat ? createDefaultPhoneSatelliteData() : null);
+
   // Parse TLE to get real stats
   let altitude = 'Unknown';
   let velocity = 'Unknown';
   let inclination = 'Unknown';
   let period = 'Unknown';
 
-  if (satelliteData && satelliteData.TLE_LINE1 && satelliteData.TLE_LINE2) {
+  if (isPhoneSat && resolvedPhone) {
+    altitude = String(resolvedPhone.orbit.current_position?.altitude_km ?? PHONE_MOCK_ORBIT.altitude_km);
+    velocity = String(Math.round(resolvedPhone.orbit.current_position?.velocity_km_h ?? 27095));
+    inclination = String(PHONE_MOCK_ORBIT.inclination_deg);
+    period = String(PHONE_MOCK_ORBIT.period_minutes);
+  } else if (satelliteData && satelliteData.TLE_LINE1 && satelliteData.TLE_LINE2) {
     try {
       const satrec = satellite.twoline2satrec(satelliteData.TLE_LINE1, satelliteData.TLE_LINE2);
       const positionAndVelocity = satellite.propagate(satrec, new Date());
@@ -163,25 +182,81 @@ export default function ObjectDetailsPanel({
             <div className="flex items-center gap-2 mb-5">
               <span
                 className="text-[10px] font-space px-2.5 py-1 rounded-full uppercase tracking-wider"
-                style={{ background: 'rgba(0,174,239,0.15)', color: '#00AEEF', border: '1px solid rgba(0,174,239,0.3)' }}
+                style={
+                  isPhoneSat
+                    ? { background: 'rgba(255,46,245,0.18)', color: '#F9A8D4', border: '1px solid rgba(255,46,245,0.45)' }
+                    : { background: 'rgba(0,174,239,0.15)', color: '#00AEEF', border: '1px solid rgba(0,174,239,0.3)' }
+                }
               >
                 {satelliteData.CATEGORY || satelliteData.OBJECT_TYPE || 'UNKNOWN'}
               </span>
-              <span className="text-[11px] font-space" style={{ color: '#64748B' }}>NORAD: {satelliteData.NORAD_CAT_ID}</span>
+              <span className="text-[11px] font-space truncate" style={{ color: '#64748B' }}>
+                {isPhoneSat ? `ID: ${satelliteData.NORAD_CAT_ID || PHONE_SATELLITE_IDENTITY.id}` : `NORAD: ${satelliteData.NORAD_CAT_ID}`}
+              </span>
               <span
-                className={`text-[9px] font-mono px-2 py-0.5 rounded border uppercase ml-auto ${
-                  satelliteData.source === 'space-track'
+                className={`text-[9px] font-mono px-2 py-0.5 rounded border uppercase ml-auto shrink-0 ${
+                  isPhoneSat
+                    ? 'bg-[#FF2EF5]/15 text-[#F9A8D4] border-[#FF2EF5]/40'
+                    : satelliteData.source === 'space-track'
                     ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
                     : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                 }`}
               >
-                {satelliteData.source === 'space-track' ? 'LIVE TLE' : 'SIMULATED'}
+                {isPhoneSat ? 'SIMULATED' : satelliteData.source === 'space-track' ? 'LIVE TLE' : 'SIMULATED'}
               </span>
             </div>
 
+            {isPhoneSat && resolvedPhone && (
+              <div className="mb-4 p-3 rounded-lg bg-[#FF2EF5]/10 border border-[#FF2EF5]/35 space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-mono">
+                  <span className="font-bold text-[#F9A8D4]">{PHONE_SATELLITE_SAFETY_LABELS.simulated}</span>
+                  <span className="text-slate-300">{PHONE_SATELLITE_IDENTITY.ground_station_id}</span>
+                </div>
+                <p className="text-[11px] text-slate-200 leading-relaxed">
+                  {PHONE_SATELLITE_IDENTITY.description}
+                </p>
+                <div className="text-[10px] font-mono text-amber-300">
+                  {PHONE_SATELLITE_SAFETY_LABELS.mockOrbit}
+                </div>
+              </div>
+            )}
+
             {/* ── Satellite Image Section ────────────────────── */}
             <div className="mb-5">
-              {media ? (
+              {isPhoneSat && resolvedPhone ? (
+                <div
+                  className="w-full rounded-lg flex flex-col items-center justify-center py-5 px-3 relative overflow-hidden"
+                  style={{
+                    aspectRatio: '16 / 10',
+                    background: 'radial-gradient(circle at center, rgba(255,46,245,0.16), rgba(10,22,40,0.9))',
+                    border: '1px solid rgba(255, 46, 245, 0.35)',
+                  }}
+                >
+                  <div
+                    className="w-28 h-14 rounded-lg border-2 border-[#FF2EF5] bg-slate-900/90 flex items-center justify-center gap-1.5 shadow-[0_0_18px_rgba(255,46,245,0.35)] transition-transform duration-100"
+                    style={{
+                      transform: `perspective(260px) rotateX(${(-resolvedPhone.telemetry.orientation.pitch_deg).toFixed(1)}deg) rotateY(${resolvedPhone.telemetry.orientation.roll_deg.toFixed(1)}deg)`,
+                    }}
+                  >
+                    <Smartphone className="w-4 h-4 text-[#FF2EF5]" />
+                    <span className="text-[9px] font-mono font-bold text-white">ATTITUDE</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 w-full text-center font-mono text-[10px]">
+                    <div className="bg-slate-950/70 rounded py-1 border border-slate-800">
+                      <span className="text-slate-400 block text-[8px]">ROLL</span>
+                      <strong className="text-white">{resolvedPhone.telemetry.orientation.roll_deg.toFixed(1)}°</strong>
+                    </div>
+                    <div className="bg-slate-950/70 rounded py-1 border border-slate-800">
+                      <span className="text-slate-400 block text-[8px]">PITCH</span>
+                      <strong className="text-white">{resolvedPhone.telemetry.orientation.pitch_deg.toFixed(1)}°</strong>
+                    </div>
+                    <div className="bg-slate-950/70 rounded py-1 border border-slate-800">
+                      <span className="text-slate-400 block text-[8px]">YAW</span>
+                      <strong className="text-white">{resolvedPhone.telemetry.orientation.yaw_deg.toFixed(1)}°</strong>
+                    </div>
+                  </div>
+                </div>
+              ) : media ? (
                 <div>
                   {/* Image container */}
                   <div
@@ -289,35 +364,84 @@ export default function ObjectDetailsPanel({
                 </div>
               ))}
 
-              <div className="h-px my-4" style={{ background: 'rgba(0,174,239,0.2)' }} />
+              <div className="h-px my-4" style={{ background: isPhoneSat ? 'rgba(255,46,245,0.3)' : 'rgba(0,174,239,0.2)' }} />
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <Shield className="w-4 h-4" style={{ color: '#64748B' }} />
-                  <span className="text-xs font-space" style={{ color: '#94A3B8' }}>Collision Risk</span>
+              {isPhoneSat && resolvedPhone ? (
+                <div className="space-y-2.5 p-3 rounded-lg bg-slate-950/75 border border-[#FF2EF5]/35">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono uppercase text-[#F9A8D4] font-bold">
+                      Demonstration collision probability
+                    </span>
+                    <StatusBadge
+                      severity={
+                        resolvedPhone.conjunction.risk_level === 'CRITICAL' ||
+                        resolvedPhone.conjunction.risk_level === 'HIGH' ||
+                        resolvedPhone.conjunction.risk_level === 'MEDIUM' ||
+                        resolvedPhone.conjunction.risk_level === 'LOW'
+                          ? resolvedPhone.conjunction.risk_level
+                          : 'NOMINAL'
+                      }
+                      label={`${resolvedPhone.conjunction.risk_level} (${resolvedPhone.conjunction.collision_probability_pct.toFixed(2)}%)`}
+                    />
+                  </div>
+                  <div className="text-[10px] font-mono text-amber-300 font-semibold">
+                    DEMO SIMULATION · {PHONE_SATELLITE_SAFETY_LABELS.demoProbability}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono text-slate-300 pt-1">
+                    <div>Event: <strong className="text-white">{resolvedPhone.conjunction.id}</strong></div>
+                    <div>Tilt: <strong className="text-white">{resolvedPhone.conjunction.tilt_magnitude_deg.toFixed(1)}°</strong></div>
+                    <div>Debris: <strong className="text-white">{resolvedPhone.conjunction.debris_name}</strong></div>
+                    <div>Mock Miss: <strong className="text-white">{resolvedPhone.conjunction.miss_distance_km} km</strong></div>
+                    <div>Mock TCA: <strong className="text-white">{resolvedPhone.conjunction.tca_hours}h</strong></div>
+                    <div>Confidence: <strong className="text-white">{resolvedPhone.conjunction.confidence}%</strong></div>
+                  </div>
+                  <p className="text-[9px] font-mono text-slate-400">
+                    {resolvedPhone.conjunction.confidence_note}
+                  </p>
+                  <p className="text-[9px] font-mono text-slate-400">
+                    Orbit: {PHONE_MOCK_ORBIT.orbit_type} (a={PHONE_MOCK_ORBIT.semi_major_axis_km}km, e={PHONE_MOCK_ORBIT.eccentricity}, i={PHONE_MOCK_ORBIT.inclination_deg}°, RAAN={PHONE_MOCK_ORBIT.raan_deg}°)
+                  </p>
+                  <p className="text-[9px] font-mono text-slate-400">
+                    Source: {resolvedPhone.conjunction.source} ({resolvedPhone.telemetry.ground_station_id}) · Last update:{' '}
+                    {resolvedPhone.conjunction.last_updated
+                      ? new Date(resolvedPhone.conjunction.last_updated).toLocaleTimeString()
+                      : 'Awaiting RPi3 packet'}
+                  </p>
+                  <p className="text-[9px] font-mono text-amber-400 border-t border-slate-800 pt-1.5">
+                    {PHONE_SATELLITE_SAFETY_LABELS.disclaimer}
+                  </p>
                 </div>
-                <StatusBadge
-                  severity={collisionRisk > 10 ? 'CRITICAL' : collisionRisk > 5 ? 'HIGH' : collisionRisk > 2 ? 'MEDIUM' : 'LOW'}
-                  label={satelliteData.CATEGORY === 'Debris' ? 'N/A' : `${collisionRisk}%`}
-                />
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Shield className="w-4 h-4" style={{ color: '#64748B' }} />
+                      <span className="text-xs font-space" style={{ color: '#94A3B8' }}>Collision Risk</span>
+                    </div>
+                    <StatusBadge
+                      severity={collisionRisk > 10 ? 'CRITICAL' : collisionRisk > 5 ? 'HIGH' : collisionRisk > 2 ? 'MEDIUM' : 'LOW'}
+                      label={satelliteData.CATEGORY === 'Debris' ? 'N/A' : `${collisionRisk}%`}
+                    />
+                  </div>
 
-              {requiresManeuver && satelliteData.CATEGORY !== 'Debris' && (
-                <div className="mt-3 p-3 rounded flex flex-col gap-2" style={{ background: 'rgba(255, 77, 77, 0.1)', border: '1px solid rgba(255, 77, 77, 0.3)' }}>
-                  <span className="text-[10px] font-label-mono uppercase tracking-widest" style={{ color: '#FF4D4D' }}>Recommended Maneuver</span>
-                  <div className="flex justify-between items-center text-xs font-space">
-                    <span style={{ color: '#94A3B8' }}>Delta-v (∆V)</span>
-                    <span className="font-bold" style={{ color: '#FF4D4D' }}>+{deltaV} m/s</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs font-space">
-                    <span style={{ color: '#94A3B8' }}>Orbit Change (∆θ)</span>
-                    <span className="font-bold" style={{ color: '#FF4D4D' }}>+{deltaTheta}°</span>
-                  </div>
-                </div>
+                  {requiresManeuver && satelliteData.CATEGORY !== 'Debris' && (
+                    <div className="mt-3 p-3 rounded flex flex-col gap-2" style={{ background: 'rgba(255, 77, 77, 0.1)', border: '1px solid rgba(255, 77, 77, 0.3)' }}>
+                      <span className="text-[10px] font-label-mono uppercase tracking-widest" style={{ color: '#FF4D4D' }}>Recommended Maneuver</span>
+                      <div className="flex justify-between items-center text-xs font-space">
+                        <span style={{ color: '#94A3B8' }}>Delta-v (∆V)</span>
+                        <span className="font-bold" style={{ color: '#FF4D4D' }}>+{deltaV} m/s</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-space">
+                        <span style={{ color: '#94A3B8' }}>Orbit Change (∆θ)</span>
+                        <span className="font-bold" style={{ color: '#FF4D4D' }}>+{deltaTheta}°</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stale TLE & Freshness Warning */}
+                  <StaleDataWarning tleLine1={satelliteData.TLE_LINE1} />
+                </>
               )}
-
-              {/* Stale TLE & Freshness Warning */}
-              <StaleDataWarning tleLine1={satelliteData.TLE_LINE1} />
             </div>
 
               <div className="flex flex-col gap-2">

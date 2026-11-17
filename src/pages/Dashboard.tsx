@@ -4,6 +4,9 @@ import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
 import GlobeFallbackTable, { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
 import { useSatellites, useWebsocket, useSpaceWeather, useCongestion, useCollisions, useTelemetry } from '../hooks/useKesslerAPI';
+import { usePhoneSatellite } from '../hooks/usePhoneSatellite';
+import PhoneSatellitePanel from '../components/phone/PhoneSatellitePanel';
+import { phoneSatelliteToItem } from '../utils/phoneSatelliteOrbit';
 import { useEvents, useUsers } from '../hooks/useHandoffAPI';
 import { useCurrentUser } from '../components/handoff/UserContext';
 import ReportPreviewModal from '../components/handoff/ReportPreviewModal';
@@ -13,6 +16,7 @@ import { resolveDataState, formatObjectCount } from '../utils/dataState';
 
 export default function Dashboard() {
   const { satellites, loading, error: satError, isFallback: satFallback, refresh: refreshSatellites } = useSatellites();
+  const { phoneSatellite } = usePhoneSatellite();
   const { alerts, isConnected, connectionStatus, reconnect } = useWebsocket();
   const { data: weather } = useSpaceWeather();
   const { data: congestion } = useCongestion();
@@ -264,6 +268,7 @@ export default function Dashboard() {
               {viewMode === '2d' ? (
                 <GlobeFallbackTable
                   satellites={filteredSatellites}
+                  phoneSatellite={phoneSatellite}
                   onSelectObject={setSelectedSatellite}
                   selectedObject={selectedSatellite}
                   reason="2D Tracking View active"
@@ -273,6 +278,7 @@ export default function Dashboard() {
               ) : (
                 <CesiumErrorBoundary
                   satellites={filteredSatellites}
+                  phoneSatellite={phoneSatellite}
                   onSelectObject={setSelectedSatellite}
                   selectedObject={selectedSatellite}
                   filters={activeFilters}
@@ -281,6 +287,7 @@ export default function Dashboard() {
                   <CesiumGlobe
                     ref={globeRef}
                     satellites={filteredSatellites}
+                    phoneSatellite={phoneSatellite}
                     onSelectObject={setSelectedSatellite}
                     selectedObject={selectedSatellite}
                     filters={activeFilters}
@@ -290,7 +297,11 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <ObjectDetailsPanel satelliteData={selectedSatellite} onClose={() => setSelectedSatellite(null)} />
+          <ObjectDetailsPanel
+            satelliteData={selectedSatellite}
+            phoneSatellite={phoneSatellite}
+            onClose={() => setSelectedSatellite(null)}
+          />
 
           {/* View Mode Switcher Action */}
           <div className="absolute top-6 right-6 z-10 flex items-center gap-2 pointer-events-auto">
@@ -560,6 +571,14 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Additive Phone Satellite Telemetry Card */}
+        <PhoneSatellitePanel
+          phoneSatellite={phoneSatellite}
+          onSelectPhoneSatellite={() => setSelectedSatellite(phoneSatelliteToItem(phoneSatellite))}
+          defaultExpanded={false}
+          compact
+        />
       </div>
 
       {/* Quick Actions Report Preview Modal */}

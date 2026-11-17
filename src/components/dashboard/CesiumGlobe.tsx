@@ -4,6 +4,13 @@ import * as satellite from 'satellite.js';
 import * as CesiumModule from 'cesium';
 import { detectWebGLSupport } from '../../utils/webglDetection';
 import GlobeFallbackTable, { SatelliteItem } from './GlobeFallbackTable';
+import {
+  PHONE_SATELLITE_IDENTITY,
+  PHONE_MOCK_ORBIT,
+  buildPhoneOrbitTrack,
+  phoneSatelliteToItem,
+  type PhoneSatelliteData,
+} from '../../utils/phoneSatelliteOrbit';
 
 // Ensure Cesium base URL is set
 if (typeof window !== 'undefined' && !(window as unknown as { CESIUM_BASE_URL?: string }).CESIUM_BASE_URL) {
@@ -21,6 +28,7 @@ export interface FollowState {
 
 export interface CesiumGlobeProps {
   satellites: SatelliteItem[];
+  phoneSatellite?: PhoneSatelliteData | null;
   onSelectObject?: (sat: SatelliteItem | null) => void;
   selectedObject?: SatelliteItem | null;
   filters?: Record<string, boolean>;
@@ -110,6 +118,7 @@ function buildOrbitPath(
 const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
   {
     satellites,
+    phoneSatellite,
     onSelectObject,
     selectedObject,
     filters,
@@ -161,6 +170,11 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
 
   const showOrbitLinesRef = useRef(showOrbitLines);
   showOrbitLinesRef.current = showOrbitLines;
+
+  const phoneSatelliteRef = useRef<PhoneSatelliteData | null | undefined>(phoneSatellite);
+  phoneSatelliteRef.current = phoneSatellite;
+  const phoneMarkerEntityRef = useRef<CesiumModule.Entity | null>(null);
+  const phoneOrbitEntityRef = useRef<CesiumModule.Entity | null>(null);
 
   const emitFollowState = useCallback((state: FollowState) => {
     followStateRef.current = state;
@@ -460,6 +474,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
 
         // Add satellite entities
         addEntities(Cesium, viewer, now);
+        addPhoneSatelliteOverlay(Cesium, viewer, now);
 
         // Click handler for selection
         const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
@@ -467,7 +482,10 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
           const picked = viewer?.scene.pick(movement.position);
           if (Cesium.defined(picked) && picked.id) {
             const pickedEntity = picked.id as CesiumModule.Entity;
-            const sat = satellites.find((s) => String(s.NORAD_CAT_ID || s.id) === pickedEntity.id);
+            const sat =
+              pickedEntity.id === PHONE_SATELLITE_IDENTITY.id && phoneSatelliteRef.current
+                ? phoneSatelliteToItem(phoneSatelliteRef.current)
+                : satellites.find((s) => String(s.NORAD_CAT_ID || s.id) === pickedEntity.id);
             if (sat && onSelectObjectRef.current) {
               restoreEntityHighlight();
               highlightEntity(pickedEntity);
@@ -621,6 +639,116 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
       });
     };
 
+    const addPhoneSatelliteOverlay = (Cesium: typeof CesiumModule, v: CesiumModule.Viewer, now: Date) => {
+      if (!phoneSatelliteRef.current) return;
+      try {
+        const startSampleDate = new Date(now.getTime() - 45 * 60 * 1000);
+        const sampledTrack = buildPhoneOrbitTrack(startSampleDate, 225, 30);
+        const posProp = new Cesium.SampledPositionProperty();
+        posProp.setInterpolationOptions({
+          interpolationDegree: 5,
+          interpolationAlgorithm: Cesium.LagrangePolynomialApproximation,
+        });
+        posProp.forwardExtrapolationType = Cesium.ExtrapolationType.EXTRAPOLATE;
+        posProp.backwardExtrapolationType = Cesium.ExtrapolationType.EXTRAPOLATE;
+
+        for (const sample of sampledTrack) {
+          posProp.addSample(
+            Cesium.JulianDate.fromDate(sample.time),
+            Cesium.Cartesian3.fromDegrees(sample.pos.lon, sample.pos.lat, sample.pos.altitude_km * 1000)
+          );
+        }
+
+        const closedOrbitSamples = buildPhoneOrbitTrack(now, PHONE_MOCK_ORBIT.period_minutes, 45);
+        const orbitCartesians = closedOrbitSamples.map((s) =>
+          Cesium.Cartesian3.fromDegrees(s.pos.lon, s.pos.lat, s.pos.altitude_km * 1000)
+        );
+        if (orbitCartesians.length > 2) {
+          orbitCartesians.push(orbitCartesians[0]);
+        }
+
+        const phoneColor = Cesium.Color.fromCssColorString(PHONE_SATELLITE_IDENTITY.color);
+        const isVisible = filtersRef.current?.['Phone Satellite'] !== false;
+
+        const orientationProp = new Cesium.CallbackProperty((time: CesiumModule.JulianDate | undefined) => {
+          const evalTime = time || v.clock.currentTime;
+          const pos = posProp.getValue(evalTime);
+          if (!pos) return Cesium.Quaternion.IDENTITY;
+          const ori = phoneSatelliteRef.current?.telemetry?.orientation;
+          const hpr = new Cesium.HeadingPitchRoll(
+            Cesium.Math.toRadians(ori?.yaw_deg ?? 0),
+            Cesium.Math.toRadians(ori?.pitch_deg ?? 0),
+            Cesium.Math.toRadians(ori?.roll_deg ?? 0)
+          );
+          return Cesium.Transforms.headingPitchRollQuaternion(pos, hpr);
+        }, false);
+
+        const markerEntity = v.entities.add({
+          id: PHONE_SATELLITE_IDENTITY.id,
+          name: PHONE_SATELLITE_IDENTITY.name,
+          description: PHONE_SATELLITE_IDENTITY.description,
+          show: isVisible,
+          position: posProp,
+          orientation: orientationProp,
+          point: {
+            pixelSize: 15,
+            color: phoneColor,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+            scaleByDistance: new Cesium.NearFarScalar(5e4, 1.8, 5e7, 0.8),
+          },
+          box: {
+            dimensions: new Cesium.Cartesian3(12000, 22000, 3500),
+            material: phoneColor.withAlpha(0.85),
+            outline: true,
+            outlineColor: Cesium.Color.WHITE,
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 3500000),
+          },
+          label: {
+            text: PHONE_SATELLITE_IDENTITY.name,
+            font: 'bold 11px "Space Grotesk", sans-serif',
+            fillColor: Cesium.Color.fromCssColorString('#F9A8D4'),
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -16),
+            scaleByDistance: new Cesium.NearFarScalar(1e6, 1, 5e7, 0.35),
+            translucencyByDistance: new Cesium.NearFarScalar(1e6, 1, 5e7, 0.25),
+          },
+          path: {
+            resolution: 90,
+            material: phoneColor.withAlpha(0.7),
+            width: 2.0,
+            leadTime: 2922,
+            trailTime: 2922,
+            show: (isVisible && showOrbitLinesRef.current) as unknown as boolean,
+          },
+        });
+        phoneMarkerEntityRef.current = markerEntity;
+        entitiesRef.current.push({ entity: markerEntity, category: 'Phone Satellite' });
+
+        if (orbitCartesians.length > 1) {
+          const orbitEntity = v.entities.add({
+            id: `${PHONE_SATELLITE_IDENTITY.id}-ORBIT`,
+            polyline: {
+              positions: orbitCartesians,
+              width: 2.5,
+              material: phoneColor.withAlpha(0.85),
+              show: (isVisible && showOrbitLinesRef.current) as unknown as boolean,
+            },
+            properties: new Cesium.PropertyBag({
+              orbitPathFor: PHONE_SATELLITE_IDENTITY.id,
+              category: 'Phone Satellite',
+            }),
+          });
+          phoneOrbitEntityRef.current = orbitEntity;
+        }
+      } catch {
+        // ignore phone overlay errors so existing globe never breaks
+      }
+    };
+
     initCesium();
 
     return () => {
@@ -683,6 +811,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
     return (
       <GlobeFallbackTable
         satellites={satellites}
+        phoneSatellite={phoneSatellite}
         onSelectObject={onSelectObject}
         selectedObject={selectedObject}
         reason={fallbackReason || 'WebGL disabled or 3D Globe fallback requested'}
@@ -791,7 +920,7 @@ const CesiumGlobe = forwardRef<CesiumGlobeRef, CesiumGlobeProps>((
 
       <div className="absolute top-3 right-3 z-10">
         <span className="text-[11px] font-mono font-bold text-cyan-400 bg-slate-950/80 px-2.5 py-1 rounded border border-cyan-500/30">
-          {satellites.length} OBJECTS TRACKED
+          {satellites.length + (phoneSatellite ? 1 : 0)} OBJECTS TRACKED
         </span>
       </div>
     </motion.div>
@@ -818,6 +947,8 @@ function getCategoryColor(Cesium: typeof CesiumModule, category: string): Cesium
       return Cesium.Color.fromCssColorString('#10B981');
     case 'Scientific':
       return Cesium.Color.fromCssColorString('#A855F7');
+    case 'Phone Satellite':
+      return Cesium.Color.fromCssColorString(PHONE_SATELLITE_IDENTITY.color);
     default:
       return Cesium.Color.fromCssColorString('#94A3B8');
   }

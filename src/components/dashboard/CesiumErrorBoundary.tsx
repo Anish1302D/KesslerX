@@ -1,9 +1,11 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import GlobeFallbackTable, { SatelliteItem } from './GlobeFallbackTable';
+import type { PhoneSatelliteData } from '../../utils/phoneSatelliteOrbit';
 
 interface Props {
   children: ReactNode;
   satellites: SatelliteItem[];
+  phoneSatellite?: PhoneSatelliteData | null;
   onSelectObject?: (sat: SatelliteItem | null) => void;
   selectedObject?: SatelliteItem | null;
   filters?: Record<string, boolean>;
@@ -52,6 +54,7 @@ export class CesiumErrorBoundary extends Component<Props, State> {
       return (
         <GlobeFallbackTable
           satellites={this.props.satellites}
+          phoneSatellite={this.props.phoneSatellite}
           onSelectObject={this.props.onSelectObject}
           selectedObject={this.props.selectedObject}
           reason={`3D Globe crashed: ${this.state.errorMessage}`}

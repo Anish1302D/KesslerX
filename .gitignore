@@ -41,3 +41,5 @@ firebase-credentials.json
 *adminsdk*.json
 *.pem
 *.key
+raspberry_pi_gateway/.buffer_queue.jsonl
+raspberry_pi_gateway/.certs/

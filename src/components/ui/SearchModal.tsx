@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSatellites } from '../../hooks/useKesslerAPI';
 import { useEvents } from '../../hooks/useHandoffAPI';
+import { PHONE_SATELLITE_IDENTITY, PHONE_MOCK_ORBIT } from '../../utils/phoneSatelliteOrbit';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -62,6 +63,17 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
         icon: 'crisis_alert',
         path: `/event/${evt.event_id}`,
       });
+    });
+
+    // Additive Phone Satellite Simulator Object
+    items.push({
+      id: `sat-${PHONE_SATELLITE_IDENTITY.id}`,
+      title: PHONE_SATELLITE_IDENTITY.name,
+      subtitle: `${PHONE_SATELLITE_IDENTITY.id} · ${PHONE_MOCK_ORBIT.orbit_type} · ${PHONE_SATELLITE_IDENTITY.ground_station_id}`,
+      type: 'Satellite',
+      icon: 'smartphone',
+      path: `/orbital-map?select=${PHONE_SATELLITE_IDENTITY.id}`,
+      noradId: PHONE_SATELLITE_IDENTITY.id,
     });
 
     // Real Satellites from active catalog
