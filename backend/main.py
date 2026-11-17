@@ -28,6 +28,17 @@ from phone_satellite import (
 )
 from firebase_config import init_firebase, is_firebase_available
 from negotiator_engine import evaluate_intent_negotiation, NegotiationResult, DISCLAIMER_TEXT
+from orbital_commons_engine import (
+    CommonsRejectRequest,
+    CommonsRequest,
+    CommonsReviewRequest,
+    ENGINE_VERSION as ORBITAL_COMMONS_ENGINE_VERSION,
+    POLICY_DESCRIPTIONS,
+    POLICY_WEIGHTS,
+    PolicyMode,
+    evaluate_orbital_commons,
+    orbital_commons_store,
+)
 from handoff_service import (
     HandoffStore, HandoffStatus, seed_demo_data,
     create_handoff, generate_note_for_handoff, update_handoff_note,
@@ -439,6 +450,142 @@ async def evaluate_negotiator_endpoint(
         tle_age_hours=req.tle_age_hours,
     )
     return result
+
+# ============================================================
+# NEW: Orbital Commons AI (Multi-Operator Decision Support)
+# ============================================================
+
+@app.post("/api/orbital-commons/evaluate")
+async def evaluate_orbital_commons_endpoint(
+    req: CommonsRequest,
+    auth: dict = Depends(get_current_user_and_role),
+):
+    """
+    Deterministic multi-operator Orbital Commons AI evaluation.
+    Compares 7 coordination actions across safety, propellant, mission continuity,
+    uncertainty, corridor externalities, and fairness.
+    Decision support only — human approval required. Not a flight command system.
+    """
+    check_rate_limit(f"orbital_commons_eval:{auth['user_id']}", limit=30)
+    result = evaluate_orbital_commons(req)
+    result.explanation = await ai_service.explain_orbital_commons(result)
+    saved = orbital_commons_store.save_evaluation(req, result)
+    return saved
+
+
+@app.get("/api/orbital-commons/policies")
+async def list_orbital_commons_policies():
+    """List supported multi-operator optimization policies and transparent scoring weights."""
+    return {
+        "policies": [
+            {
+                "id": p.value,
+                "label": p.value.replace("_", " ").title(),
+                "description": POLICY_DESCRIPTIONS[p],
+                "weights": POLICY_WEIGHTS[p],
+            }
+            for p in PolicyMode
+        ],
+        "engine_version": ORBITAL_COMMONS_ENGINE_VERSION,
+        "disclaimer": DISCLAIMER_TEXT,
+    }
+
+
+@app.get("/api/orbital-commons/events/{event_id}")
+async def get_orbital_commons_event(
+    event_id: str,
+    viewer_operator_id: Optional[str] = Query(default=None),
+    auth: dict = Depends(get_current_user_and_role),
+):
+    """
+    Retrieve the stored Orbital Commons evaluation, Pareto frontier, counterfactual,
+    privacy-masked summaries, evidence hash, and human review status for an event.
+    """
+    res = orbital_commons_store.get_result(event_id, viewer_operator_id=viewer_operator_id)
+    if not res:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Orbital Commons event '{event_id}' not found.",
+        )
+    if res.explanation is None:
+        res.explanation = await ai_service.explain_orbital_commons(res)
+    return res
+
+
+@app.get("/api/orbital-commons/events/{event_id}/evidence")
+async def get_orbital_commons_evidence(
+    event_id: str,
+    auth: dict = Depends(get_current_user_and_role),
+):
+    """Retrieve canonical audit evidence packet and SHA-256 hash for independent verification."""
+    res = orbital_commons_store.get_result(event_id)
+    if not res:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Orbital Commons event '{event_id}' not found.",
+        )
+    return {
+        "event_id": res.event_id,
+        "audit_hash_sha256": res.audit_hash_sha256,
+        "evidence_packet": res.evidence_packet,
+        "review_state": res.review_state.model_dump(),
+        "disclaimer": res.disclaimer,
+    }
+
+
+@app.post("/api/orbital-commons/events/{event_id}/approve")
+async def approve_orbital_commons_event(
+    event_id: str,
+    req: CommonsReviewRequest,
+    auth: dict = Depends(
+        require_role(["mission operations lead", "safety analyst", "mission manager", "analyst", "administrator"])
+    ),
+):
+    """
+    Record first or second human approval sign-off under the Two-Person Rule.
+    Does NOT execute any spacecraft command. Decision support only.
+    """
+    check_rate_limit(f"orbital_commons_approve:{auth['user_id']}", limit=20)
+    try:
+        updated = orbital_commons_store.submit_approval(
+            event_id=event_id,
+            candidate_id=req.candidate_id,
+            reviewer_id=auth["user_id"],
+            reviewer_role=auth["role"],
+            notes=req.notes,
+            safety_acknowledged=req.safety_acknowledged,
+        )
+        return updated
+    except KeyError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.post("/api/orbital-commons/events/{event_id}/reject")
+async def reject_orbital_commons_event(
+    event_id: str,
+    req: CommonsRejectRequest,
+    auth: dict = Depends(
+        require_role(["mission operations lead", "safety analyst", "mission manager", "analyst", "administrator"])
+    ),
+):
+    """Record human rejection or clarification request on an Orbital Commons evaluation."""
+    check_rate_limit(f"orbital_commons_reject:{auth['user_id']}", limit=20)
+    try:
+        updated = orbital_commons_store.submit_rejection(
+            event_id=event_id,
+            reviewer_id=auth["user_id"],
+            reason=req.reason,
+            action=req.action,
+        )
+        return updated
+    except KeyError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 # ============================================================
 # GET /api/congestion

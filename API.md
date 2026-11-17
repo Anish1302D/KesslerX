@@ -98,3 +98,14 @@ All errors return structured JSON with appropriate HTTP status codes (no 200 OK 
 - `POST /api/handoffs/{id}/clarification`
 - `POST /api/handoffs/{id}/escalate`
 
+
+## Orbital Commons AI Endpoints
+
+All Orbital Commons endpoints enforce `Decision support only — human approval required. Not a flight command system.` (`command_executed: false`).
+
+- `POST /api/orbital-commons/evaluate` — Evaluate a conjunction `CommonsRequest` deterministically across 7 candidates and 5 policy modes, with schema-validated AI narrative fallback.
+- `GET /api/orbital-commons/policies` — Retrieve supported policy modes (`FAIR_BURDEN_SHARING`, `MINIMUM_FUEL`, `MINIMUM_MISSION_INTERRUPTION`, `MAXIMUM_RISK_REDUCTION`, `MINIMUM_EXTERNALITY`) and exact weight vectors.
+- `GET /api/orbital-commons/events/{event_id}` — Fetch stored evaluation (`?viewer_operator_id=...` applies prototype cross-operator privacy masking).
+- `GET /api/orbital-commons/events/{event_id}/evidence` — Retrieve canonical JSON evidence packet and SHA-256 digest (`audit_hash_sha256`).
+- `POST /api/orbital-commons/events/{event_id}/approve` — Record 1st or 2nd human review under strict Two-Person Rule enforcement (distinct `reviewer_id`, HTTP `403` on same reviewer).
+- `POST /api/orbital-commons/events/{event_id}/reject` — Record rejection (`action: "reject"`) or clarification (`action: "clarification"`).

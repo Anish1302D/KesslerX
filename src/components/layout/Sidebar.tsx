@@ -11,6 +11,7 @@ const navItems = [
   { path: '/space-weather', label: 'Space Weather', icon: 'wb_sunny' },
   { path: '/simulations', label: 'Simulations', icon: 'model_training' },
   { path: '/ground-station', label: 'Ground Station', icon: 'cell_tower', badge: 'New' },
+  { path: '/orbital-commons', label: 'Orbital Commons', icon: 'balance', badge: 'AI' },
   { path: '/ai-copilot', label: 'AI Copilot', icon: 'smart_toy', badge: 'Beta' },
   { path: '/alert-center', label: 'Alert Center', icon: 'notifications_active', count: 7 },
   { path: '/reports', label: 'Reports', icon: 'description' },

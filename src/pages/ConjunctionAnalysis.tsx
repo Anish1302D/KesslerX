@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 import IntentNegotiatorCockpit, { type NegotiationData } from '../components/negotiator/IntentNegotiatorCockpit';
+import OrbitalCommonsCockpit from '../components/orbitalCommons/OrbitalCommonsCockpit';
 import { API_BASE_URL } from '../config/api';
 import { validateTcaTimestamp, validateManeuverAssessment } from '../utils/maneuverValidation';
 
@@ -99,6 +100,7 @@ export default function ConjunctionAnalysis() {
   // Maneuver state
   const [maneuverPlan, setManeuverPlan] = useState<ManeuverPlan | null>(null);
   const [negotiationData, setNegotiationData] = useState<NegotiationData | null>(null);
+  const [showOrbitalCommons, setShowOrbitalCommons] = useState(false);
   const [maneuverLoading, setManeuverLoading] = useState(false);
   const [assessmentWarnings, setAssessmentWarnings] = useState<string[]>([]);
 
@@ -683,6 +685,47 @@ export default function ConjunctionAnalysis() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Additive Expandable Section: Orbital Commons AI (Multi-Operator Coordination) */}
+      <div className="rounded-xl border border-cyan-500/30 bg-[#111827]/90 p-4 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-cyan-400 text-[18px]">balance</span>
+              Orbital Commons AI — Multi-Operator Coordination &amp; Fairness Support
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Optional expandable module comparing multi-operator maneuver split, corridor externalities, counterfactuals, and two-person approval.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-expanded={showOrbitalCommons}
+            onClick={() => setShowOrbitalCommons(prev => !prev)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-500/40 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25 transition"
+          >
+            {showOrbitalCommons ? 'Hide Orbital Commons AI' : 'Expand Orbital Commons AI'}
+          </button>
+        </div>
+
+        {showOrbitalCommons && (
+          <OrbitalCommonsCockpit
+            linkedEventSummary={
+              result
+                ? {
+                    event_id: `CONJ-${nameA.replace(/\s+/g, '-')}-${nameB.replace(/\s+/g, '-')}`,
+                    primary_object: result.object_a_name,
+                    secondary_object: result.object_b_name,
+                    altitude_km: result.object_a_state?.altitude_km ?? 550,
+                    miss_distance_km: result.min_distance_km,
+                    collision_probability: result.collision_probability,
+                    tle_age_hours: 6.5,
+                  }
+                : undefined
+            }
+          />
+        )}
+      </div>
     </div>
   );
 }

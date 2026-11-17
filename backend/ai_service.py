@@ -3,7 +3,20 @@ import os
 import json
 import math
 from datetime import datetime, timezone, timedelta
-from negotiator_engine import compute_deterministic_maneuver, DISCLAIMER_TEXT
+try:
+    from negotiator_engine import compute_deterministic_maneuver, DISCLAIMER_TEXT
+    from orbital_commons_engine import (
+        CommonsResult,
+        LLMCommonsExplanation,
+        generate_deterministic_commons_explanation,
+    )
+except ImportError:
+    from backend.negotiator_engine import compute_deterministic_maneuver, DISCLAIMER_TEXT
+    from backend.orbital_commons_engine import (
+        CommonsResult,
+        LLMCommonsExplanation,
+        generate_deterministic_commons_explanation,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -202,3 +215,79 @@ burn_time_utc (before TCA), expected_miss_distance_km, fuel_cost_kg, confidence_
             return "Greetings, Commander. I am the KesslerX AI Copilot. Orbital tracking systems are online. How can I assist with your mission telemetry today?"
         else:
             return "Acknowledged. I have analyzed the telemetry for your query. The orbital parameters remain stable, but we should continue monitoring the situation closely."
+
+    def validate_commons_explanation_payload(self, raw_payload: dict) -> dict:
+        """Strictly validate structured LLM explanation JSON and enforce mandatory disclaimer."""
+        validated = LLMCommonsExplanation.model_validate(raw_payload)
+        data = validated.model_dump()
+        if DISCLAIMER_TEXT not in data["disclaimer"]:
+            data["disclaimer"] = DISCLAIMER_TEXT
+        data["provenance"] = "gemini-explanation-only"
+        return data
+
+    async def explain_orbital_commons(self, commons_result: CommonsResult) -> dict:
+        """
+        Generate an explainable narrative strictly grounded in structured CommonsResult.
+        Never alters scores, probabilities, delta-v, feasibility, or approval states.
+        Falls back deterministically if Gemini is unavailable or returns invalid schema.
+        """
+        if GENAI_AVAILABLE and api_key and api_key != "your_gemini_api_key_here":
+            try:
+                safe_summary = {
+                    "event_id": commons_result.event_id,
+                    "status": commons_result.status,
+                    "selected_policy": commons_result.selected_policy,
+                    "recommended_candidate_id": commons_result.recommended_candidate_id,
+                    "pareto_frontier": commons_result.pareto_frontier,
+                    "counterfactual": commons_result.counterfactual.model_dump(),
+                    "candidates": [
+                        {
+                            "id": c.id,
+                            "title": c.title,
+                            "feasible": c.feasible,
+                            "composite_score": c.composite_score,
+                            "cost_bearer": c.cost_bearer,
+                            "beneficiaries": c.beneficiaries,
+                            "rejected_reasons": c.rejected_reasons,
+                        }
+                        for c in commons_result.candidates
+                    ],
+                    "assumptions": commons_result.assumptions,
+                    "uncertainties": commons_result.uncertainties,
+                    "missing_inputs": commons_result.missing_inputs,
+                    "audit_hash_sha256": commons_result.audit_hash_sha256,
+                }
+                prompt = f"""Explain the following pre-computed Orbital Commons AI evaluation result.
+Do NOT invent numbers, alter scores, change feasibility, or issue commands.
+Respond ONLY with valid JSON matching this schema:
+{{
+  "summary": "...",
+  "recommended_option_explanation": "...",
+  "trade_offs": ["..."],
+  "fairness_explanation": "...",
+  "externality_explanation": "...",
+  "evidence_references": ["..."],
+  "assumptions": ["..."],
+  "uncertainties": ["..."],
+  "missing_inputs": ["..."],
+  "disclaimer": "{DISCLAIMER_TEXT}"
+}}
+
+Structured Data:
+{json.dumps(safe_summary)}"""
+
+                model = genai.GenerativeModel("gemini-2.0-flash")
+                response = await model.generate_content_async(prompt)
+                text = response.text.strip()
+                if text.startswith("```"):
+                    text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+                if text.endswith("```"):
+                    text = text[:-3]
+                if text.startswith("json"):
+                    text = text[4:]
+                parsed = json.loads(text.strip())
+                return self.validate_commons_explanation_payload(parsed)
+            except Exception as exc:
+                logger.warning(f"Orbital Commons LLM explanation failed schema/call check, using deterministic fallback: {exc}")
+
+        return generate_deterministic_commons_explanation(commons_result)

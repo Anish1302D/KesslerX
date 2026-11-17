@@ -42,3 +42,12 @@ For any high-conjunction mitigation action, KesslerX requires dual-key authoriza
 - **Differentiated Capability**: The platform is accurately described as featuring: *"KesslerX's differentiated feature: The Intent-to-Action Negotiator."*
 - **Licensing & Attribution**: CesiumJS, SGP4, Space-Track, NOAA, NASA, and Resium attributions remain visible, unobstructed, and compliant with their respective licenses.
 
+
+## Orbital Commons AI Safety & Privacy Boundaries
+
+- **Mandatory Warning**: Every Orbital Commons output, API response, evidence packet, and UI view includes `Decision support only — human approval required. Not a flight command system.`
+- **Deterministic Physics & Scoring**: All multi-revolution phasing delta-v calculations, Tsiolkovsky propellant estimates, corridor externality checks, fairness penalties, Pareto frontiers, and composite scores execute deterministically in Python (`backend/orbital_commons_engine.py`).
+- **Schema-Locked AI Narratives**: Gemini output (`explain_orbital_commons`) is strictly validated against `LLMCommonsExplanation` and never modifies numbers, feasibility flags, or review states; invalid outputs fall back to deterministic prose.
+- **Fail-Closed Gate**: Stale ephemeris (`> 72h`), passed/invalid TCA, or missing covariance inputs force `status: "INSUFFICIENT_DATA"` and block maneuver approval.
+- **Two-Person Human Governance**: Requires two distinct authenticated human reviewers (`PENDING_REVIEW` -> `FIRST_REVIEW_COMPLETE` -> `SECOND_REVIEW_COMPLETE`) and maintains `command_executed: false`.
+- **Prototype Privacy Masking Disclosure**: Private operator delta-v, availability, and blackout constraints are masked in cross-operator views (`authorized_private_details: null`). This is a server-enforced prototype privacy boundary, not cryptographic MPC or federated learning.

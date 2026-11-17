@@ -151,3 +151,12 @@ See [SECURITY.md](./SECURITY.md) for vulnerability disclosure policies and crede
 ## 📄 License & Attribution
 
 Distributed under the MIT License. Orbit propagation powered by SGP4 (`sgp4` and `satellite.js`). Space weather data derived from NOAA SWPC Boulder, CO. Satellite ephemeris data provided by Space-Track.org / 18th Space Defense Squadron. CesiumJS is licensed under Apache 2.0.
+
+---
+
+## Orbital Commons AI (Multi-Operator Decision Support)
+
+- **Workspace Route**: `/orbital-commons` (also available as an expandable module in **Conjunction Analysis**)
+- **Core Capabilities**: Deterministically evaluates 7 coordination courses of action across collision risk reduction, propellant cost, mission continuity, ephemeris uncertainty, nearby corridor externalities (`ImpactGraph`), fairness / burden sharing, Pareto frontier ranking, counterfactual ("What happens if no action is taken?"), prototype cross-operator privacy masking, SHA-256 evidence packets, and Two-Person Human Approval.
+- **Full Documentation**: [docs/ORBITAL_COMMONS_AI.md](docs/ORBITAL_COMMONS_AI.md)
+- **Safety Notice**: Decision support only — human approval required. Not a flight command system.

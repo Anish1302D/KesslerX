@@ -57,6 +57,9 @@ export const API_ENDPOINTS = {
   USERS: '/api/users',
   EVENTS: '/api/events',
   HANDOFFS_PENDING: '/api/handoffs/pending',
+  ORBITAL_COMMONS_EVALUATE: '/api/orbital-commons/evaluate',
+  ORBITAL_COMMONS_POLICIES: '/api/orbital-commons/policies',
+  ORBITAL_COMMONS_EVENTS: '/api/orbital-commons/events',
   WS_ALERTS: '/ws/alerts',
   WS_GROUND_STATION: '/ws/ground-station',
 } as const;
