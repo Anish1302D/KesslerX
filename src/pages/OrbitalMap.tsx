@@ -285,7 +285,7 @@ export default function OrbitalMap() {
       )}
 
       {/* 2D / 3D Tracking Navigation Action */}
-      <button
+      <button 
         className="absolute top-6 right-20 z-50 px-3.5 py-2 glass rounded-xl flex items-center gap-2 hover:bg-primary/20 hover:text-primary transition-all active:scale-95 text-xs font-mono font-bold"
         title={viewMode === '3d' ? "Open 2D Tracking Table" : "Switch to 3D Globe"}
         onClick={() => setViewMode(prev => prev === '3d' ? '2d' : '3d')}
@@ -297,7 +297,7 @@ export default function OrbitalMap() {
       </button>
 
       {/* UI Visibility Toggle (Always Visible) */}
-      <button
+      <button 
         className="absolute top-6 right-6 z-50 w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90"
         title={isUIHidden ? "Show UI" : "Hide UI"}
         onClick={() => setIsUIHidden(!isUIHidden)}
@@ -309,7 +309,7 @@ export default function OrbitalMap() {
 
       {/* Map Control Sidebar */}
       <div className={`absolute left-6 top-6 z-30 w-72 flex flex-col gap-4 max-h-[calc(100vh-100px)] pointer-events-none transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-
+        
         {/* Statistics Widget */}
         <div className="glass rounded-xl p-inner-padding border-primary/20 pointer-events-auto">
           <div className="flex justify-between items-center mb-4">
@@ -355,12 +355,12 @@ export default function OrbitalMap() {
             </h3>
             <span className={`material-symbols-outlined transition-transform ${showFilters ? 'rotate-180' : ''}`}>expand_more</span>
           </div>
-
+          
           {showFilters && (
             <div className="p-inner-padding overflow-y-auto custom-scrollbar space-y-6 max-h-64">
               <div className="space-y-3">
                 <p className="font-label-mono text-[10px] text-outline uppercase tracking-wider">Object Types</p>
-
+                
                 {Object.entries(filters).map(([key, enabled]) => {
                   const colors: Record<string, string> = {
                     Communication: 'text-primary', Debris: 'text-error', ISS: 'text-white', Weather: 'text-yellow-500',
@@ -368,11 +368,11 @@ export default function OrbitalMap() {
                   };
                   return (
                     <label key={key} className="flex items-center gap-3 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={enabled}
+                      <input 
+                        type="checkbox" 
+                        checked={enabled} 
                         onChange={() => toggleFilter(key)}
-                        className={`w-4 h-4 rounded bg-surface-container-highest border-outline-variant focus:ring-1 ${colors[key]} focus:ring-primary`}
+                        className={`w-4 h-4 rounded bg-surface-container-highest border-outline-variant focus:ring-1 ${colors[key]} focus:ring-primary`} 
                       />
                       <span className={`font-body-md text-body-md transition-colors ${enabled ? colors[key] : 'text-on-surface-variant'}`}>
                         {key}
@@ -385,7 +385,7 @@ export default function OrbitalMap() {
               {/* Display Layers / Lighting & Orbits */}
               <div className="pt-3 border-t border-outline-variant/10 space-y-2">
                 <p className="font-label-mono text-[10px] text-outline uppercase tracking-wider mb-2">Display & Lighting</p>
-
+                
                 {/* Day / Night Realtime Lighting Toggle */}
                 <label className="flex items-center justify-between gap-3 cursor-pointer group p-2 rounded-lg bg-surface-container-highest/20 hover:bg-surface-container-highest/40 transition-colors">
                   <div className="flex items-center gap-2">
@@ -444,7 +444,7 @@ export default function OrbitalMap() {
             </h3>
             <span className={`material-symbols-outlined transition-transform ${showSatList ? 'rotate-180' : ''}`}>expand_more</span>
           </div>
-
+          
           {showSatList && (
             <div className="flex flex-col overflow-hidden">
               {/* Search input */}
@@ -510,8 +510,9 @@ export default function OrbitalMap() {
                       <button
                         key={id || name}
                         onClick={() => handleSelectObject(sat)}
-                        className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors hover:bg-primary/10 ${isSelected ? 'bg-primary/15' : ''
-                          }`}
+                        className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors hover:bg-primary/10 ${
+                          isSelected ? 'bg-primary/15' : ''
+                        }`}
                       >
                         <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: dotColor, boxShadow: `0 0 4px ${dotColor}` }} />
                         <div className="min-w-0 flex-1">
@@ -543,20 +544,22 @@ export default function OrbitalMap() {
           <span className="material-symbols-outlined">center_focus_weak</span>
         </button>
         <button
-          className={`w-12 h-12 glass rounded-full flex items-center justify-center transition-all active:scale-90 ${enableLighting
+          className={`w-12 h-12 glass rounded-full flex items-center justify-center transition-all active:scale-90 ${
+            enableLighting
               ? 'text-yellow-400 bg-yellow-400/20 border border-yellow-400/40 shadow-[0_0_12px_rgba(250,204,21,0.3)]'
               : 'text-outline hover:bg-surface-container-highest/40 hover:text-on-surface'
-            }`}
+          }`}
           title={enableLighting ? "Disable Day/Night Lighting" : "Enable Real-Time Day/Night Lighting"}
           onClick={() => setEnableLighting(!enableLighting)}
         >
           <span className="material-symbols-outlined">{enableLighting ? 'wb_sunny' : 'nightlight'}</span>
         </button>
         <button
-          className={`w-12 h-12 glass rounded-full flex items-center justify-center transition-all active:scale-90 ${showOrbitLines
+          className={`w-12 h-12 glass rounded-full flex items-center justify-center transition-all active:scale-90 ${
+            showOrbitLines
               ? 'text-primary bg-primary/20 border border-primary/40 shadow-[0_0_12px_rgba(180,197,255,0.3)]'
               : 'text-outline hover:bg-surface-container-highest/40 hover:text-on-surface'
-            }`}
+          }`}
           title={showOrbitLines ? "Hide Orbital Lines" : "Show Orbital Lines"}
           onClick={() => setShowOrbitLines(!showOrbitLines)}
         >
@@ -593,7 +596,7 @@ export default function OrbitalMap() {
           <p>• <strong>Click Satellite:</strong> Inspect & track orbit</p>
         </div>
       )}
-
+      
       {/* Timeline Slider (Bottom Anchor) */}
       <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-5xl glass rounded-2xl p-4 flex flex-col gap-4 border border-primary/10 transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="flex items-center justify-between gap-6">
@@ -608,8 +611,9 @@ export default function OrbitalMap() {
             </button>
             <button
               onClick={togglePlayback}
-              className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${isPlaying ? 'bg-secondary/30 text-secondary' : 'bg-primary/20 text-primary hover:bg-primary/30'
-                }`}
+              className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
+                isPlaying ? 'bg-secondary/30 text-secondary' : 'bg-primary/20 text-primary hover:bg-primary/30'
+              }`}
               title={isPlaying ? 'Pause Auto-Rotate' : 'Start Auto-Rotate'}
               aria-label="Play/Pause"
             >
@@ -661,7 +665,7 @@ export default function OrbitalMap() {
           </div>
         </div>
       </div>
-
+      
     </div>
   );
 }
