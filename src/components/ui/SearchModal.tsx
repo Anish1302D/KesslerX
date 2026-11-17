@@ -38,6 +38,7 @@ const STATIC_PAGES: SearchItem[] = [
   { id: 'p9', title: 'Simulations', subtitle: 'Kessler Cascade Physics Engine', type: 'Page', icon: 'science', path: '/simulations' },
   { id: 'p10', title: 'Alert Center', subtitle: 'Active Operational Alarms & Thresholds', type: 'Page', icon: 'notifications_active', path: '/alert-center' },
   { id: 'p11', title: 'Ground Station', subtitle: 'Antenna Pointing & Pass Predictor', type: 'Page', icon: 'cell_tower', path: '/ground-station' },
+  { id: 'p12', title: 'Orbital Commons AI', subtitle: 'Multi-Operator Decision Support & Fairness Negotiation', type: 'Page', icon: 'balance', path: '/orbital-commons' },
 ];
 
 export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
