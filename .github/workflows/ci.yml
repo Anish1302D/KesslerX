@@ -72,7 +72,7 @@ jobs:
           TESTING: "1"
           PYTHONPATH: backend
         run: |
-          python -m pytest -v backend
+          python -m pytest -v backend raspberry_pi_gateway
 
   safety-and-security:
     name: Aerospace Safety & Secret Hygiene Gate

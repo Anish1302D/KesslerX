@@ -1,10 +1,13 @@
-import { Suspense, lazy, useState, useRef, useCallback, useEffect } from 'react';
+import { Suspense, lazy, useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import ObjectDetailsPanel from '../components/dashboard/ObjectDetailsPanel';
 import type { CesiumGlobeRef, FollowState } from '../components/dashboard/CesiumGlobe';
 import CesiumErrorBoundary from '../components/dashboard/CesiumErrorBoundary';
 import GlobeFallbackTable, { SatelliteItem } from '../components/dashboard/GlobeFallbackTable';
 import { useSatellites } from '../hooks/useKesslerAPI';
+import { usePhoneSatellite } from '../hooks/usePhoneSatellite';
+import PhoneSatellitePanel from '../components/phone/PhoneSatellitePanel';
+import { PHONE_SATELLITE_IDENTITY, phoneSatelliteToItem } from '../utils/phoneSatelliteOrbit';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 import { resolveDataState, formatObjectCount } from '../utils/dataState';
 import { detectWebGLSupport } from '../utils/webglDetection';
@@ -23,6 +26,8 @@ const defaultFilters: Record<string, boolean> = {
 
 export default function OrbitalMap() {
   const { satellites, loading, error: satError, isFallback: satFallback, refresh: refreshSatellites } = useSatellites();
+  const { phoneSatellite } = usePhoneSatellite();
+  const phoneSatelliteItem = useMemo(() => phoneSatelliteToItem(phoneSatellite), [phoneSatellite]);
   const webglSupport = detectWebGLSupport();
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -97,9 +102,10 @@ export default function OrbitalMap() {
   // Auto-select satellite from query param (?select=NORAD or ?select=NAME) or location state
   useEffect(() => {
     const selectTarget = searchParams.get('select') || (location.state as { selectedNoradId?: string })?.selectedNoradId;
-    if (selectTarget && satellites.length > 0) {
+    if (selectTarget) {
       const targetStr = selectTarget.toString().toUpperCase().trim();
-      const foundSat = satellites.find(s => {
+      const searchable = [phoneSatelliteItem, ...satellites];
+      const foundSat = searchable.find(s => {
         const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
         const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
         return norad === targetStr || name === targetStr || name.includes(targetStr);
@@ -112,7 +118,7 @@ export default function OrbitalMap() {
         return () => clearTimeout(timer);
       }
     }
-  }, [searchParams, location.state, satellites, handleSelectObject, selectedObject]);
+  }, [searchParams, location.state, satellites, phoneSatelliteItem, handleSelectObject, selectedObject]);
 
   const handleFollowSatellite = useCallback(() => {
     if (selectedObject) {
@@ -158,6 +164,7 @@ export default function OrbitalMap() {
             ) : viewMode === '2d' || !webglSupport.supported ? (
               <GlobeFallbackTable
                 satellites={satellites}
+                phoneSatellite={phoneSatellite}
                 onSelectObject={handleSelectObject}
                 selectedObject={selectedObject}
                 reason={!webglSupport.supported ? (webglSupport.errorMessage || 'WebGL hardware acceleration is unavailable in this environment') : '2D Tracking Directory requested by user'}
@@ -167,6 +174,7 @@ export default function OrbitalMap() {
             ) : (
               <CesiumErrorBoundary
                 satellites={satellites}
+                phoneSatellite={phoneSatellite}
                 onSelectObject={handleSelectObject}
                 selectedObject={selectedObject}
                 filters={filters}
@@ -175,6 +183,7 @@ export default function OrbitalMap() {
                 <CesiumGlobe
                   ref={globeRef}
                   satellites={satellites}
+                  phoneSatellite={phoneSatellite}
                   onSelectObject={handleSelectObject}
                   selectedObject={selectedObject}
                   filters={filters}
@@ -191,6 +200,7 @@ export default function OrbitalMap() {
 
       <ObjectDetailsPanel
         satelliteData={selectedObject}
+        phoneSatellite={phoneSatellite}
         onClose={() => {
           // Exit follow mode when closing panel
           if (followState.mode !== 'FREE') {
@@ -202,6 +212,18 @@ export default function OrbitalMap() {
         onFollowSatellite={handleFollowSatellite}
         onStopFollowing={handleStopFollowing}
       />
+
+      {/* Additive Compact Phone Satellite Panel (visible even if WebGL fails) */}
+      {!selectedObject && !isUIHidden && (
+        <div className="hidden lg:block absolute top-20 right-6 z-20 w-80 pointer-events-auto">
+          <PhoneSatellitePanel
+            phoneSatellite={phoneSatellite}
+            onSelectPhoneSatellite={() => handleSelectObject(phoneSatelliteItem)}
+            defaultExpanded={false}
+            compact
+          />
+        </div>
+      )}
 
       {/* ── Follow Mode HUD Indicator ────────────────── */}
       {followState.mode !== 'FREE' && !isUIHidden && (
@@ -437,7 +459,7 @@ export default function OrbitalMap() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         const q = satSearch.toUpperCase().trim();
-                        const matching = satellites.filter(s => {
+                        const matching = [phoneSatelliteItem, ...satellites].filter(s => {
                           const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
                           const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
                           const cat = String(s.CATEGORY || s.type || s.OBJECT_TYPE || '').toUpperCase();
@@ -462,7 +484,7 @@ export default function OrbitalMap() {
 
               {/* Satellite list */}
               <div className="overflow-y-auto custom-scrollbar max-h-48">
-                {satellites
+                {[phoneSatelliteItem, ...satellites]
                   .filter(s => {
                     const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
                     const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
@@ -480,6 +502,7 @@ export default function OrbitalMap() {
                     const catColors: Record<string, string> = {
                       Communication: '#00AEEF', ISS: '#FFFFFF', Weather: '#EAB308',
                       Military: '#F97316', GPS: '#10B981', Scientific: '#A855F7',
+                      'Phone Satellite': PHONE_SATELLITE_IDENTITY.color,
                     };
                     const cat = String(sat.CATEGORY || sat.type || '');
                     const dotColor = catColors[cat] || '#94A3B8';

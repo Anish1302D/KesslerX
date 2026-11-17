@@ -5,6 +5,8 @@ import {
 } from 'recharts';
 import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 import { getWsUrl as resolveWsUrl, API_ENDPOINTS } from '../config/api';
+import { usePhoneSatellite } from '../hooks/usePhoneSatellite';
+import PhoneSatellitePanel from '../components/phone/PhoneSatellitePanel';
 
 interface TelemetryPacket {
   packet_id: number;
@@ -38,6 +40,7 @@ function formatUptime(seconds: number): string {
 }
 
 export default function GroundStation() {
+  const { phoneSatellite } = usePhoneSatellite();
   const [connected, setConnected] = useState(false);
   const [isClientFallback, setIsClientFallback] = useState(false);
   const [latestPacket, setLatestPacket] = useState<TelemetryPacket | null>(null);
@@ -133,6 +136,13 @@ export default function GroundStation() {
         if (isCancelled) return;
         try {
           const pkt: TelemetryPacket = JSON.parse(event.data);
+          if (pkt.packet_type === 'phone_telemetry') {
+            setLog(prev => [
+              ...prev.slice(-49),
+              `[${pkt.timestamp}] PHONE SATELLITE (${pkt.station_id}) #${pkt.packet_id} | Roll: ${pkt.roll_deg?.toFixed(1) ?? '0.0'}° Pitch: ${pkt.pitch_deg?.toFixed(1) ?? '0.0'}° Yaw: ${pkt.heading_deg?.toFixed(1) ?? '0.0'}°`,
+            ]);
+            return;
+          }
           setLatestPacket(pkt);
           setPackets(prev => [...prev.slice(-99), pkt]);
 
@@ -267,6 +277,9 @@ export default function GroundStation() {
           </div>
         </div>
       </div>
+
+      {/* Additive Raspberry Pi 3 Gateway (KX-RPI3-GS-001) & PHONE SATELLITE Card */}
+      <PhoneSatellitePanel phoneSatellite={phoneSatellite} defaultExpanded={true} />
 
       {/* Top Metrics Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-card-gap">

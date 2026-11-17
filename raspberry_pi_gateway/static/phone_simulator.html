@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PHONE SATELLITE — KesslerX Attitude Simulator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #040714;
+      --card: rgba(13, 21, 40, 0.9);
+      --border: rgba(255, 46, 245, 0.35);
+      --accent: #FF2EF5;
+      --cyan: #00AEEF;
+      --ok: #10B981;
+      --warn: #F59E0B;
+      --err: #EF4444;
+      --text: #F8FAFC;
+      --muted: #94A3B8;
+    }
+    * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body {
+      margin: 0;
+      padding: 16px;
+      background: radial-gradient(circle at top, #140b2e 0%, var(--bg) 65%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .container { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+    .banner {
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #FCD34D;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-align: center;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .header-card { border-color: var(--border); }
+    .title-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .title { font-size: 18px; font-weight: 800; color: var(--accent); letter-spacing: 0.04em; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.7);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .dot.buffered { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+    .dot.error { background: var(--err); }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .metric {
+      background: rgba(6, 14, 32, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+    }
+    .metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .metric-value { font-size: 20px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 4px; }
+    .horizon-wrap {
+      height: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(6, 14, 32, 0.9);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 46, 245, 0.25);
+      overflow: hidden;
+    }
+    .sat-model {
+      width: 110px;
+      height: 52px;
+      border-radius: 10px;
+      border: 2px solid var(--accent);
+      background: linear-gradient(135deg, rgba(255, 46, 245, 0.25), rgba(0, 174, 239, 0.2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-family: ui-monospace, monospace;
+      font-weight: 700;
+      box-shadow: 0 0 18px rgba(255, 46, 245, 0.35);
+      transition: transform 80ms linear;
+    }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 14px 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-start { background: var(--ok); color: #04120c; }
+    .btn-stop { background: var(--err); color: #ffffff; }
+    .btn-zero {
+      grid-column: span 2;
+      background: rgba(0, 174, 239, 0.16);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 174, 239, 0.35);
+      padding: 10px 12px;
+      font-size: 12px;
+    }
+    .meta { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; line-height: 1.5; }
+    .notice {
+      font-size: 11px;
+      color: #FCA5A5;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="banner">SIMULATED SATELLITE — NOT A REAL SPACECRAFT</div>
+
+    <div class="card header-card">
+      <div class="title-row">
+        <div>
+          <div class="title">PHONE SATELLITE</div>
+          <div class="meta">ID: PHONE-SATELLITE-001 · GS: KX-RPI3-GS-001</div>
+        </div>
+        <div class="pill">
+          <span id="status-dot" class="dot"></span>
+          <span id="status-text">STOPPED</span>
+        </div>
+      </div>
+      <div class="meta" style="margin-top: 8px;">
+        Telemetry path: Phone sensors &rarr; Raspberry Pi 3 (<strong id="pi-origin"></strong>/telemetry) &rarr; KesslerX
+      </div>
+    </div>
+
+    <div id="context-notice" class="notice"></div>
+
+    <div class="horizon-wrap">
+      <div id="sat-model" class="sat-model">ATTITUDE SIM</div>
+    </div>
+
+    <div class="grid">
+      <div class="metric">
+        <div class="metric-label">Roll</div>
+        <div id="val-roll" class="metric-value">0.0&deg;</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Pitch</div>
+        <div id="val-pitch" class="metric-value">0.0&deg;</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Yaw</div>
+        <div id="val-yaw" class="metric-value">0.0&deg;</div>
+      </div>
+    </div>
+
+    <div class="card controls">
+      <button id="btn-start" class="btn-start" type="button">Start Telemetry</button>
+      <button id="btn-stop" class="btn-stop" type="button" disabled>Stop Telemetry</button>
+      <button id="btn-zero" class="btn-zero" type="button">Zero / Level Calibration</button>
+    </div>
+
+    <div class="card meta">
+      <div>Packets sent to RPi 3: <strong id="seq-count">0</strong></div>
+      <div>Ground Station Reply: <strong id="gs-reply">Idle</strong></div>
+      <div style="margin-top: 6px; color: #FCD34D;">
+        Decision support only — human approval required. Not a flight command system.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const GROUND_STATION_ID = 'KX-RPI3-GS-001';
+      const DEVICE_ID = 'PHONE-SATELLITE-001';
+      const SATELLITE_NAME = 'PHONE SATELLITE';
+      // Phone NEVER sends directly to laptop or KesslerX backend; only to Raspberry Pi 3 same-origin /telemetry.
+      const TELEMETRY_URL = window.location.origin + '/telemetry';
+
+      document.getElementById('pi-origin').textContent = window.location.origin;
+
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+      const noticeBox = document.getElementById('context-notice');
+      const rollEl = document.getElementById('val-roll');
+      const pitchEl = document.getElementById('val-pitch');
+      const yawEl = document.getElementById('val-yaw');
+      const satModelEl = document.getElementById('sat-model');
+      const seqEl = document.getElementById('seq-count');
+      const replyEl = document.getElementById('gs-reply');
+      const btnStart = document.getElementById('btn-start');
+      const btnStop = document.getElementById('btn-stop');
+      const btnZero = document.getElementById('btn-zero');
+
+      let running = false;
+      let sendTimer = null;
+      let seq = 0;
+      let rawRoll = 0;
+      let rawPitch = 0;
+      let rawYaw = 0;
+      let offsetRoll = 0;
+      let offsetPitch = 0;
+      let offsetYaw = 0;
+      let angX = 0;
+      let angY = 0;
+      let angZ = 0;
+      let sensorEventsReceived = 0;
+
+      if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        noticeBox.style.display = 'block';
+        noticeBox.textContent =
+          'Mobile browsers require HTTPS (Secure Context) for motion/orientation sensors over Wi-Fi. ' +
+          'Start the Raspberry Pi gateway with --self-signed (https://) if sensors stay at 0.';
+      }
+
+      function setStatus(state, text) {
+        statusDot.className = 'dot ' + (state === 'live' ? 'live' : state === 'buffered' ? 'buffered' : state === 'error' ? 'error' : '');
+        statusText.textContent = text;
+      }
+
+      function clamp(val, min, max) {
+        return Math.max(min, Math.min(max, val));
+      }
+
+      function currentOrientation() {
+        const roll = clamp(rawRoll - offsetRoll, -180, 180);
+        const pitch = clamp(rawPitch - offsetPitch, -180, 180);
+        let yaw = (rawYaw - offsetYaw) % 360;
+        if (yaw < 0) yaw += 360;
+        return {
+          roll_deg: Number(roll.toFixed(2)),
+          pitch_deg: Number(pitch.toFixed(2)),
+          yaw_deg: Number(yaw.toFixed(2)),
+        };
+      }
+
+      function renderValues() {
+        const ori = currentOrientation();
+        rollEl.innerHTML = ori.roll_deg.toFixed(1) + '&deg;';
+        pitchEl.innerHTML = ori.pitch_deg.toFixed(1) + '&deg;';
+        yawEl.innerHTML = ori.yaw_deg.toFixed(1) + '&deg;';
+        satModelEl.style.transform =
+          'perspective(300px) rotateX(' + (-ori.pitch_deg).toFixed(1) + 'deg) rotateY(' + ori.roll_deg.toFixed(1) + 'deg) rotateZ(' + (ori.yaw_deg / 6).toFixed(1) + 'deg)';
+      }
+
+      function handleOrientation(ev) {
+        sensorEventsReceived += 1;
+        if (typeof ev.gamma === 'number' && Number.isFinite(ev.gamma)) rawRoll = ev.gamma;
+        if (typeof ev.beta === 'number' && Number.isFinite(ev.beta)) rawPitch = ev.beta;
+        if (typeof ev.alpha === 'number' && Number.isFinite(ev.alpha)) rawYaw = ev.alpha;
+        renderValues();
+      }
+
+      function handleMotion(ev) {
+        if (ev.rotationRate) {
+          if (typeof ev.rotationRate.beta === 'number' && Number.isFinite(ev.rotationRate.beta)) {
+            angX = Number(clamp(ev.rotationRate.beta, -2000, 2000).toFixed(2));
+          }
+          if (typeof ev.rotationRate.gamma === 'number' && Number.isFinite(ev.rotationRate.gamma)) {
+            angY = Number(clamp(ev.rotationRate.gamma, -2000, 2000).toFixed(2));
+          }
+          if (typeof ev.rotationRate.alpha === 'number' && Number.isFinite(ev.rotationRate.alpha)) {
+            angZ = Number(clamp(ev.rotationRate.alpha, -2000, 2000).toFixed(2));
+          }
+        }
+      }
+
+      async function transmitTelemetry() {
+        if (!running) return;
+        seq += 1;
+        seqEl.textContent = String(seq);
+
+        const packet = {
+          device_id: DEVICE_ID,
+          satellite_name: SATELLITE_NAME,
+          sequence: seq,
+          timestamp: new Date().toISOString(),
+          orientation: currentOrientation(),
+          angular_velocity: {
+            x_dps: angX,
+            y_dps: angY,
+            z_dps: angZ,
+          },
+          source: 'phone_sensor',
+          mode: 'simulated',
+          ground_station_id: GROUND_STATION_ID,
+        };
+
+        try {
+          const resp = await fetch(TELEMETRY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(packet),
+          });
+          const data = await resp.json();
+          if (resp.status === 200 && data.status === 'forwarded') {
+            setStatus('live', 'CONNECTED (FORWARDED)');
+            replyEl.textContent = 'Forwarded #' + data.sequence + ' via ' + data.ground_station_id;
+          } else if (resp.ok) {
+            setStatus('buffered', 'PI BUFFERING (' + (data.buffered_count || 0) + ')');
+            replyEl.textContent = 'Buffered on Pi (' + (data.buffered_count || 0) + ' queued)';
+          } else {
+            setStatus('error', 'REJECTED (' + resp.status + ')');
+            replyEl.textContent = data.error || 'Validation error';
+          }
+        } catch (err) {
+          setStatus('error', 'PI UNREACHABLE');
+          replyEl.textContent = err && err.message ? err.message : 'Network error';
+        }
+      }
+
+      async function requestSensorPermissions() {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const perm = await DeviceOrientationEvent.requestPermission();
+          if (perm !== 'granted') {
+            throw new Error('Orientation sensor permission was denied.');
+          }
+        }
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+          const perm = await DeviceMotionEvent.requestPermission();
+          if (perm !== 'granted') {
+            throw new Error('Motion sensor permission was denied.');
+          }
+        }
+      }
+
+      btnStart.addEventListener('click', async function () {
+        if (running) return;
+        setStatus('buffered', 'REQUESTING PERMISSION...');
+        try {
+          await requestSensorPermissions();
+        } catch (err) {
+          setStatus('error', 'PERMISSION DENIED');
+          noticeBox.style.display = 'block';
+          noticeBox.textContent = err && err.message ? err.message : 'Motion/orientation sensor permission denied.';
+          return;
+        }
+
+        running = true;
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+        window.addEventListener('deviceorientation', handleOrientation);
+        window.addEventListener('devicemotion', handleMotion);
+        setStatus('live', 'STREAMING TO PI');
+
+        await transmitTelemetry();
+        sendTimer = window.setInterval(transmitTelemetry, 250);
+      });
+
+      btnStop.addEventListener('click', function () {
+        running = false;
+        btnStart.disabled = false;
+        btnStop.disabled = true;
+        if (sendTimer !== null) {
+          clearInterval(sendTimer);
+          sendTimer = null;
+        }
+        window.removeEventListener('deviceorientation', handleOrientation);
+        window.removeEventListener('devicemotion', handleMotion);
+        setStatus('idle', 'STOPPED');
+        replyEl.textContent = 'Stopped by operator';
+      });
+
+      btnZero.addEventListener('click', function () {
+        offsetRoll = rawRoll;
+        offsetPitch = rawPitch;
+        offsetYaw = rawYaw;
+        renderValues();
+      });
+
+      renderValues();
+    })();
+  </script>
+</body>
+</html>
