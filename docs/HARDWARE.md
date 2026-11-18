@@ -216,3 +216,15 @@ All frames are UTF-8 encoded JSON strings. No binary framing.
 | **Total** | **~270 mA** | **~15 µA** |
 
 With 2600mAh 18650: ~9.6 hours active, ~7 years deep sleep.
+
+
+---
+
+## Raspberry Pi Zero W Gateway Migration (`KX-RPI-ZERO-GS-001`)
+
+Phone attitude simulator (`PHONE-SATELLITE-001`) telemetry has been migrated to the headless **Raspberry Pi Zero W** (`armv6l`, Raspberry Pi OS Trixie, Python 3.13 stdlib + WAL SQLite).
+
+- **The Raspberry Pi Zero W is the only ground station.**
+- **The phone is the simulated satellite and telemetry source.**
+- **The laptop is only the KesslerX mission-control display.**
+- See [docs/RASPBERRY_PI_ZERO_W_GROUND_STATION.md](./RASPBERRY_PI_ZERO_W_GROUND_STATION.md) for deployment, SQLite recovery, `/health` checks, and systemd instructions.

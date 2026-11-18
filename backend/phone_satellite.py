@@ -5,7 +5,7 @@ KesslerX Phone Satellite Simulator & Tilt-Driven Demonstration Conjunction Modul
 Additive module providing:
 - Separate simulated mock satellite identity: PHONE-SATELLITE-001 ("PHONE SATELLITE")
 - Independent deterministic Keplerian mock demonstration orbit (MOCK_LEO_PHONE_DEMO)
-- Strict telemetry validation requiring Raspberry Pi 3 ground station gateway (KX-RPI3-GS-001)
+- Strict telemetry validation requiring Raspberry Pi Zero W ground station gateway (KX-RPI-ZERO-GS-001), with backward compatibility for legacy KX-RPI3-GS-001
 - Deterministic demonstration collision probability model driven by phone tilt
 
 NON-NEGOTIABLE TRUTH & SAFETY RULES:
@@ -23,7 +23,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 DISCLAIMER_TEXT = "Decision support only — human approval required. Not a flight command system."
-GROUND_STATION_ID = "KX-RPI3-GS-001"
+GROUND_STATION_ID = "KX-RPI-ZERO-GS-001"
+HARDWARE_MODEL = "Raspberry Pi Zero W"
+LEGACY_GROUND_STATION_IDS = ("KX-RPI3-GS-001",)
+ACCEPTED_GROUND_STATION_IDS = (GROUND_STATION_ID, *LEGACY_GROUND_STATION_IDS)
 EARTH_RADIUS_KM = 6371.0
 GM_EARTH_KM3_S2 = 398600.4418
 
@@ -35,6 +38,7 @@ PHONE_SATELLITE_IDENTITY: Dict[str, Any] = {
     "source": "phone_sensor",
     "mode": "simulated",
     "ground_station_id": GROUND_STATION_ID,
+    "hardware_model": HARDWARE_MODEL,
     "color": "#FF2EF5",
     "description": (
         "Physical smartphone used as a satellite attitude simulator. "
@@ -278,6 +282,8 @@ def evaluate_tilt_conjunction(
     pitch_deg: float,
     yaw_deg: float = 0.0,
     last_updated: Optional[str] = None,
+    ground_station_id: str = GROUND_STATION_ID,
+    hardware_model: str = HARDWARE_MODEL,
 ) -> Dict[str, Any]:
     """
     Deterministic controlled collision-probability demonstration model based on phone tilt.
@@ -334,8 +340,9 @@ def evaluate_tilt_conjunction(
         "tca_hours": FIXED_MOCK_CONJUNCTION_METADATA["tca_hours"],
         "confidence": FIXED_MOCK_CONJUNCTION_METADATA["confidence"],
         "confidence_note": FIXED_MOCK_CONJUNCTION_METADATA["confidence_note"],
-        "ground_station_id": GROUND_STATION_ID,
-        "provenance": f"DEMO SIMULATION derived deterministically from {GROUND_STATION_ID} phone tilt telemetry",
+        "ground_station_id": ground_station_id,
+        "hardware_model": hardware_model,
+        "provenance": f"DEMO SIMULATION derived deterministically from {ground_station_id} ({hardware_model}) phone tilt telemetry",
         "last_updated": updated_iso,
         "disclaimer": DISCLAIMER_TEXT,
         "warnings": [
@@ -360,7 +367,8 @@ def _check_finite_number(value: Any, field_name: str, min_val: float, max_val: f
 
 def validate_phone_telemetry(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Strictly validate incoming phone telemetry forwarded by Raspberry Pi 3 ground station.
+    Strictly validate incoming phone telemetry forwarded by Raspberry Pi Zero W ground station.
+    Accepts KX-RPI-ZERO-GS-001 (default) and legacy KX-RPI3-GS-001 (migration compatibility).
     Rejects direct laptop/bypass attempts, malformed fields, and out-of-range values.
     """
     if not isinstance(payload, dict):
@@ -371,11 +379,25 @@ def validate_phone_telemetry(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError(f"Invalid device_id '{device_id}'; expected '{PHONE_SATELLITE_IDENTITY['id']}'.")
 
     ground_station_id = payload.get("ground_station_id")
-    if ground_station_id != GROUND_STATION_ID:
+    if ground_station_id not in ACCEPTED_GROUND_STATION_IDS:
         raise ValueError(
             f"Unauthorized or missing ground_station_id '{ground_station_id}'. "
-            f"Raspberry Pi 3 ground station '{GROUND_STATION_ID}' is the only accepted telemetry gateway."
+            f"Raspberry Pi Zero W ground station '{GROUND_STATION_ID}' is the primary accepted telemetry gateway."
         )
+
+    warnings: List[str] = []
+    if ground_station_id in LEGACY_GROUND_STATION_IDS:
+        warnings.append(
+            f"Legacy ground_station_id '{ground_station_id}' accepted for migration compatibility; prefer '{GROUND_STATION_ID}'."
+        )
+
+    raw_hw = payload.get("hardware_model")
+    if raw_hw is not None and isinstance(raw_hw, str) and raw_hw.strip():
+        hardware_model = raw_hw.strip()[:64]
+    elif ground_station_id == GROUND_STATION_ID:
+        hardware_model = HARDWARE_MODEL
+    else:
+        hardware_model = "Raspberry Pi 3 (Legacy Compat)"
 
     source = payload.get("source")
     if source != "phone_sensor":
@@ -446,7 +468,9 @@ def validate_phone_telemetry(payload: Dict[str, Any]) -> Dict[str, Any]:
         "angular_velocity": ang_vel_clean,
         "source": "phone_sensor",
         "mode": "simulated",
-        "ground_station_id": GROUND_STATION_ID,
+        "ground_station_id": ground_station_id,
+        "hardware_model": hardware_model,
+        "warnings": warnings,
     }
 
 
@@ -499,6 +523,8 @@ class PhoneSatelliteState:
             pitch_deg=validated["orientation"]["pitch_deg"],
             yaw_deg=validated["orientation"]["yaw_deg"],
             last_updated=ingested_at,
+            ground_station_id=validated["ground_station_id"],
+            hardware_model=validated["hardware_model"],
         )
         return validated, conjunction
 
@@ -522,14 +548,16 @@ class PhoneSatelliteState:
                 "source": "phone_sensor",
                 "mode": "simulated",
                 "ground_station_id": GROUND_STATION_ID,
-                "link_status": "AWAITING_RPI3_TELEMETRY",
+                "hardware_model": HARDWARE_MODEL,
+                "warnings": [],
+                "link_status": "AWAITING_RPI_ZERO_TELEMETRY",
                 "packets_received": total,
             }
 
         return {
             **latest,
             "ingested_at": ingested_at,
-            "link_status": "LIVE_RPI3_GATEWAY",
+            "link_status": "LIVE_RPI_ZERO_GATEWAY",
             "packets_received": total,
         }
 
@@ -542,6 +570,8 @@ class PhoneSatelliteState:
             pitch_deg=ori["pitch_deg"],
             yaw_deg=ori["yaw_deg"],
             last_updated=telem.get("ingested_at") or telem.get("received_at"),
+            ground_station_id=telem.get("ground_station_id", GROUND_STATION_ID),
+            hardware_model=telem.get("hardware_model", HARDWARE_MODEL),
         )
 
     def get_full_state(self, timestamp: Optional[str] = None) -> Dict[str, Any]:

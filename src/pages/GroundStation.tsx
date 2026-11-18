@@ -278,7 +278,7 @@ export default function GroundStation() {
         </div>
       </div>
 
-      {/* Additive Raspberry Pi 3 Gateway (KX-RPI3-GS-001) & PHONE SATELLITE Card */}
+      {/* Additive Raspberry Pi Zero W Ground Station (KX-RPI-ZERO-GS-001) & PHONE SATELLITE Card */}
       <PhoneSatellitePanel phoneSatellite={phoneSatellite} defaultExpanded={true} />
 
       {/* Top Metrics Row */}

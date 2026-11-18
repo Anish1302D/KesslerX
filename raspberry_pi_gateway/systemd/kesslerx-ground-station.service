@@ -1,0 +1,25 @@
+[Unit]
+Description=KesslerX Raspberry Pi Zero W Ground Station Gateway (KX-RPI-ZERO-GS-001)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=anish
+Group=anish
+WorkingDirectory=/home/anish/kesslerx-ground-station
+EnvironmentFile=/etc/kesslerx/ground-station.env
+ExecStart=/usr/bin/python3 /home/anish/kesslerx-ground-station/gateway.py
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=15
+MemoryHigh=64M
+MemoryMax=96M
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -405,7 +405,7 @@ export default function ObjectDetailsPanel({
                     Source: {resolvedPhone.conjunction.source} ({resolvedPhone.telemetry.ground_station_id}) · Last update:{' '}
                     {resolvedPhone.conjunction.last_updated
                       ? new Date(resolvedPhone.conjunction.last_updated).toLocaleTimeString()
-                      : 'Awaiting RPi3 packet'}
+                      : 'Awaiting Pi Zero W packet'}
                   </p>
                   <p className="text-[9px] font-mono text-amber-400 border-t border-slate-800 pt-1.5">
                     {PHONE_SATELLITE_SAFETY_LABELS.disclaimer}

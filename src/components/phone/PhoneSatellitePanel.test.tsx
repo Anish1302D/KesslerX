@@ -74,6 +74,7 @@ describe('Phone Satellite UI, Fallback & Safety Labels', () => {
     const panel = screen.getByTestId('phone-satellite-panel');
     expect(panel).toBeDefined();
     expect(panel.textContent).toContain('CRITICAL');
+    expect(panel.textContent).toContain('Raspberry Pi Zero W Ground Station (KX-RPI-ZERO-GS-001)');
     expect(panel.textContent).toContain('PHONE SATELLITE — SIMULATED');
     expect(panel.textContent).toContain('MOCK ORBIT — NOT A REAL SPACECRAFT EPHEMERIS');
     expect(panel.textContent).toContain('DEMO COLLISION PROBABILITY — DERIVED FROM PHONE TILT');

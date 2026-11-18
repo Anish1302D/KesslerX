@@ -31,7 +31,7 @@ export const PhoneSatellitePanel: React.FC<PhoneSatellitePanelProps> = ({
   const telem = phoneSatellite.telemetry;
   const conj = phoneSatellite.conjunction;
   const ori = telem.orientation;
-  const isLive = telem.link_status === 'LIVE_RPI3_GATEWAY';
+  const isLive = telem.link_status === 'LIVE_RPI_ZERO_GATEWAY' || telem.link_status === 'LIVE_RPI3_GATEWAY';
   const riskClass = RISK_STYLES[conj.risk_level] || RISK_STYLES.SAFE;
 
   return (
@@ -85,14 +85,20 @@ export const PhoneSatellitePanel: React.FC<PhoneSatellitePanelProps> = ({
           </div>
 
           {/* Ground Station Link */}
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-300 bg-slate-950/60 px-2.5 py-1.5 rounded border border-slate-800">
-            <span className="flex items-center gap-1.5">
-              <Radio className={`w-3 h-3 ${isLive ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
-              <span>GS: {telem.ground_station_id}</span>
-            </span>
-            <span className={isLive ? 'text-emerald-400 font-bold' : 'text-amber-300'}>
-              {isLive ? `LIVE (#${telem.sequence})` : 'AWAITING RPI3'}
-            </span>
+          <div className="space-y-1 text-[10px] font-mono text-slate-300 bg-slate-950/60 px-2.5 py-1.5 rounded border border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Radio className={`w-3 h-3 ${isLive ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
+                <span>{telem.hardware_model || 'Raspberry Pi Zero W'} Ground Station ({telem.ground_station_id})</span>
+              </span>
+              <span className={isLive ? 'text-emerald-400 font-bold' : 'text-amber-300'}>
+                {isLive ? `LIVE (#${telem.sequence})` : 'AWAITING PI ZERO W'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[9px] text-slate-400">
+              <span>Packets: <strong className="text-slate-200">{telem.packets_received}</strong> · Seq: <strong className="text-slate-200">{telem.sequence}</strong></span>
+              <span>Link: <strong className={isLive ? 'text-emerald-400' : 'text-slate-300'}>{isLive ? 'Connected' : 'Standby'}</strong></span>
+            </div>
           </div>
 
           {/* Attitude Orientation Grid */}
@@ -168,7 +174,7 @@ export const PhoneSatellitePanel: React.FC<PhoneSatellitePanelProps> = ({
               {PHONE_SATELLITE_SAFETY_LABELS.demoProbability}
             </div>
             <div className="text-[9px] font-mono text-slate-400">
-              Last update: {conj.last_updated ? new Date(conj.last_updated).toLocaleTimeString() : 'Awaiting RPi3 packet'}
+              Last update: {conj.last_updated ? new Date(conj.last_updated).toLocaleTimeString() : 'Awaiting Pi Zero W packet'}
             </div>
           </div>
 
