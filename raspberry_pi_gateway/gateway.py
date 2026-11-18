@@ -1015,10 +1015,23 @@ def ensure_self_signed_cert(cert_dir: Path, gs_id: str = DEFAULT_GROUND_STATION_
     cert_file = cert_dir / "rpi-zero-gateway-cert.pem"
     key_file = cert_dir / "rpi-zero-gateway-key.pem"
 
-    if cert_file.exists() and key_file.exists():
-        return cert_file, key_file
-
     lan_ip = _detect_local_ip()
+    if cert_file.exists() and key_file.exists():
+        if not lan_ip:
+            return cert_file, key_file
+        try:
+            san_check = subprocess.run(
+                [openssl_bin, "x509", "-in", str(cert_file), "-noout", "-ext", "subjectAltName"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if f"IP Address:{lan_ip}" in san_check.stdout:
+                return cert_file, key_file
+            logger.info("Detected new LAN IP (%s); refreshing TLS SAN certificate...", lan_ip)
+        except Exception:
+            return cert_file, key_file
+
     san_entries = ["DNS:localhost", f"DNS:{socket.gethostname()}", f"DNS:{socket.gethostname()}.local", "IP:127.0.0.1"]
     if lan_ip and lan_ip != "127.0.0.1":
         san_entries.append(f"IP:{lan_ip}")
