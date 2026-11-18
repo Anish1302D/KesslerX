@@ -341,6 +341,14 @@ class TestPiZeroGateway(unittest.TestCase):
                 hist = json.loads(resp.read().decode("utf-8"))
                 self.assertEqual(hist["count"], 2)
 
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/simulator?token=secret-test-token-123",
+                timeout=5,
+            ) as resp:
+                self.assertEqual(resp.status, 200)
+                sim_html = resp.read().decode("utf-8")
+                self.assertIn("PHONE SATELLITE", sim_html)
+
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=5) as resp:
                 health = json.loads(resp.read().decode("utf-8"))
                 self.assertEqual(health["ground_station_id"], "KX-RPI-ZERO-GS-001")
@@ -395,6 +403,14 @@ class TestPiZeroGateway(unittest.TestCase):
                 body = json.loads(resp.read().decode("utf-8"))
                 self.assertEqual(body["ground_station_id"], "KX-LAPTOP-FALLBACK-001")
                 self.assertEqual(body["hardware_model"], "Windows Laptop")
+
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/simulator?token=secret-test-token-123",
+                timeout=5,
+            ) as resp:
+                self.assertEqual(resp.status, 200)
+                sim_html = resp.read().decode("utf-8")
+                self.assertIn("PHONE SATELLITE", sim_html)
 
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=5) as resp:
                 health = json.loads(resp.read().decode("utf-8"))

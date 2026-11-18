@@ -975,7 +975,7 @@ def create_gateway_handler(forwarder: TelemetryForwarder, html_path: Path = PHON
                 self._handle_websocket_phone(parsed_qs)
                 return
 
-            if parsed.path in ("/", "/index.html", "/phone-simulator"):
+            if parsed.path in ("/", "/index.html", "/phone-simulator", "/simulator"):
                 if not html_path.exists():
                     self._send_json(404, {"error": f"Phone simulator HTML missing at {html_path}"})
                     return
