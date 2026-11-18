@@ -498,6 +498,11 @@
           } else {
             setStatus('error', 'REJECTED (' + httpStatus + ')');
             replyEl.textContent = (data && data.error) || 'Validation error';
+            if (httpStatus === 401 || (data && String(data.error || '').toLowerCase().includes('pairing token'))) {
+              noticeBox.style.display = 'block';
+              noticeBox.textContent =
+                'Pairing token expired or invalid — rescan the fresh QR code from KesslerX (or restart the gateway).';
+            }
           }
         }
 

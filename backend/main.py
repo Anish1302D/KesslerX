@@ -128,7 +128,7 @@ class NetworkModeRequest(BaseModel):
 
 
 class PairingTokenRequest(BaseModel):
-    ttl_seconds: int = Field(default=900, ge=60, le=7200)
+    ttl_seconds: int = Field(default=28800, ge=60, le=86400)
 
 # --- Handoff Request Models ---
 
@@ -1375,8 +1375,8 @@ async def set_network_mode(req: NetworkModeRequest):
 
 @app.post("/api/network/pairing-token")
 async def refresh_pairing_token(req: Optional[PairingTokenRequest] = None):
-    """Rotate or issue a short-lived pairing token for phone-to-laptop-fallback pairing."""
-    ttl = req.ttl_seconds if req else 900
+    """Rotate or issue a session pairing token for phone-to-laptop-fallback pairing."""
+    ttl = req.ttl_seconds if req else 28800
     return connection_manager.generate_pairing_token(ttl_seconds=ttl)
 
 

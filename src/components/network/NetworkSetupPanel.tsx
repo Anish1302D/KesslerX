@@ -194,54 +194,54 @@ export const NetworkSetupPanel: React.FC<NetworkSetupPanelProps> = ({
         setErrorMessage(err instanceof Error ? err.message : 'Unable to fetch network discovery status');
       }
     }
-}, [isRemoteCloudApi, localAgentUrl, manualPiInput, resolveControlUrl, selectedInterfaceIp]);
+  }, [isRemoteCloudApi, localAgentUrl, manualPiInput, resolveControlUrl, selectedInterfaceIp]);
 
-useEffect(() => {
-  mountedRef.current = true;
-  const runInitial = async () => {
-    await loadAll();
-  };
-  void runInitial();
-  const timer = setInterval(() => {
-    void loadAll();
-  }, pollIntervalMs);
-  return () => {
-    mountedRef.current = false;
-    clearInterval(timer);
-  };
-}, [loadAll, pollIntervalMs]);
+  useEffect(() => {
+    mountedRef.current = true;
+    const runInitial = async () => {
+      await loadAll();
+    };
+    void runInitial();
+    const timer = setInterval(() => {
+      void loadAll();
+    }, pollIntervalMs);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(timer);
+    };
+  }, [loadAll, pollIntervalMs]);
 
-const activeSimulatorUrl = status?.simulator?.url_with_token || status?.simulator?.url || '';
-const qrSvg = activeSimulatorUrl && qrState?.url === activeSimulatorUrl ? qrState.svg : '';
+  const activeSimulatorUrl = status?.simulator?.url_with_token || status?.simulator?.url || '';
+  const qrSvg = activeSimulatorUrl && qrState?.url === activeSimulatorUrl ? qrState.svg : '';
 
-useEffect(() => {
-  let active = true;
-  if (!activeSimulatorUrl) {
+  useEffect(() => {
+    let active = true;
+    if (!activeSimulatorUrl) {
+      return () => {
+        active = false;
+      };
+    }
+    QRCode.toString(activeSimulatorUrl, {
+      type: 'svg',
+      margin: 1,
+      width: 152,
+      color: { dark: '#0f172a', light: '#ffffff' },
+    })
+      .then((svg) => {
+        if (active) setQrState({ url: activeSimulatorUrl, svg });
+      })
+      .catch(() => {
+        if (active) setQrState(null);
+      });
     return () => {
       active = false;
     };
-  }
-  QRCode.toString(activeSimulatorUrl, {
-    type: 'svg',
-    margin: 1,
-    width: 152,
-    color: { dark: '#0f172a', light: '#ffffff' },
-  })
-    .then((svg) => {
-      if (active) setQrState({ url: activeSimulatorUrl, svg });
-    })
-    .catch(() => {
-      if (active) setQrState(null);
-    });
-  return () => {
-    active = false;
-  };
-}, [activeSimulatorUrl]);
+  }, [activeSimulatorUrl]);
 
-const handleDiscover = async (autoConnect = false, preferredIpOverride?: string) => {
-  setBusyAction(autoConnect ? 'auto_connect' : 'discover');
-  setErrorMessage(null);
-  try {
+  const handleDiscover = async (autoConnect = false, preferredIpOverride?: string) => {
+    setBusyAction(autoConnect ? 'auto_connect' : 'discover');
+    setErrorMessage(null);
+    try {
       const data = await apiRequest<NetworkStatusPayload>(resolveControlUrl(API_ENDPOINTS.NETWORK_DISCOVER, localAgentActive), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -252,48 +252,48 @@ const handleDiscover = async (autoConnect = false, preferredIpOverride?: string)
         }),
         timeoutMs: 12000,
       });
-      if(!mountedRef.current) return;
-    setStatus(data);
-    if (data.detected_network?.selected_ip) {
-      setSelectedInterfaceIp(data.detected_network.selected_ip);
+      if (!mountedRef.current) return;
+      setStatus(data);
+      if (data.detected_network?.selected_ip) {
+        setSelectedInterfaceIp(data.detected_network.selected_ip);
+      }
+    } catch (err) {
+      if (mountedRef.current) {
+        setErrorMessage(err instanceof Error ? err.message : 'Discovery failed');
+      }
+    } finally {
+      if (mountedRef.current) setBusyAction(null);
     }
-  } catch (err) {
-    if (mountedRef.current) {
-      setErrorMessage(err instanceof Error ? err.message : 'Discovery failed');
-    }
-  } finally {
-    if (mountedRef.current) setBusyAction(null);
-  }
-};
+  };
 
-const handleModeSwitch = async (mode: 'AUTO' | 'PI' | 'LAPTOP_FALLBACK') => {
-  setBusyAction(`mode_${mode}`);
-  setErrorMessage(null);
-  try {
+  const handleModeSwitch = async (mode: 'AUTO' | 'PI' | 'LAPTOP_FALLBACK') => {
+    setBusyAction(`mode_${mode}`);
+    setErrorMessage(null);
+    try {
       const data = await apiRequest<NetworkStatusPayload>(resolveControlUrl(API_ENDPOINTS.NETWORK_MODE, localAgentActive), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode, force_switch_to_pi: mode === 'PI' }),
         timeoutMs: 12000,
       });
-      if(!mountedRef.current) return;
-    setStatus(data);
-  } catch (err) {
-    if (mountedRef.current) {
-      setErrorMessage(err instanceof Error ? err.message : 'Mode switch failed');
+      if (!mountedRef.current) return;
+      setStatus(data);
+    } catch (err) {
+      if (mountedRef.current) {
+        setErrorMessage(err instanceof Error ? err.message : 'Mode switch failed');
+      }
+    } finally {
+      if (mountedRef.current) setBusyAction(null);
     }
-  } finally {
-    if (mountedRef.current) setBusyAction(null);
-  }
-};
+  };
 
-const handleRefreshToken = async () => {
-  setBusyAction('token');
-  try {
+  const handleRefreshToken = async () => {
+    setBusyAction('token');
+    try {
       await apiRequest(resolveControlUrl(API_ENDPOINTS.NETWORK_PAIRING_TOKEN, localAgentActive), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ttl_seconds: 900 }),
+        body: JSON.stringify({ ttl_seconds: 28800 }),
         timeoutMs: 8000,
       });
       await loadAll();
@@ -315,7 +315,7 @@ const handleRefreshToken = async () => {
         backend: { reachable: boolean; service_status: string };
         firewall: FirewallStatusPayload;
         diagnostics: string[];
-      } > (resolveControlUrl(API_ENDPOINTS.NETWORK_TEST_CONNECTION, localAgentActive), {
+      }>(resolveControlUrl(API_ENDPOINTS.NETWORK_TEST_CONNECTION, localAgentActive), {
         method: 'POST',
         timeoutMs: 12000,
       });
@@ -407,8 +407,8 @@ const handleRefreshToken = async () => {
         <div
           data-testid="vercel-agent-status"
           className={`p-3 rounded-lg border text-[11px] font-mono flex flex-wrap items-center justify-between gap-2 ${localAgentActive
-              ? 'bg-emerald-500/10 border-emerald-500/35 text-emerald-200'
-              : 'bg-cyan-500/10 border-cyan-500/35 text-cyan-200'
+            ? 'bg-emerald-500/10 border-emerald-500/35 text-emerald-200'
+            : 'bg-cyan-500/10 border-cyan-500/35 text-cyan-200'
             }`}
         >
           {localAgentActive ? (
@@ -478,8 +478,8 @@ const handleRefreshToken = async () => {
               : isFallback
                 ? 'Laptop Fallback Active (Emergency Mode)'
                 : activeMode === 'CLOUD_HOST'
-                ? 'Cloud Host Only (Start Local Agent)'
-                : 'Searching for Raspberry Pi...'}
+                  ? 'Cloud Host Only (Start Local Agent)'
+                  : 'Searching for Raspberry Pi...'}
           </div>
           <div className="text-[10px] text-slate-400 mt-0.5">{status?.ground_station_id || 'KX-RPI-ZERO-GS-001'}</div>
         </div>
@@ -529,8 +529,8 @@ const handleRefreshToken = async () => {
                     onClick={() => handleModeSwitch(mode)}
                     disabled={busyAction !== null}
                     className={`px-2.5 py-1 font-bold transition-colors cursor-pointer ${active
-                        ? 'bg-cyan-500 text-slate-950'
-                        : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+                      ? 'bg-cyan-500 text-slate-950'
+                      : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
                       }`}
                   >
                     {label}

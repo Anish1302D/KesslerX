@@ -524,3 +524,39 @@ def test_cloud_host_refuses_bogus_fallback_server():
             assert st2["laptop_fallback"]["active"] is False
         finally:
             cm.stop()
+
+
+def test_get_status_non_blocking_during_slow_probes():
+    probe_entered = threading.Event()
+    release_probe = threading.Event()
+
+    def slow_discover(pref=None):
+        probe_entered.set()
+        release_probe.wait(timeout=2.0)
+        return _mock_net("127.0.0.1")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cm = ConnectionManager(
+            backend_url="http://127.0.0.1:9",
+            data_dir=Path(tmp),
+            laptop_http_port=0,
+            laptop_https_port=0,
+            discover_fn=slow_discover,
+            resolve_mdns_fn=lambda host, t: None,
+            probe_pi_fn=lambda host, hp, hsp, t: {"reachable": False},
+            probe_backend_fn=lambda url, t: {"reachable": False},
+            firewall_fn=lambda iface=None: {"supported": False},
+        )
+        t = threading.Thread(target=cm.discover_and_reconcile, daemon=True)
+        try:
+            t.start()
+            assert probe_entered.wait(timeout=1.0)
+            t0 = time.perf_counter()
+            status = cm.get_status()
+            elapsed = time.perf_counter() - t0
+            assert "active_mode" in status
+            assert elapsed < 0.25, f"get_status blocked for {elapsed:.3f}s during slow probe"
+        finally:
+            release_probe.set()
+            t.join(timeout=2.0)
+            cm.stop()

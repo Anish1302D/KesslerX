@@ -65,7 +65,7 @@ DEFAULT_PI_HTTPS_PORT = int(os.getenv("PI_GATEWAY_HTTPS_PORT", "8443"))
 DEFAULT_PI_MDNS_HOSTNAME = os.getenv("PI_MDNS_HOSTNAME", "anishraspberrypizero.local")
 DEFAULT_BACKEND_URL = os.getenv("KESSLERX_BACKEND_URL", "https://kesslerx-backend.onrender.com").rstrip("/")
 DEFAULT_LAPTOP_DATA_DIR = Path(os.getenv("KESSLERX_LAPTOP_FALLBACK_DIR", str(REPO_ROOT / "backend" / "data")))
-PAIRING_TOKEN_TTL_SECONDS = int(os.getenv("PAIRING_TOKEN_TTL_SECONDS", "900"))
+PAIRING_TOKEN_TTL_SECONDS = int(os.getenv("PAIRING_TOKEN_TTL_SECONDS", "28800"))
 
 
 def _utc_now_iso() -> str:
@@ -321,6 +321,7 @@ class ConnectionManager:
         self._firewall_fn = firewall_fn or inspect_windows_firewall_status
 
         self._lock = threading.RLock()
+        self._probe_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._monitor_thread: Optional[threading.Thread] = None
 
@@ -413,10 +414,14 @@ class ConnectionManager:
     # ------------------------------------------------------------------
 
     def refresh_network_interfaces(self, preferred_ip: Optional[str] = None) -> Dict[str, Any]:
-        """Re-discover local network adapters and rebind fallback gateway if LAN IP changed."""
+        """Re-discover local network adapters outside state lock and rebind fallback gateway if LAN IP changed."""
         with self._lock:
             target_pref = preferred_ip or self.selected_interface_ip
-            detected = self._discover_fn(target_pref)
+        detected = self._discover_fn(target_pref)
+        return self._apply_discovered_network(detected)
+
+    def _apply_discovered_network(self, detected: Dict[str, Any]) -> Dict[str, Any]:
+        with self._lock:
             self.detected_network = detected
             self.last_network_scan_at = _utc_now_iso()
 
@@ -424,7 +429,6 @@ class ConnectionManager:
             ip_changed = bool(new_ip and new_ip != self.selected_interface_ip)
             self.selected_interface_ip = new_ip
 
-            # If fallback is active and the active LAN IP changed cleanly, rebind & refresh SAN cert.
             if (
                 self.active_mode == "LAPTOP_FALLBACK"
                 and self._fallback_forwarder is not None
@@ -447,9 +451,11 @@ class ConnectionManager:
             return detected
 
     def _probe_raspberry_pi(self, manual_override: Optional[str] = None) -> Dict[str, Any]:
-        """Attempt targeted Pi discovery (manual endpoint first, then mDNS hostname)."""
+        """Attempt targeted Pi discovery (manual endpoint first, then mDNS hostname) without holding self._lock."""
         candidates: List[str] = []
-        manual = _normalize_manual_pi_endpoint(manual_override or self.manual_pi_endpoint)
+        with self._lock:
+            manual_raw = manual_override or self.manual_pi_endpoint
+        manual = _normalize_manual_pi_endpoint(manual_raw)
         if manual:
             candidates.append(manual)
 
@@ -490,7 +496,7 @@ class ConnectionManager:
         manual_pi_endpoint: Optional[str] = None,
         allow_fallback_on_threshold: bool = True,
     ) -> Dict[str, Any]:
-        """Perform network discovery + Pi probe and reconcile active operating mode."""
+        """Perform network discovery + Pi probe outside state lock and reconcile active operating mode."""
         with self._lock:
             if self.cloud_host:
                 self._stop_fallback_gateway()
@@ -508,14 +514,18 @@ class ConnectionManager:
             if manual_pi_endpoint is not None:
                 cleaned = manual_pi_endpoint.strip()
                 self.manual_pi_endpoint = cleaned or None
+            target_pref = preferred_ip or self.selected_interface_ip
+            backend_url = self.backend_url
+            timeout_s = self.pi_discovery_timeout_seconds
 
-            self.refresh_network_interfaces(preferred_ip=preferred_ip)
-            self.last_backend_probe = self._probe_backend_fn(
-                self.backend_url,
-                self.pi_discovery_timeout_seconds,
-            )
-
+        with self._probe_lock:
+            detected = self._discover_fn(target_pref)
+            backend_probe = self._probe_backend_fn(backend_url, timeout_s)
             probe = self._probe_raspberry_pi()
+
+        with self._lock:
+            self._apply_discovered_network(detected)
+            self.last_backend_probe = backend_probe
             self.last_pi_check_at = _utc_now_iso()
             self.pi_health = probe
 
@@ -590,7 +600,14 @@ class ConnectionManager:
                 return self.get_status()
 
             self.mode_preference = normalized
-            self.refresh_network_interfaces()
+            target_pref = self.selected_interface_ip
+
+        with self._probe_lock:
+            detected = self._discover_fn(target_pref)
+            probe = {"reachable": False} if normalized == "LAPTOP_FALLBACK" else self._probe_raspberry_pi()
+
+        with self._lock:
+            self._apply_discovered_network(detected)
 
             if normalized == "LAPTOP_FALLBACK":
                 self.pi_recovered_available = self.pi_reachable
@@ -598,7 +615,6 @@ class ConnectionManager:
                 self._rebuild_warnings()
                 return self.get_status()
 
-            probe = self._probe_raspberry_pi()
             self.last_pi_check_at = _utc_now_iso()
             self.pi_health = probe
 
@@ -646,7 +662,7 @@ class ConnectionManager:
             return self.get_status()
 
     def auto_connect(self) -> Dict[str, Any]:
-        """Actively search Pi up to PI_FAILURE_THRESHOLD probes, failing over cleanly if absent."""
+        """Actively search Pi up to PI_FAILURE_THRESHOLD probes outside state lock, failing over cleanly if absent."""
         with self._lock:
             if self.cloud_host:
                 self._stop_fallback_gateway()
@@ -661,14 +677,20 @@ class ConnectionManager:
 
             self.mode_preference = "AUTO"
             self.consecutive_pi_failures = 0
-            self.refresh_network_interfaces()
+            target_pref = self.selected_interface_ip
+            backend_url = self.backend_url
+            timeout_s = self.pi_discovery_timeout_seconds
+
+        with self._probe_lock:
+            detected = self._discover_fn(target_pref)
             probe = self._probe_raspberry_pi()
+            backend_probe = self._probe_backend_fn(backend_url, timeout_s)
+
+        with self._lock:
+            self._apply_discovered_network(detected)
             self.last_pi_check_at = _utc_now_iso()
             self.pi_health = probe
-            self.last_backend_probe = self._probe_backend_fn(
-                self.backend_url,
-                self.pi_discovery_timeout_seconds,
-            )
+            self.last_backend_probe = backend_probe
             if probe.get("reachable"):
                 self._stop_fallback_gateway()
                 self.pi_reachable = True
@@ -724,27 +746,32 @@ class ConnectionManager:
     def test_connection(self) -> Dict[str, Any]:
         """Run end-to-end connectivity checks across local adapter, Pi, fallback gateway, and backend."""
         with self._lock:
-            net = self.refresh_network_interfaces()
-            selected_ip = net.get("selected_ip")
-            pi_probe = self._probe_raspberry_pi()
-            backend_probe = self._probe_backend_fn(self.backend_url, self.pi_discovery_timeout_seconds)
-            self.last_backend_probe = backend_probe
+            target_pref = self.selected_interface_ip
+            backend_url = self.backend_url
+            timeout_s = self.pi_discovery_timeout_seconds
+            fallback_running = self._fallback_https_server is not None or self._fallback_http_server is not None
+            bind_ip = self._running_gateway_ip
+            http_port = self._running_http_port or self.laptop_http_port
+            https_port = self._running_https_port or self.laptop_https_port
 
+        with self._probe_lock:
+            detected = self._discover_fn(target_pref)
+            pi_probe = self._probe_raspberry_pi()
+            backend_probe = self._probe_backend_fn(backend_url, timeout_s)
+            fw = self._firewall_fn(detected.get("selected_interface"))
             fallback_probe: Dict[str, Any] = {
-                "running": self._fallback_https_server is not None or self._fallback_http_server is not None,
+                "running": fallback_running,
                 "reachable": False,
                 "url": None,
             }
-            if fallback_probe["running"] and self._running_gateway_ip:
-                bind_ip = self._running_gateway_ip
-                fallback_probe = self._probe_gateway_local(
-                    bind_ip,
-                    self._running_http_port or self.laptop_http_port,
-                    self._running_https_port or self.laptop_https_port,
-                )
+            if fallback_running and bind_ip:
+                fallback_probe = self._probe_gateway_local(bind_ip, http_port, https_port)
                 fallback_probe["running"] = True
 
-            fw = self._firewall_fn(net.get("selected_interface"))
+        with self._lock:
+            net = self._apply_discovered_network(detected)
+            selected_ip = net.get("selected_ip")
+            self.last_backend_probe = backend_probe
 
             diagnostics: List[str] = []
             if not selected_ip:
