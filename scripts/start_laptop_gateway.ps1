@@ -20,10 +20,10 @@ param(
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $BackendDir = Join-Path $RepoRoot "backend"
-$UvicornExe = Join-Path $BackendDir "venv\Scripts\uvicorn.exe"
+$PythonExe = Join-Path $BackendDir "venv\Scripts\python.exe"
 
-if (-not (Test-Path $UvicornExe)) {
-    Write-Error "Missing backend virtualenv uvicorn at $UvicornExe"
+if (-not (Test-Path $PythonExe)) {
+    Write-Error "Missing backend virtualenv Python at $PythonExe"
     exit 1
 }
 
@@ -65,15 +65,16 @@ catch {
 }
 
 Write-Host "Starting local uvicorn control agent + fallback gateway..." -ForegroundColor Cyan
-$proc = Start-Process -FilePath $UvicornExe `
-    -ArgumentList "main:app", "--host", "127.0.0.1", "--port", "$Port" `
+$proc = Start-Process -FilePath $PythonExe `
+    -ArgumentList "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "$Port" `
     -WorkingDirectory $BackendDir `
     -NoNewWindow `
     -PassThru
 
 try {
     $readyStatus = $null
-    for ($i = 0; $i -lt 25; $i++) {
+    $autoTriggered = $false
+    for ($i = 0; $i -lt 45; $i++) {
         Start-Sleep -Seconds 1
         if ($proc.HasExited) {
             Write-Error "Uvicorn exited early with code $($proc.ExitCode)"
@@ -81,13 +82,14 @@ try {
         }
         try {
             $st = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/network/status" -TimeoutSec 3
-            if ($st.active_mode -eq 'SEARCHING' -and $i -eq 4) {
-                # Trigger immediate auto-connect discovery if Pi isn't found quickly
+            if ($st.active_mode -eq 'SEARCHING' -and -not $autoTriggered) {
+                $autoTriggered = $true
+                Write-Host "Running dynamic hotspot & Raspberry Pi discovery..." -ForegroundColor DarkGray
                 $st = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/network/discover" `
                     -Method Post `
                     -ContentType "application/json" `
                     -Body '{"auto_connect":true}' `
-                    -TimeoutSec 12
+                    -TimeoutSec 20
             }
             if ($st.active_mode -eq 'PI' -or $st.active_mode -eq 'LAPTOP_FALLBACK') {
                 $readyStatus = $st
@@ -112,7 +114,8 @@ try {
             $qrModule = Join-Path $RepoRoot "node_modules\qrcode"
             if ($nodeExe -and (Test-Path $qrModule)) {
                 Write-Host "Scan this QR code with your phone (connected to $($readyStatus.detected_network.network_name)):" -ForegroundColor White
-                & $nodeExe.Source -e "const q=require('./node_modules/qrcode'); q.toString(process.argv[1],{type:'terminal',small:true},(e,s)=>{if(!e)console.log(s);});" "$($readyStatus.simulator.url_with_token)"
+                $qrScript = "const q=require(process.argv[1]); q.toString(process.argv[2],{type:'terminal',small:true},(e,s)=>{if(!e)console.log(s);});"
+                & $nodeExe.Source -e $qrScript $qrModule "$($readyStatus.simulator.url_with_token)"
             }
         }
         else {
