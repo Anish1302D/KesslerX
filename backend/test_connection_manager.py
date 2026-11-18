@@ -501,3 +501,26 @@ def test_network_api_endpoints_integration():
     )
     assert preview_resp.status_code == 200
     assert preview_resp.headers.get("access-control-allow-origin") == "https://kesslerx-preview-123.vercel.app"
+
+
+def test_cloud_host_refuses_bogus_fallback_server():
+    with tempfile.TemporaryDirectory() as tmp:
+        cm = ConnectionManager(
+            backend_url="https://kesslerx-backend.onrender.com",
+            data_dir=Path(tmp),
+            cloud_host=True,
+            laptop_http_port=0,
+            laptop_https_port=0,
+        )
+        try:
+            st = cm.auto_connect()
+            assert st["active_mode"] == "CLOUD_HOST"
+            assert st["laptop_fallback"]["active"] is False
+            assert st["simulator"]["url"] is None
+            assert st["simulator"]["url_with_token"] is None
+
+            st2 = cm.switch_mode("LAPTOP_FALLBACK")
+            assert st2["active_mode"] == "CLOUD_HOST"
+            assert st2["laptop_fallback"]["active"] is False
+        finally:
+            cm.stop()

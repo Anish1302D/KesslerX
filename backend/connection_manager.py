@@ -285,6 +285,7 @@ class ConnectionManager:
         pi_mdns_hostname: str = DEFAULT_PI_MDNS_HOSTNAME,
         data_dir: Path = DEFAULT_LAPTOP_DATA_DIR,
         require_pairing_token: bool = True,
+        cloud_host: Optional[bool] = None,
         discover_fn: Optional[Callable[[Optional[str]], Dict[str, Any]]] = None,
         resolve_mdns_fn: Optional[Callable[[str, float], Optional[str]]] = None,
         probe_pi_fn: Optional[Callable[[str, int, int, float], Dict[str, Any]]] = None,
@@ -307,6 +308,7 @@ class ConnectionManager:
         self.cert_dir = self.data_dir / "certs"
         self.sqlite_path = self.data_dir / "laptop_fallback_buffer.sqlite3"
         self.require_pairing_token = bool(require_pairing_token)
+        self.cloud_host = (os.getenv("RENDER", "").lower() == "true") if cloud_host is None else bool(cloud_host)
 
         self._discover_fn = discover_fn or discover_local_network
         self._resolve_mdns_fn = resolve_mdns_fn or (
@@ -324,7 +326,7 @@ class ConnectionManager:
 
         # Routing & discovery state
         self.mode_preference: str = "AUTO"  # "AUTO" | "PI" | "LAPTOP_FALLBACK"
-        self.active_mode: str = "SEARCHING"  # "PI" | "LAPTOP_FALLBACK" | "SEARCHING"
+        self.active_mode: str = "CLOUD_HOST" if self.cloud_host else "SEARCHING"  # "PI" | "LAPTOP_FALLBACK" | "SEARCHING" | "CLOUD_HOST"
         self.selected_interface_ip: Optional[str] = None
         self.detected_network: Dict[str, Any] = {}
         self.manual_pi_endpoint: Optional[str] = None
@@ -490,6 +492,19 @@ class ConnectionManager:
     ) -> Dict[str, Any]:
         """Perform network discovery + Pi probe and reconcile active operating mode."""
         with self._lock:
+            if self.cloud_host:
+                self._stop_fallback_gateway()
+                self.active_mode = "CLOUD_HOST"
+                self.pi_reachable = False
+                self.pi_endpoint = None
+                self.pi_simulator_url = None
+                self.last_error = (
+                    "Cloud backend (Render) cannot bind laptop LAN ports; run scripts/start_laptop_gateway.ps1 "
+                    "on your laptop."
+                )
+                self._rebuild_warnings()
+                return self.get_status()
+
             if manual_pi_endpoint is not None:
                 cleaned = manual_pi_endpoint.strip()
                 self.manual_pi_endpoint = cleaned or None
@@ -563,6 +578,17 @@ class ConnectionManager:
             raise ValueError("Invalid mode; expected 'AUTO', 'PI', or 'LAPTOP_FALLBACK'.")
 
         with self._lock:
+            if self.cloud_host:
+                self._stop_fallback_gateway()
+                self.mode_preference = normalized
+                self.active_mode = "CLOUD_HOST"
+                self.last_error = (
+                    "Cloud backend (Render) cannot bind laptop LAN ports; run scripts/start_laptop_gateway.ps1 "
+                    "on your laptop."
+                )
+                self._rebuild_warnings()
+                return self.get_status()
+
             self.mode_preference = normalized
             self.refresh_network_interfaces()
 
@@ -622,6 +648,17 @@ class ConnectionManager:
     def auto_connect(self) -> Dict[str, Any]:
         """Actively search Pi up to PI_FAILURE_THRESHOLD probes, failing over cleanly if absent."""
         with self._lock:
+            if self.cloud_host:
+                self._stop_fallback_gateway()
+                self.mode_preference = "AUTO"
+                self.active_mode = "CLOUD_HOST"
+                self.last_error = (
+                    "Cloud backend (Render) cannot bind laptop LAN ports; run scripts/start_laptop_gateway.ps1 "
+                    "on your laptop."
+                )
+                self._rebuild_warnings()
+                return self.get_status()
+
             self.mode_preference = "AUTO"
             self.consecutive_pi_failures = 0
             self.refresh_network_interfaces()
@@ -788,6 +825,15 @@ class ConnectionManager:
                 return {"reachable": False, "url": url, "error": str(exc)}
 
     def _ensure_fallback_running(self) -> None:
+        if self.cloud_host:
+            self._stop_fallback_gateway()
+            self.active_mode = "CLOUD_HOST"
+            self.last_error = (
+                "Cloud backend (Render) cannot bind laptop LAN ports; run scripts/start_laptop_gateway.ps1 "
+                "on your laptop to host Laptop Direct Fallback."
+            )
+            return
+
         selected_ip = self.selected_interface_ip
         if not selected_ip:
             # Inspect classification — do not fall back to unsafe unvalidated adapters; use 127.0.0.1 only for local loopback continuity
@@ -958,6 +1004,10 @@ class ConnectionManager:
                 warnings.append(
                     "Raspberry Pi Zero W is back online on the network. Click 'Switch to Raspberry Pi' when ready."
                 )
+        elif self.active_mode == "CLOUD_HOST":
+            warnings.append(
+                "Cloud backend (Render) cannot discover your laptop hotspot IP directly. Run scripts/start_laptop_gateway.ps1 on your laptop."
+            )
         elif self.active_mode == "SEARCHING":
             warnings.append("Searching for Raspberry Pi Zero W gateway...")
 

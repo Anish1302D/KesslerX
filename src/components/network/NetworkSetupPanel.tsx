@@ -477,6 +477,8 @@ const handleRefreshToken = async () => {
               ? 'Raspberry Pi Ground Station Active'
               : isFallback
                 ? 'Laptop Fallback Active (Emergency Mode)'
+                : activeMode === 'CLOUD_HOST'
+                ? 'Cloud Host Only (Start Local Agent)'
                 : 'Searching for Raspberry Pi...'}
           </div>
           <div className="text-[10px] text-slate-400 mt-0.5">{status?.ground_station_id || 'KX-RPI-ZERO-GS-001'}</div>
