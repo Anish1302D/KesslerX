@@ -26,6 +26,7 @@ GATEWAY_DIR = Path(__file__).resolve().parents[1]
 if str(GATEWAY_DIR) not in sys.path:
     sys.path.insert(0, str(GATEWAY_DIR))
 
+import gateway  # noqa: E402
 from gateway import (  # noqa: E402
     DEFAULT_GROUND_STATION_ID,
     DEFAULT_HARDWARE_MODEL,
@@ -347,6 +348,68 @@ class TestPiZeroGateway(unittest.TestCase):
                 self.assertEqual(health["latest_received_sequence"], 11)
                 self.assertEqual(health["latest_forwarded_sequence"], 11)
                 self.assertEqual(health["queue_length"], 0)
+        finally:
+            fwd.close()
+            server.shutdown()
+            server.server_close()
+
+    def test_laptop_fallback_identity_and_pairing_token_auth(self):
+        fwd = gateway.TelemetryForwarder(
+            backend_url="http://127.0.0.1:9",
+            sqlite_path=self.tmp_dir / "fallback_token.db",
+            ground_station_id=gateway.LAPTOP_FALLBACK_GROUND_STATION_ID,
+            hardware_model=gateway.LAPTOP_FALLBACK_HARDWARE_MODEL,
+            gateway_mode="laptop_fallback",
+            listen_host="127.0.0.1",
+            detected_network="HotspotX",
+            require_pairing_token=True,
+        )
+        fwd.set_pairing_token("secret-test-token-123", ttl_seconds=300.0, required=True)
+        server = gateway.create_gateway_server("127.0.0.1", 0, fwd)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            # Missing pairing token returns 401
+            bad_req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/telemetry",
+                data=json.dumps(_sample_phone_packet(seq=1)).encode("utf-8"),
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(bad_req, timeout=5)
+            self.assertEqual(ctx.exception.code, 401)
+
+            # Valid pairing token returns 200 and tags KX-LAPTOP-FALLBACK-001
+            ok_req = urllib.request.Request(
+                f"http://127.0.0.1:{port}/telemetry",
+                data=json.dumps(_sample_phone_packet(seq=1)).encode("utf-8"),
+                method="POST",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-KesslerX-Pairing-Token": "secret-test-token-123",
+                },
+            )
+            with urllib.request.urlopen(ok_req, timeout=5) as resp:
+                self.assertIn(resp.status, (200, 202))
+                body = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(body["ground_station_id"], "KX-LAPTOP-FALLBACK-001")
+                self.assertEqual(body["hardware_model"], "Windows Laptop")
+
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=5) as resp:
+                health = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(health["gateway_mode"], "laptop_fallback")
+                self.assertEqual(health["detected_network"], "HotspotX")
+                self.assertTrue(health["require_pairing_token"])
+
+            # Dynamic SAN cert generation test
+            cert_dir = self.tmp_dir / "certs"
+            certfile, keyfile = gateway.ensure_self_signed_cert(
+                cert_dir,
+                gs_id=gateway.LAPTOP_FALLBACK_GROUND_STATION_ID,
+                extra_ips=["192.168.137.1"],
+            )
+            self.assertTrue(certfile.exists() and keyfile.exists())
         finally:
             fwd.close()
             server.shutdown()

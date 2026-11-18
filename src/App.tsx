@@ -20,6 +20,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const ConjunctionAnalysis = lazy(() => import('./pages/ConjunctionAnalysis'));
 const OrbitalCommons = lazy(() => import('./pages/OrbitalCommons'));
 const GroundStation = lazy(() => import('./pages/GroundStation'));
+const NetworkSetup = lazy(() => import('./pages/NetworkSetup'));
 const EventWorkspace = lazy(() => import('./pages/EventWorkspace'));
 const PendingHandoffs = lazy(() => import('./pages/PendingHandoffs'));
 const TransferResponsibility = lazy(() => import('./pages/TransferResponsibility'));
@@ -72,6 +73,7 @@ export default function App() {
                   <Route path="/collision-monitor" element={<CollisionMonitor />} />
                   <Route path="/conjunction-analysis" element={<ConjunctionAnalysis />} />
                   <Route path="/orbital-commons" element={<OrbitalCommons />} />
+                  <Route path="/network-setup" element={<NetworkSetup />} />
                   <Route path="/analytics" element={<Analytics />} />
                   <Route path="/space-weather" element={<SpaceWeather />} />
                   <Route path="/ai-copilot" element={<AICopilot />} />

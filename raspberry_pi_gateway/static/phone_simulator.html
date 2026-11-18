@@ -137,15 +137,18 @@
       <div class="title-row">
         <div>
           <div class="title">PHONE SATELLITE</div>
-          <div class="meta">ID: PHONE-SATELLITE-001 · GS: KX-RPI-ZERO-GS-001 (Raspberry Pi Zero W)</div>
+          <div id="gs-meta" class="meta">ID: PHONE-SATELLITE-001 · GS: KX-RPI-ZERO-GS-001 (Raspberry Pi Zero W)</div>
         </div>
         <div class="pill">
           <span id="status-dot" class="dot"></span>
           <span id="status-text">STOPPED</span>
         </div>
       </div>
+      <div id="fallback-banner" class="banner" style="display: none; margin-top: 8px; background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.45); color: #FCA5A5;">
+        EMERGENCY LAPTOP FALLBACK ACTIVE — Physical Raspberry Pi unavailable
+      </div>
       <div class="meta" style="margin-top: 8px;">
-        Telemetry path: Phone sensors &rarr; Raspberry Pi Zero W (<strong id="pi-origin"></strong> via WS/HTTP) &rarr; KesslerX
+        Telemetry path: Phone sensors &rarr; <span id="gs-path-name">Raspberry Pi Zero W</span> (<strong id="pi-origin"></strong> via WS/HTTP) &rarr; KesslerX
       </div>
     </div>
 
@@ -177,7 +180,7 @@
     </div>
 
     <div class="card meta">
-      <div>Packets sent to Raspberry Pi Zero W: <strong id="seq-count">0</strong> · Transport: <strong id="tx-mode">WS / POST Fallback</strong></div>
+      <div>Packets sent to <span id="gs-target-short">Raspberry Pi Zero W</span>: <strong id="seq-count">0</strong> · Transport: <strong id="tx-mode">WS / POST Fallback</strong></div>
       <div>Ground Station Reply: <strong id="gs-reply">Idle</strong></div>
       <div style="margin-top: 6px; color: #FCD34D;">
         Decision support only — human approval required. Not a flight command system.
@@ -187,17 +190,42 @@
 
   <script>
     (function () {
-      const GROUND_STATION_ID = 'KX-RPI-ZERO-GS-001';
-      const HARDWARE_MODEL = 'Raspberry Pi Zero W';
+      let GROUND_STATION_ID = 'KX-RPI-ZERO-GS-001';
+      let HARDWARE_MODEL = 'Raspberry Pi Zero W';
+      let GATEWAY_MODE = 'raspberry_pi';
       const DEVICE_ID = 'PHONE-SATELLITE-001';
       const SATELLITE_NAME = 'PHONE SATELLITE';
-      // Phone NEVER sends directly to laptop or KesslerX backend; only to Raspberry Pi Zero W same-origin /ws/phone or /telemetry.
+      // Phone NEVER sends directly to laptop dashboard or Render backend; only to same-origin local gateway.
       const TELEMETRY_URL = window.location.origin + '/telemetry';
       const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-      const WS_URL = WS_PROTOCOL + window.location.host + '/ws/phone';
-      const SESSION_ID = 'sess-' + Date.now().toString(36);
+      const URL_PARAMS = new URLSearchParams(window.location.search);
+      const PAIRING_TOKEN = URL_PARAMS.get('token') || '';
+      const WS_URL = WS_PROTOCOL + window.location.host + '/ws/phone' + (PAIRING_TOKEN ? ('?token=' + encodeURIComponent(PAIRING_TOKEN)) : '');
+      let SESSION_ID = 'sess-' + Date.now().toString(36);
 
       document.getElementById('pi-origin').textContent = window.location.origin;
+
+      const gsMetaEl = document.getElementById('gs-meta');
+      const gsPathNameEl = document.getElementById('gs-path-name');
+      const gsTargetShortEl = document.getElementById('gs-target-short');
+      const fallbackBannerEl = document.getElementById('fallback-banner');
+
+      async function detectGatewayIdentity() {
+        try {
+          const res = await fetch(window.location.origin + '/satellite', { cache: 'no-store' });
+          if (!res.ok) return;
+          const info = await res.json();
+          if (info && info.ground_station_id) GROUND_STATION_ID = info.ground_station_id;
+          if (info && info.hardware_model) HARDWARE_MODEL = info.hardware_model;
+          if (info && info.gateway_mode) GATEWAY_MODE = info.gateway_mode;
+          gsMetaEl.textContent = 'ID: ' + DEVICE_ID + ' · GS: ' + GROUND_STATION_ID + ' (' + HARDWARE_MODEL + ')';
+          gsPathNameEl.textContent = HARDWARE_MODEL;
+          gsTargetShortEl.textContent = HARDWARE_MODEL;
+          fallbackBannerEl.style.display = GATEWAY_MODE === 'laptop_fallback' ? 'block' : 'none';
+          SESSION_ID = 'sess-' + GROUND_STATION_ID.toLowerCase().replace(/[^a-z0-9]/g, '') + '-' + Date.now().toString(36);
+        } catch (_) {}
+      }
+      detectGatewayIdentity();
 
       const statusDot = document.getElementById('status-dot');
       const statusText = document.getElementById('status-text');
@@ -319,9 +347,13 @@
 
         txModeEl.textContent = 'HTTP POST (/telemetry)';
         try {
+          const postHeaders = { 'Content-Type': 'application/json' };
+          if (PAIRING_TOKEN) {
+            postHeaders['X-KesslerX-Pairing-Token'] = PAIRING_TOKEN;
+          }
           const resp = await fetch(TELEMETRY_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: postHeaders,
             body: JSON.stringify(packet),
           });
           const data = await resp.json();

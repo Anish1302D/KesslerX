@@ -26,6 +26,7 @@ from phone_satellite import (
     is_phone_telemetry_payload,
     GROUND_STATION_ID as RPI_GROUND_STATION_ID,
 )
+from connection_manager import connection_manager
 from firebase_config import init_firebase, is_firebase_available
 from negotiator_engine import evaluate_intent_negotiation, NegotiationResult, DISCLAIMER_TEXT
 from orbital_commons_engine import (
@@ -112,6 +113,22 @@ class TelemetryUpload(BaseModel):
     mode: Optional[str] = None
     ground_station_id: Optional[str] = None
     hardware_model: Optional[str] = None
+    session_id: Optional[str] = None
+
+
+class NetworkDiscoverRequest(BaseModel):
+    preferred_ip: Optional[str] = None
+    manual_pi_endpoint: Optional[str] = None
+    auto_connect: bool = False
+
+
+class NetworkModeRequest(BaseModel):
+    mode: str
+    force_switch_to_pi: bool = True
+
+
+class PairingTokenRequest(BaseModel):
+    ttl_seconds: int = Field(default=900, ge=60, le=7200)
 
 # --- Handoff Request Models ---
 
@@ -1155,7 +1172,7 @@ async def ground_station_latest():
 
 @app.post("/api/ground-station/telemetry")
 async def ground_station_upload(payload: TelemetryUpload):
-    """Accept a telemetry upload from an authorized ground station (ESP32, Raspberry Pi Zero W KX-RPI-ZERO-GS-001, or legacy KX-RPI3-GS-001)."""
+    """Accept a telemetry upload from an authorized ground station (ESP32, Raspberry Pi Zero W KX-RPI-ZERO-GS-001, Laptop Fallback KX-LAPTOP-FALLBACK-001, or legacy KX-RPI3-GS-001)."""
     raw_payload = payload.model_dump()
 
     if is_phone_telemetry_payload(raw_payload):
@@ -1175,6 +1192,8 @@ async def ground_station_upload(payload: TelemetryUpload):
             "station_id": validated_phone["ground_station_id"],
             "ground_station_id": validated_phone["ground_station_id"],
             "hardware_model": validated_phone["hardware_model"],
+            "gateway_mode": validated_phone.get("gateway_mode", "raspberry_pi"),
+            "session_id": validated_phone.get("session_id"),
             "device_id": validated_phone["device_id"],
             "satellite_name": validated_phone["satellite_name"],
             "sequence": validated_phone["sequence"],
@@ -1224,6 +1243,7 @@ async def ground_station_upload(payload: TelemetryUpload):
             "mode": validated_phone["mode"],
             "ground_station_id": validated_phone["ground_station_id"],
             "hardware_model": validated_phone["hardware_model"],
+            "gateway_mode": validated_phone.get("gateway_mode", "raspberry_pi"),
             "warnings": validated_phone.get("warnings", []),
             "conjunction": conjunction,
         }
@@ -1297,6 +1317,69 @@ async def get_phone_satellite_orbit(timestamp: Optional[str] = Query(default=Non
 async def get_phone_satellite_conjunction():
     """Return tilt-driven demonstration collision probability for PHONE-DEMO-CONJUNCTION-001."""
     return phone_satellite_state.get_conjunction()
+
+
+# ============================================================
+# Dynamic Network Discovery & Laptop Fallback Gateway API
+# ============================================================
+
+@app.get("/api/network/status")
+async def get_network_status():
+    """Return discovered adapters, Raspberry Pi status, active mode, and simulator QR details."""
+    return connection_manager.get_status()
+
+
+@app.post("/api/network/discover")
+async def discover_network(req: Optional[NetworkDiscoverRequest] = None):
+    """Run local interface discovery, Pi mDNS/manual probe, and optional auto-connect failover."""
+    payload = req or NetworkDiscoverRequest()
+    if payload.auto_connect:
+        if payload.manual_pi_endpoint is not None:
+            cleaned = payload.manual_pi_endpoint.strip()
+            connection_manager.manual_pi_endpoint = cleaned or None
+        if payload.preferred_ip:
+            connection_manager.selected_interface_ip = payload.preferred_ip
+        return await asyncio.to_thread(connection_manager.auto_connect)
+    return await asyncio.to_thread(
+        connection_manager.discover_and_reconcile,
+        preferred_ip=payload.preferred_ip,
+        manual_pi_endpoint=payload.manual_pi_endpoint,
+        allow_fallback_on_threshold=True,
+    )
+
+
+@app.post("/api/network/mode")
+async def set_network_mode(req: NetworkModeRequest):
+    """Switch active operating mode between AUTO, PI, and LAPTOP_FALLBACK."""
+    try:
+        return await asyncio.to_thread(
+            connection_manager.switch_mode,
+            req.mode,
+            force_switch_to_pi=req.force_switch_to_pi,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/network/pairing-token")
+async def refresh_pairing_token(req: Optional[PairingTokenRequest] = None):
+    """Rotate or issue a short-lived pairing token for phone-to-laptop-fallback pairing."""
+    ttl = req.ttl_seconds if req else 900
+    return connection_manager.generate_pairing_token(ttl_seconds=ttl)
+
+
+@app.post("/api/network/test-connection")
+async def test_network_connection():
+    """Execute read-only connection diagnostics across adapter, Pi, fallback gateway, and backend."""
+    return await asyncio.to_thread(connection_manager.test_connection)
+
+
+@app.get("/api/network/firewall-status")
+async def get_network_firewall_status():
+    """Inspect Windows Defender Firewall profile and scoped KesslerX rules (read-only)."""
+    return await asyncio.to_thread(connection_manager.get_firewall_status)
 
 # ============================================================
 # Startup & Shutdown
@@ -1603,6 +1686,14 @@ async def startup_event():
     asyncio.create_task(simulate_ground_station())
     # Start background escalation check
     asyncio.create_task(escalation_check_loop())
+    # Start central network discovery & Pi/Fallback ConnectionManager on local workstation (skip on Render cloud)
+    if os.getenv("RENDER", "").lower() != "true" and os.getenv("KESSLERX_CONNECTION_MANAGER", "1") != "0":
+        asyncio.create_task(asyncio.to_thread(connection_manager.start, True))
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    connection_manager.stop()
 
 if __name__ == "__main__":
     import uvicorn

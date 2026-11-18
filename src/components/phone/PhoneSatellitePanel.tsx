@@ -31,7 +31,13 @@ export const PhoneSatellitePanel: React.FC<PhoneSatellitePanelProps> = ({
   const telem = phoneSatellite.telemetry;
   const conj = phoneSatellite.conjunction;
   const ori = telem.orientation;
-  const isLive = telem.link_status === 'LIVE_RPI_ZERO_GATEWAY' || telem.link_status === 'LIVE_RPI3_GATEWAY';
+  const isFallbackLive =
+    telem.link_status === 'LIVE_LAPTOP_FALLBACK' ||
+    telem.ground_station_id === 'KX-LAPTOP-FALLBACK-001';
+  const isLive =
+    telem.link_status === 'LIVE_RPI_ZERO_GATEWAY' ||
+    telem.link_status === 'LIVE_RPI3_GATEWAY' ||
+    isFallbackLive;
   const riskClass = RISK_STYLES[conj.risk_level] || RISK_STYLES.SAFE;
 
   return (
@@ -85,14 +91,27 @@ export const PhoneSatellitePanel: React.FC<PhoneSatellitePanelProps> = ({
           </div>
 
           {/* Ground Station Link */}
+          {isFallbackLive && (
+            <div
+              data-testid="phone-fallback-banner"
+              className="px-2.5 py-1.5 rounded bg-amber-500/15 border border-amber-500/45 text-[10px] font-mono text-amber-200 space-y-0.5"
+            >
+              <div className="font-bold text-amber-300">GROUND STATION MODE: LAPTOP FALLBACK</div>
+              <div>RASPBERRY PI: UNAVAILABLE · Host: {telem.hardware_model || 'Windows Laptop'} ({telem.ground_station_id})</div>
+            </div>
+          )}
           <div className="space-y-1 text-[10px] font-mono text-slate-300 bg-slate-950/60 px-2.5 py-1.5 rounded border border-slate-800">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Radio className={`w-3 h-3 ${isLive ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
+                <Radio className={`w-3 h-3 ${isFallbackLive ? 'text-amber-400 animate-pulse' : isLive ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
                 <span>{telem.hardware_model || 'Raspberry Pi Zero W'} Ground Station ({telem.ground_station_id})</span>
               </span>
-              <span className={isLive ? 'text-emerald-400 font-bold' : 'text-amber-300'}>
-                {isLive ? `LIVE (#${telem.sequence})` : 'AWAITING PI ZERO W'}
+              <span className={isFallbackLive ? 'text-amber-300 font-bold' : isLive ? 'text-emerald-400 font-bold' : 'text-amber-300'}>
+                {isFallbackLive
+                  ? `LAPTOP FALLBACK (#${telem.sequence})`
+                  : isLive
+                  ? `LIVE (#${telem.sequence})`
+                  : 'AWAITING PI ZERO W'}
               </span>
             </div>
             <div className="flex items-center justify-between text-[9px] text-slate-400">

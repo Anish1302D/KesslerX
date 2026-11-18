@@ -25,8 +25,14 @@ from typing import Any, Dict, List, Optional, Tuple
 DISCLAIMER_TEXT = "Decision support only — human approval required. Not a flight command system."
 GROUND_STATION_ID = "KX-RPI-ZERO-GS-001"
 HARDWARE_MODEL = "Raspberry Pi Zero W"
+LAPTOP_FALLBACK_GROUND_STATION_ID = "KX-LAPTOP-FALLBACK-001"
+LAPTOP_FALLBACK_HARDWARE_MODEL = "Windows Laptop"
 LEGACY_GROUND_STATION_IDS = ("KX-RPI3-GS-001",)
-ACCEPTED_GROUND_STATION_IDS = (GROUND_STATION_ID, *LEGACY_GROUND_STATION_IDS)
+ACCEPTED_GROUND_STATION_IDS = (
+    GROUND_STATION_ID,
+    LAPTOP_FALLBACK_GROUND_STATION_ID,
+    *LEGACY_GROUND_STATION_IDS,
+)
 EARTH_RADIUS_KM = 6371.0
 GM_EARTH_KM3_S2 = 398600.4418
 
@@ -382,20 +388,31 @@ def validate_phone_telemetry(payload: Dict[str, Any]) -> Dict[str, Any]:
     if ground_station_id not in ACCEPTED_GROUND_STATION_IDS:
         raise ValueError(
             f"Unauthorized or missing ground_station_id '{ground_station_id}'. "
-            f"Raspberry Pi Zero W ground station '{GROUND_STATION_ID}' is the primary accepted telemetry gateway."
+            f"Accepted gateways are '{GROUND_STATION_ID}' (Raspberry Pi Zero W) or "
+            f"'{LAPTOP_FALLBACK_GROUND_STATION_ID}' (Emergency Laptop Fallback)."
         )
 
     warnings: List[str] = []
-    if ground_station_id in LEGACY_GROUND_STATION_IDS:
+    if ground_station_id == LAPTOP_FALLBACK_GROUND_STATION_ID:
+        gateway_mode = "laptop_fallback"
+        warnings.append(
+            "Emergency laptop fallback gateway active (physical Raspberry Pi Zero W unavailable)."
+        )
+    elif ground_station_id in LEGACY_GROUND_STATION_IDS:
+        gateway_mode = "legacy_rpi3"
         warnings.append(
             f"Legacy ground_station_id '{ground_station_id}' accepted for migration compatibility; prefer '{GROUND_STATION_ID}'."
         )
+    else:
+        gateway_mode = "raspberry_pi"
 
     raw_hw = payload.get("hardware_model")
     if raw_hw is not None and isinstance(raw_hw, str) and raw_hw.strip():
         hardware_model = raw_hw.strip()[:64]
     elif ground_station_id == GROUND_STATION_ID:
         hardware_model = HARDWARE_MODEL
+    elif ground_station_id == LAPTOP_FALLBACK_GROUND_STATION_ID:
+        hardware_model = LAPTOP_FALLBACK_HARDWARE_MODEL
     else:
         hardware_model = "Raspberry Pi 3 (Legacy Compat)"
 
@@ -454,10 +471,18 @@ def validate_phone_telemetry(payload: Dict[str, Any]) -> Dict[str, Any]:
             "z_dps": round(_check_finite_number(ang_vel.get("z_dps", 0.0), "angular_velocity.z_dps", -2000.0, 2000.0), 3),
         }
 
+    raw_session_id = payload.get("session_id")
+    session_id = (
+        raw_session_id.strip()[:64]
+        if isinstance(raw_session_id, str) and raw_session_id.strip()
+        else None
+    )
+
     return {
         "device_id": PHONE_SATELLITE_IDENTITY["id"],
         "satellite_name": PHONE_SATELLITE_IDENTITY["name"],
         "sequence": sequence,
+        "session_id": session_id,
         "timestamp": parsed_ts.isoformat().replace("+00:00", "Z"),
         "received_at": parsed_received,
         "orientation": {
@@ -470,6 +495,7 @@ def validate_phone_telemetry(payload: Dict[str, Any]) -> Dict[str, Any]:
         "mode": "simulated",
         "ground_station_id": ground_station_id,
         "hardware_model": hardware_model,
+        "gateway_mode": gateway_mode,
         "warnings": warnings,
     }
 
@@ -501,6 +527,8 @@ class PhoneSatelliteState:
         self._latest_telemetry: Optional[Dict[str, Any]] = None
         self._total_packets: int = 0
         self._last_backend_ingested_at: Optional[str] = None
+        self._seen_session_keys: set[tuple[str, str, int]] = set()
+        self._seen_session_order: list[tuple[str, str, int]] = []
 
     def reset(self) -> None:
         """Reset stored telemetry state (primarily for deterministic test isolation)."""
@@ -508,15 +536,35 @@ class PhoneSatelliteState:
             self._latest_telemetry = None
             self._total_packets = 0
             self._last_backend_ingested_at = None
+            self._seen_session_keys.clear()
+            self._seen_session_order.clear()
 
     def ingest_telemetry(self, payload: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Validate, store, and evaluate tilt conjunction for a phone telemetry packet."""
         validated = validate_phone_telemetry(payload)
         ingested_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        session_id = validated.get("session_id")
+        dedup_key = (
+            (validated["ground_station_id"], session_id, validated["sequence"])
+            if session_id
+            else None
+        )
         with self._lock:
-            self._latest_telemetry = validated
-            self._total_packets += 1
-            self._last_backend_ingested_at = ingested_at
+            is_duplicate = bool(dedup_key and dedup_key in self._seen_session_keys)
+            if not is_duplicate:
+                if dedup_key:
+                    self._seen_session_keys.add(dedup_key)
+                    self._seen_session_order.append(dedup_key)
+                    if len(self._seen_session_order) > 512:
+                        oldest = self._seen_session_order.pop(0)
+                        self._seen_session_keys.discard(oldest)
+                self._latest_telemetry = validated
+                self._total_packets += 1
+                self._last_backend_ingested_at = ingested_at
+            else:
+                latest_state = dict(self._latest_telemetry) if self._latest_telemetry else validated
+                ingested_at = self._last_backend_ingested_at or ingested_at
+                validated = latest_state
 
         conjunction = evaluate_tilt_conjunction(
             roll_deg=validated["orientation"]["roll_deg"],
@@ -540,6 +588,7 @@ class PhoneSatelliteState:
                 "device_id": PHONE_SATELLITE_IDENTITY["id"],
                 "satellite_name": PHONE_SATELLITE_IDENTITY["name"],
                 "sequence": 0,
+                "session_id": None,
                 "timestamp": None,
                 "received_at": None,
                 "ingested_at": None,
@@ -549,15 +598,21 @@ class PhoneSatelliteState:
                 "mode": "simulated",
                 "ground_station_id": GROUND_STATION_ID,
                 "hardware_model": HARDWARE_MODEL,
+                "gateway_mode": "raspberry_pi",
                 "warnings": [],
                 "link_status": "AWAITING_RPI_ZERO_TELEMETRY",
                 "packets_received": total,
             }
 
+        link_status = (
+            "LIVE_LAPTOP_FALLBACK"
+            if latest.get("ground_station_id") == LAPTOP_FALLBACK_GROUND_STATION_ID
+            else "LIVE_RPI_ZERO_GATEWAY"
+        )
         return {
             **latest,
             "ingested_at": ingested_at,
-            "link_status": "LIVE_RPI_ZERO_GATEWAY",
+            "link_status": link_status,
             "packets_received": total,
         }
 

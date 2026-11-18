@@ -96,8 +96,17 @@ export function usePhoneSatellite(pollIntervalMs: number = 2500): UsePhoneSatell
                 mode: pkt.mode || 'simulated',
                 ground_station_id: pkt.ground_station_id || 'KX-RPI-ZERO-GS-001',
                 hardware_model: pkt.hardware_model || 'Raspberry Pi Zero W',
+                gateway_mode:
+                  pkt.gateway_mode ||
+                  (pkt.ground_station_id === 'KX-LAPTOP-FALLBACK-001'
+                    ? 'laptop_fallback'
+                    : 'raspberry_pi'),
+                session_id: pkt.session_id ?? prev.telemetry.session_id ?? null,
                 warnings: pkt.warnings || [],
-                link_status: 'LIVE_RPI_ZERO_GATEWAY',
+                link_status:
+                  pkt.ground_station_id === 'KX-LAPTOP-FALLBACK-001'
+                    ? 'LIVE_LAPTOP_FALLBACK'
+                    : 'LIVE_RPI_ZERO_GATEWAY',
                 packets_received: (prev.telemetry.packets_received || 0) + 1,
               },
               conjunction: pkt.conjunction ?? prev.conjunction,

@@ -7,6 +7,7 @@ import ProvenanceBadge from '../components/ui/ProvenanceBadge';
 import { getWsUrl as resolveWsUrl, API_ENDPOINTS } from '../config/api';
 import { usePhoneSatellite } from '../hooks/usePhoneSatellite';
 import PhoneSatellitePanel from '../components/phone/PhoneSatellitePanel';
+import NetworkSetupPanel from '../components/network/NetworkSetupPanel';
 
 interface TelemetryPacket {
   packet_id: number;
@@ -280,6 +281,7 @@ export default function GroundStation() {
 
       {/* Additive Raspberry Pi Zero W Ground Station (KX-RPI-ZERO-GS-001) & PHONE SATELLITE Card */}
       <PhoneSatellitePanel phoneSatellite={phoneSatellite} defaultExpanded={true} />
+      <NetworkSetupPanel phoneTelemetry={phoneSatellite.telemetry} />
 
       {/* Top Metrics Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-card-gap">

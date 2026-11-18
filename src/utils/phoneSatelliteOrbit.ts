@@ -66,8 +66,16 @@ export interface PhoneTelemetrySnapshot {
   mode: string;
   ground_station_id: string;
   hardware_model?: string;
+  gateway_mode?: 'raspberry_pi' | 'laptop_fallback' | 'legacy_rpi3' | string;
+  session_id?: string | null;
   warnings?: string[];
-  link_status: 'LIVE_RPI_ZERO_GATEWAY' | 'AWAITING_RPI_ZERO_TELEMETRY' | 'LIVE_RPI3_GATEWAY' | 'AWAITING_RPI3_TELEMETRY' | string;
+  link_status:
+    | 'LIVE_RPI_ZERO_GATEWAY'
+    | 'LIVE_LAPTOP_FALLBACK'
+    | 'AWAITING_RPI_ZERO_TELEMETRY'
+    | 'LIVE_RPI3_GATEWAY'
+    | 'AWAITING_RPI3_TELEMETRY'
+    | string;
   packets_received: number;
 }
 

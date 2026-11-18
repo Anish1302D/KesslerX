@@ -40,14 +40,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import hmac
 from pathlib import Path
 from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
 
 DEFAULT_GROUND_STATION_ID = "KX-RPI-ZERO-GS-001"
+LAPTOP_FALLBACK_GROUND_STATION_ID = "KX-LAPTOP-FALLBACK-001"
 LEGACY_GROUND_STATION_IDS = ("KX-RPI3-GS-001",)
 DEFAULT_HARDWARE_MODEL = "Raspberry Pi Zero W"
+LAPTOP_FALLBACK_HARDWARE_MODEL = "Windows Laptop"
 EXPECTED_DEVICE_ID = "PHONE-SATELLITE-001"
 EXPECTED_SATELLITE_NAME = "PHONE SATELLITE"
 EXPECTED_SOURCE = "phone_sensor"
@@ -147,7 +150,12 @@ def validate_and_enrich_phone_packet(
         raise ValueError(f"Invalid device_id '{device_id}'; expected '{EXPECTED_DEVICE_ID}'.")
 
     incoming_gs = raw.get("ground_station_id")
-    accepted_incoming = {gs_id, DEFAULT_GROUND_STATION_ID, *LEGACY_GROUND_STATION_IDS}
+    accepted_incoming = {
+        gs_id,
+        DEFAULT_GROUND_STATION_ID,
+        LAPTOP_FALLBACK_GROUND_STATION_ID,
+        *LEGACY_GROUND_STATION_IDS,
+    }
     if incoming_gs is not None and incoming_gs not in accepted_incoming:
         raise ValueError(
             f"Invalid ground_station_id '{incoming_gs}'; expected '{gs_id}'."
@@ -209,6 +217,7 @@ def validate_and_enrich_phone_packet(
         "mode": EXPECTED_MODE,
         "ground_station_id": gs_id,
         "hardware_model": hw_model,
+        "session_id": clean_session,
         "_session_id": clean_session,
     }
 
@@ -260,6 +269,10 @@ class TelemetryForwarder:
         sqlite_path: Optional[Path] = None,
         ground_station_id: Optional[str] = None,
         hardware_model: Optional[str] = None,
+        gateway_mode: Optional[str] = None,
+        listen_host: str = "0.0.0.0",
+        detected_network: Optional[str] = None,
+        require_pairing_token: bool = False,
         sender: Optional[Callable[[str, Dict[str, Any], float], Tuple[int, str]]] = None,
         base_backoff_s: float = 1.0,
         max_backoff_s: Optional[float] = None,
@@ -274,6 +287,14 @@ class TelemetryForwarder:
         self.telemetry_endpoint = f"{clean_base}/api/ground-station/telemetry"
         self.ground_station_id = ground_station_id or cfg["ground_station_id"]
         self.hardware_model = hardware_model or cfg["hardware_model"]
+        self.gateway_mode = gateway_mode or (
+            "laptop_fallback" if self.ground_station_id == LAPTOP_FALLBACK_GROUND_STATION_ID else "raspberry_pi"
+        )
+        self.listen_host = listen_host
+        self.detected_network = detected_network or "Local LAN"
+        self.require_pairing_token = require_pairing_token
+        self._pairing_token: Optional[str] = None
+        self._pairing_expires_at: float = 0.0
         self.architecture = platform.machine() or "unknown"
 
         mem_cap = max_memory_queue if max_memory_queue is not None else (
@@ -448,6 +469,22 @@ class TelemetryForwarder:
         with self._state_lock:
             self.rejected_count += 1
             self._cached_health = None
+
+    def set_pairing_token(self, token: Optional[str], ttl_seconds: float = 900.0, required: bool = True) -> None:
+        with self._state_lock:
+            self._pairing_token = token
+            self._pairing_expires_at = time.time() + ttl_seconds if token else 0.0
+            self.require_pairing_token = bool(required and token)
+
+    def verify_pairing_token(self, candidate: Optional[str]) -> bool:
+        with self._state_lock:
+            if not self.require_pairing_token:
+                return True
+            if not self._pairing_token or not candidate:
+                return False
+            if self._pairing_expires_at and time.time() > self._pairing_expires_at:
+                return False
+            return hmac.compare_digest(self._pairing_token, candidate.strip())
 
     def configure_throttle(self, rate_hz: float, burst_capacity: Optional[int] = None) -> None:
         with self._state_lock:
@@ -712,6 +749,8 @@ class TelemetryForwarder:
                 "satellite_name": EXPECTED_SATELLITE_NAME,
                 "ground_station_id": gs_id,
                 "hardware_model": hw,
+                "gateway_mode": self.gateway_mode,
+                "require_pairing_token": self.require_pairing_token,
                 "source": EXPECTED_SOURCE,
                 "mode": EXPECTED_MODE,
                 "sequence": 0,
@@ -724,11 +763,16 @@ class TelemetryForwarder:
                 "link_status": "AWAITING_PHONE_TELEMETRY",
             }
 
+        live_status = (
+            "LIVE_LAPTOP_FALLBACK" if self.gateway_mode == "laptop_fallback" else "LIVE_RPI_ZERO_GATEWAY"
+        )
         return {
             **pkt,
+            "gateway_mode": self.gateway_mode,
+            "require_pairing_token": self.require_pairing_token,
             "buffered_count": buffered,
             "backend_connected": connected,
-            "link_status": "LIVE_RPI_ZERO_GATEWAY" if connected else "BUFFERED_OFFLINE",
+            "link_status": live_status if connected else "BUFFERED_OFFLINE",
         }
 
     def get_history(self, limit: int = 50) -> List[Dict[str, Any]]:
@@ -764,6 +808,10 @@ class TelemetryForwarder:
                 "status": "nominal" if not self.last_error else "degraded",
                 "ground_station_id": self.ground_station_id,
                 "hardware_model": self.hardware_model,
+                "gateway_mode": self.gateway_mode,
+                "detected_network": self.detected_network,
+                "listen_host": self.listen_host,
+                "require_pairing_token": self.require_pairing_token,
                 "architecture": self.architecture,
                 "device_id": EXPECTED_DEVICE_ID,
                 "backend_endpoint": self.telemetry_endpoint,
@@ -855,10 +903,21 @@ def create_gateway_handler(forwarder: TelemetryForwarder, html_path: Path = PHON
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-KesslerX-Pairing-Token")
             self.end_headers()
 
-        def _handle_websocket_phone(self) -> None:
+        def _extract_pairing_token(self, parsed_qs: Optional[Dict[str, List[str]]] = None) -> Optional[str]:
+            hdr = self.headers.get("X-KesslerX-Pairing-Token")
+            if hdr and hdr.strip():
+                return hdr.strip()
+            if parsed_qs and "token" in parsed_qs and parsed_qs["token"]:
+                return parsed_qs["token"][0]
+            return None
+
+        def _handle_websocket_phone(self, parsed_qs: Dict[str, List[str]]) -> None:
+            if not forwarder.verify_pairing_token(self._extract_pairing_token(parsed_qs)):
+                self._send_json(401, {"error": "Invalid or expired pairing token."})
+                return
             ws_key = self.headers.get("Sec-WebSocket-Key")
             if not ws_key:
                 self._send_json(400, {"error": "Missing Sec-WebSocket-Key header."})
@@ -911,8 +970,9 @@ def create_gateway_handler(forwarder: TelemetryForwarder, html_path: Path = PHON
 
         def do_GET(self) -> None:
             parsed = urllib.parse.urlparse(self.path)
+            parsed_qs = urllib.parse.parse_qs(parsed.query)
             if parsed.path == "/ws/phone" and "websocket" in self.headers.get("Upgrade", "").lower():
-                self._handle_websocket_phone()
+                self._handle_websocket_phone(parsed_qs)
                 return
 
             if parsed.path in ("/", "/index.html", "/phone-simulator"):
@@ -950,6 +1010,12 @@ def create_gateway_handler(forwarder: TelemetryForwarder, html_path: Path = PHON
             parsed = urllib.parse.urlparse(self.path)
             if parsed.path != "/telemetry":
                 self._send_json(404, {"error": "Unknown endpoint. Send telemetry only to POST /telemetry."})
+                return
+
+            parsed_qs = urllib.parse.parse_qs(parsed.query)
+            if not forwarder.verify_pairing_token(self._extract_pairing_token(parsed_qs)):
+                forwarder.record_rejection()
+                self._send_json(401, {"error": "Invalid or expired pairing token."})
                 return
 
             try:
@@ -996,6 +1062,13 @@ def create_gateway_handler(forwarder: TelemetryForwarder, html_path: Path = PHON
 
 def _detect_local_ip() -> Optional[str]:
     try:
+        from network_discovery import discover_local_network
+        info = discover_local_network()
+        if info.get("selected_ip"):
+            return str(info["selected_ip"])
+    except Exception:
+        pass
+    try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
@@ -1005,67 +1078,133 @@ def _detect_local_ip() -> Optional[str]:
         return None
 
 
-def ensure_self_signed_cert(cert_dir: Path, gs_id: str = DEFAULT_GROUND_STATION_ID) -> Tuple[Path, Path]:
-    """Generate a self-signed TLS certificate via OpenSSL for iOS/Android phone sensor contexts."""
-    openssl_bin = shutil.which("openssl")
-    if not openssl_bin:
-        raise RuntimeError("openssl binary is required to auto-generate a self-signed HTTPS certificate.")
+def _generate_cert_with_cryptography(
+    cert_file: Path,
+    key_file: Path,
+    gs_id: str,
+    san_ips: List[str],
+    san_dns: List[str],
+) -> None:
+    """Pure-Python TLS SAN certificate generation fallback when OpenSSL CLI is unavailable."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
 
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, gs_id)])
+    alt_names: List[x509.GeneralName] = [x509.DNSName(d) for d in san_dns]
+    for ip_str in san_ips:
+        alt_names.append(x509.IPAddress(ipaddress.ip_address(ip_str)))
+
+    now = datetime.now(timezone.utc)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(private_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=5))
+        .not_valid_after(now + timedelta(days=365))
+        .add_extension(x509.SubjectAlternativeName(alt_names), critical=False)
+        .sign(private_key, hashes.SHA256())
+    )
+    key_file.write_bytes(
+        private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
+    cert_file.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+
+
+def ensure_self_signed_cert(
+    cert_dir: Path,
+    gs_id: str = DEFAULT_GROUND_STATION_ID,
+    extra_ips: Optional[List[str]] = None,
+) -> Tuple[Path, Path]:
+    """Generate or refresh a self-signed TLS SAN certificate for active LAN/hotspot IPs."""
+    openssl_bin = shutil.which("openssl")
     cert_dir.mkdir(parents=True, exist_ok=True)
-    cert_file = cert_dir / "rpi-zero-gateway-cert.pem"
-    key_file = cert_dir / "rpi-zero-gateway-key.pem"
+    slug = "laptop-fallback" if gs_id == LAPTOP_FALLBACK_GROUND_STATION_ID else "rpi-zero-gateway"
+    cert_file = cert_dir / f"{slug}-cert.pem"
+    key_file = cert_dir / f"{slug}-key.pem"
 
     lan_ip = _detect_local_ip()
+    san_ips = ["127.0.0.1"]
+    for candidate_ip in [lan_ip, *(extra_ips or [])]:
+        if candidate_ip and candidate_ip not in san_ips:
+            try:
+                ipaddress.ip_address(candidate_ip)
+                san_ips.append(candidate_ip)
+            except ValueError:
+                pass
+    san_dns = ["localhost", socket.gethostname(), f"{socket.gethostname()}.local"]
+
     if cert_file.exists() and key_file.exists():
-        if not lan_ip:
+        # Check that every active target IP exists in cached cert SAN
+        existing_ok = False
+        if openssl_bin:
+            try:
+                san_check = subprocess.run(
+                    [openssl_bin, "x509", "-in", str(cert_file), "-noout", "-ext", "subjectAltName"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                existing_ok = all(f"IP Address:{ip}" in san_check.stdout for ip in san_ips)
+            except Exception:
+                existing_ok = False
+        if not existing_ok:
+            try:
+                from cryptography import x509
+                cert_obj = x509.load_pem_x509_certificate(cert_file.read_bytes())
+                san_ext = cert_obj.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+                existing_ips = {str(ip) for ip in san_ext.get_values_for_type(x509.IPAddress)}
+                existing_ok = all(ip in existing_ips for ip in san_ips)
+            except Exception:
+                existing_ok = False
+        if existing_ok:
             return cert_file, key_file
+        logger.info("Refreshing TLS SAN certificate for active LAN IP(s): %s", ", ".join(san_ips))
+
+    san_entries = [*(f"DNS:{d}" for d in san_dns), *(f"IP:{ip}" for ip in san_ips)]
+    if openssl_bin:
+        base_cmd = [
+            openssl_bin,
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            str(key_file),
+            "-out",
+            str(cert_file),
+            "-days",
+            "365",
+            "-nodes",
+            "-subj",
+            f"/CN={gs_id}",
+        ]
         try:
-            san_check = subprocess.run(
-                [openssl_bin, "x509", "-in", str(cert_file), "-noout", "-ext", "subjectAltName"],
-                capture_output=True,
-                text=True,
-                timeout=5,
+            subprocess.run(
+                [*base_cmd, "-addext", f"subjectAltName={','.join(san_entries)}"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
-            if f"IP Address:{lan_ip}" in san_check.stdout:
-                return cert_file, key_file
-            logger.info("Detected new LAN IP (%s); refreshing TLS SAN certificate...", lan_ip)
-        except Exception:
+            os.chmod(key_file, 0o600)
             return cert_file, key_file
+        except subprocess.CalledProcessError:
+            pass
 
-    san_entries = ["DNS:localhost", f"DNS:{socket.gethostname()}", f"DNS:{socket.gethostname()}.local", "IP:127.0.0.1"]
-    if lan_ip and lan_ip != "127.0.0.1":
-        san_entries.append(f"IP:{lan_ip}")
-
-    base_cmd = [
-        openssl_bin,
-        "req",
-        "-x509",
-        "-newkey",
-        "rsa:2048",
-        "-keyout",
-        str(key_file),
-        "-out",
-        str(cert_file),
-        "-days",
-        "365",
-        "-nodes",
-        "-subj",
-        f"/CN={gs_id}",
-    ]
     try:
-        subprocess.run(
-            [*base_cmd, "-addext", f"subjectAltName={','.join(san_entries)}"],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except subprocess.CalledProcessError:
-        subprocess.run(
-            base_cmd,
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        _generate_cert_with_cryptography(cert_file, key_file, gs_id, san_ips, san_dns)
+    except ImportError as exc:
+        raise RuntimeError(
+            "Neither openssl nor Python cryptography is available to generate HTTPS SAN certificates."
+        ) from exc
     os.chmod(key_file, 0o600)
     return cert_file, key_file
 
@@ -1117,6 +1256,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=cfg["sqlite_db_path"],
         help="Path to SQLite offline telemetry buffer database",
     )
+    parser.add_argument("--ground-station-id", default=cfg["ground_station_id"], help="Ground station ID")
+    parser.add_argument("--hardware-model", default=cfg["hardware_model"], help="Hardware model label")
     parser.add_argument("--certfile", default=os.getenv("TLS_CERT_FILE"), help="Path to TLS certificate PEM")
     parser.add_argument("--keyfile", default=os.getenv("TLS_KEY_FILE"), help="Path to TLS private key PEM")
     parser.add_argument(
@@ -1127,16 +1268,29 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
+    net_name = "Local LAN"
+    try:
+        from network_discovery import discover_local_network
+        d_info = discover_local_network()
+        net_name = str(d_info.get("detected_network") or "Local LAN")
+    except Exception:
+        pass
+
     certfile = args.certfile
     keyfile = args.keyfile
     if (args.self_signed or args.https_port > 0) and not (certfile and keyfile):
         cert_dir = Path(__file__).resolve().parent / ".certs"
-        cert_path, key_path = ensure_self_signed_cert(cert_dir, gs_id=cfg["ground_station_id"])
+        extra_ips = [args.host] if args.host not in ("0.0.0.0", "127.0.0.1", "::") else None
+        cert_path, key_path = ensure_self_signed_cert(cert_dir, gs_id=args.ground_station_id, extra_ips=extra_ips)
         certfile, keyfile = str(cert_path), str(key_path)
 
     forwarder = TelemetryForwarder(
         backend_url=args.backend_url,
         sqlite_path=Path(args.sqlite_db),
+        ground_station_id=args.ground_station_id,
+        hardware_model=args.hardware_model,
+        listen_host=args.host,
+        detected_network=net_name,
     )
     forwarder.start()
 

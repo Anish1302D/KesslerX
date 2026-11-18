@@ -251,3 +251,37 @@ def test_tilt_collision_probability_progression_determinism_and_cap():
     assert PHONE_SATELLITE_IDENTITY["hardware_model"] == "Raspberry Pi Zero W"
     assert PHONE_SATELLITE_IDENTITY["color"] == "#FF2EF5"
     assert PHONE_MOCK_ORBIT_ELEMENTS["orbit_type"] == "MOCK_LEO_PHONE_DEMO"
+
+
+def test_laptop_fallback_gateway_and_session_deduplication():
+    fallback_pkt = {
+        **_valid_rpi_packet(seq=1, roll=24.0, pitch=-4.0, yaw=12.0),
+        "ground_station_id": "KX-LAPTOP-FALLBACK-001",
+        "hardware_model": "Windows Laptop",
+        "session_id": "laptop-sess-01",
+    }
+    resp1 = client.post("/api/ground-station/telemetry", json=fallback_pkt)
+    assert resp1.status_code == 200
+    body1 = resp1.json()
+    assert body1["ground_station_id"] == "KX-LAPTOP-FALLBACK-001"
+    assert body1["hardware_model"] == "Windows Laptop"
+    assert body1["gateway_mode"] == "laptop_fallback"
+    assert any("Emergency laptop fallback gateway active" in w for w in body1["warnings"])
+
+    sat_after_first = client.get("/api/phone-satellite").json()
+    assert sat_after_first["telemetry"]["link_status"] == "LIVE_LAPTOP_FALLBACK"
+    assert sat_after_first["telemetry"]["packets_received"] == 1
+
+    # Duplicate packet with same (ground_station_id, session_id, sequence) must not double-count
+    resp2 = client.post("/api/ground-station/telemetry", json=fallback_pkt)
+    assert resp2.status_code == 200
+    sat_after_dup = client.get("/api/phone-satellite").json()
+    assert sat_after_dup["telemetry"]["packets_received"] == 1
+
+    # Next sequence increments cleanly
+    resp3 = client.post(
+        "/api/ground-station/telemetry",
+        json={**fallback_pkt, "sequence": 2},
+    )
+    assert resp3.status_code == 200
+    assert client.get("/api/phone-satellite").json()["telemetry"]["packets_received"] == 2

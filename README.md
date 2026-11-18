@@ -163,7 +163,8 @@ Distributed under the MIT License. Orbit propagation powered by SGP4 (`sgp4` and
 
 ---
 
-## Raspberry Pi Zero W Ground Station (`KX-RPI-ZERO-GS-001`)
+## Raspberry Pi Zero W Ground Station & Network-Independent Fallback (`KX-RPI-ZERO-GS-001` / `KX-LAPTOP-FALLBACK-001`)
 
-- **Role Separation**: The Raspberry Pi Zero W is the only ground station. The phone is the simulated satellite and telemetry source. The laptop is only the KesslerX mission-control display.
-- **Full Deployment & Hardware Guide**: [docs/RASPBERRY_PI_ZERO_W_GROUND_STATION.md](docs/RASPBERRY_PI_ZERO_W_GROUND_STATION.md)
+- **Normal Mode (`KX-RPI-ZERO-GS-001`)**: Preferred architecture where the Raspberry Pi Zero W bridges phone sensor telemetry to KesslerX over mDNS/dynamic Wi-Fi without hardcoded IPs.
+- **Emergency Fallback Mode (`KX-LAPTOP-FALLBACK-001`)**: When the Pi cannot join an event mobile hotspot, KesslerX automatically or manually hosts a temporary local gateway on the active laptop Wi-Fi / hotspot adapter with dynamic SAN TLS certs, short-lived pairing tokens, scannable QR code, and SQLite offline buffering.
+- **Full Guides**: [docs/RASPBERRY_PI_ZERO_W_GROUND_STATION.md](docs/RASPBERRY_PI_ZERO_W_GROUND_STATION.md) & [docs/NETWORK_AND_FALLBACK_GUIDE.md](docs/NETWORK_AND_FALLBACK_GUIDE.md)

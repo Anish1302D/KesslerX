@@ -39,6 +39,7 @@ const STATIC_PAGES: SearchItem[] = [
   { id: 'p10', title: 'Alert Center', subtitle: 'Active Operational Alarms & Thresholds', type: 'Page', icon: 'notifications_active', path: '/alert-center' },
   { id: 'p11', title: 'Ground Station', subtitle: 'Antenna Pointing & Pass Predictor', type: 'Page', icon: 'cell_tower', path: '/ground-station' },
   { id: 'p12', title: 'Orbital Commons AI', subtitle: 'Multi-Operator Decision Support & Fairness Negotiation', type: 'Page', icon: 'balance', path: '/orbital-commons' },
+  { id: 'p13', title: 'Network Setup', subtitle: 'Dynamic Wi-Fi Discovery, Pi Zero W & Laptop Fallback Gateway', type: 'Page', icon: 'wifi', path: '/network-setup' },
 ];
 
 export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
