@@ -274,4 +274,36 @@ describe('NetworkSetupPanel & Fallback UI States', () => {
     expect(screen.getByText('GROUND STATION MODE: LAPTOP FALLBACK')).toBeDefined();
     expect(screen.getByText(/RASPBERRY PI: UNAVAILABLE/i)).toBeDefined();
   });
+
+  it('connects Vercel cloud UI automatically to Local Laptop Gateway Agent on 127.0.0.1:8000', async () => {
+    const requestedUrls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        requestedUrls.push(url);
+        if (url.startsWith('http://127.0.0.1:8000/api/network/firewall-status')) {
+          return new Response(JSON.stringify(createMockFirewall()), { status: 200 });
+        }
+        if (url.startsWith('http://127.0.0.1:8000/api/network/status')) {
+          return new Response(JSON.stringify(createMockNetworkStatus()), { status: 200 });
+        }
+        return new Response(JSON.stringify({}), { status: 404 });
+      })
+    );
+
+    render(
+      <NetworkSetupPanel
+        pollIntervalMs={60000}
+        apiBaseUrlOverride="https://kesslerx-backend.onrender.com"
+        localAgentUrl="http://127.0.0.1:8000"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('vercel-agent-status')).toBeDefined();
+    });
+    expect(screen.getByText(/Connected to Local Laptop Gateway Agent/i)).toBeDefined();
+    expect(requestedUrls.some((u) => u.startsWith('http://127.0.0.1:8000/api/network/status'))).toBe(true);
+  });
 });

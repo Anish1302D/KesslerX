@@ -15,9 +15,15 @@ import {
   ArrowRightLeft,
   Server,
 } from 'lucide-react';
-import { API_ENDPOINTS, getApiUrl } from '../../config/api';
+import { API_BASE_URL, API_ENDPOINTS, getApiUrl } from '../../config/api';
 import { apiRequest } from '../../utils/apiClient';
 import type { PhoneTelemetrySnapshot } from '../../utils/phoneSatelliteOrbit';
+
+const DEFAULT_LOCAL_AGENT_URL = 'http://127.0.0.1:8000';
+
+function isLocalHostnameUrl(url: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url.trim());
+}
 
 export interface NetworkInterfaceInfo {
   interface_alias: string;
@@ -102,14 +108,22 @@ export interface FirewallStatusPayload {
 interface NetworkSetupPanelProps {
   phoneTelemetry?: PhoneTelemetrySnapshot;
   pollIntervalMs?: number;
+  apiBaseUrlOverride?: string;
+  localAgentUrl?: string;
 }
 
 export const NetworkSetupPanel: React.FC<NetworkSetupPanelProps> = ({
   phoneTelemetry,
   pollIntervalMs = 5000,
+  apiBaseUrlOverride,
+  localAgentUrl = DEFAULT_LOCAL_AGENT_URL,
 }) => {
+  const effectiveApiBase = (apiBaseUrlOverride ?? API_BASE_URL).replace(/\/+$/, '');
+  const isRemoteCloudApi = !isLocalHostnameUrl(effectiveApiBase);
+
   const [status, setStatus] = useState<NetworkStatusPayload | null>(null);
   const [firewall, setFirewall] = useState<FirewallStatusPayload | null>(null);
+  const [localAgentActive, setLocalAgentActive] = useState<boolean>(!isRemoteCloudApi);
   const [qrState, setQrState] = useState<{ url: string; svg: string } | null>(null);
   const [manualPiInput, setManualPiInput] = useState<string>('');
   const [selectedInterfaceIp, setSelectedInterfaceIp] = useState<string>('');
@@ -119,13 +133,51 @@ export const NetworkSetupPanel: React.FC<NetworkSetupPanelProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
+  const resolveControlUrl = useCallback(
+    (path: string, useLocalAgent: boolean): string => {
+      if (useLocalAgent && isRemoteCloudApi) {
+        const clean = path.startsWith('/') ? path : `/${path}`;
+        return `${localAgentUrl.replace(/\/+$/, '')}${clean}`;
+      }
+      if (apiBaseUrlOverride) {
+        const clean = path.startsWith('/') ? path : `/${path}`;
+        return `${effectiveApiBase}${clean}`;
+      }
+      return getApiUrl(path);
+    },
+    [apiBaseUrlOverride, effectiveApiBase, isRemoteCloudApi, localAgentUrl]
+  );
+
   const loadAll = useCallback(async () => {
     try {
-      const [netData, fwData] = await Promise.all([
-        apiRequest<NetworkStatusPayload>(getApiUrl(API_ENDPOINTS.NETWORK_STATUS), { timeoutMs: 8000 }),
-        apiRequest<FirewallStatusPayload>(getApiUrl(API_ENDPOINTS.NETWORK_FIREWALL_STATUS), { timeoutMs: 8000 }).catch(() => null),
-      ]);
+      let useLocal = false;
+      let netData: NetworkStatusPayload | null = null;
+
+      if (isRemoteCloudApi) {
+        try {
+          netData = await apiRequest<NetworkStatusPayload>(
+            `${localAgentUrl.replace(/\/+$/, '')}${API_ENDPOINTS.NETWORK_STATUS}`,
+            { timeoutMs: 2500, retries: 0 }
+          );
+          useLocal = true;
+        } catch {
+          useLocal = false;
+        }
+      }
+
+      if (!netData) {
+        netData = await apiRequest<NetworkStatusPayload>(resolveControlUrl(API_ENDPOINTS.NETWORK_STATUS, false), {
+          timeoutMs: 8000,
+        });
+      }
+
+      const fwData = await apiRequest<FirewallStatusPayload>(
+        resolveControlUrl(API_ENDPOINTS.NETWORK_FIREWALL_STATUS, useLocal),
+        { timeoutMs: 8000, retries: 0 }
+      ).catch(() => null);
+
       if (!mountedRef.current) return;
+      setLocalAgentActive(!isRemoteCloudApi || useLocal);
       setStatus(netData);
       if (netData.detected_network?.selected_ip && !selectedInterfaceIp) {
         setSelectedInterfaceIp(netData.detected_network.selected_ip);
@@ -142,55 +194,55 @@ export const NetworkSetupPanel: React.FC<NetworkSetupPanelProps> = ({
         setErrorMessage(err instanceof Error ? err.message : 'Unable to fetch network discovery status');
       }
     }
-  }, [manualPiInput, selectedInterfaceIp]);
+}, [isRemoteCloudApi, localAgentUrl, manualPiInput, resolveControlUrl, selectedInterfaceIp]);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    const runInitial = async () => {
-      await loadAll();
-    };
-    void runInitial();
-    const timer = setInterval(() => {
-      void loadAll();
-    }, pollIntervalMs);
-    return () => {
-      mountedRef.current = false;
-      clearInterval(timer);
-    };
-  }, [loadAll, pollIntervalMs]);
+useEffect(() => {
+  mountedRef.current = true;
+  const runInitial = async () => {
+    await loadAll();
+  };
+  void runInitial();
+  const timer = setInterval(() => {
+    void loadAll();
+  }, pollIntervalMs);
+  return () => {
+    mountedRef.current = false;
+    clearInterval(timer);
+  };
+}, [loadAll, pollIntervalMs]);
 
-  const activeSimulatorUrl = status?.simulator?.url_with_token || status?.simulator?.url || '';
-  const qrSvg = activeSimulatorUrl && qrState?.url === activeSimulatorUrl ? qrState.svg : '';
+const activeSimulatorUrl = status?.simulator?.url_with_token || status?.simulator?.url || '';
+const qrSvg = activeSimulatorUrl && qrState?.url === activeSimulatorUrl ? qrState.svg : '';
 
-  useEffect(() => {
-    let active = true;
-    if (!activeSimulatorUrl) {
-      return () => {
-        active = false;
-      };
-    }
-    QRCode.toString(activeSimulatorUrl, {
-      type: 'svg',
-      margin: 1,
-      width: 152,
-      color: { dark: '#0f172a', light: '#ffffff' },
-    })
-      .then((svg) => {
-        if (active) setQrState({ url: activeSimulatorUrl, svg });
-      })
-      .catch(() => {
-        if (active) setQrState(null);
-      });
+useEffect(() => {
+  let active = true;
+  if (!activeSimulatorUrl) {
     return () => {
       active = false;
     };
-  }, [activeSimulatorUrl]);
+  }
+  QRCode.toString(activeSimulatorUrl, {
+    type: 'svg',
+    margin: 1,
+    width: 152,
+    color: { dark: '#0f172a', light: '#ffffff' },
+  })
+    .then((svg) => {
+      if (active) setQrState({ url: activeSimulatorUrl, svg });
+    })
+    .catch(() => {
+      if (active) setQrState(null);
+    });
+  return () => {
+    active = false;
+  };
+}, [activeSimulatorUrl]);
 
-  const handleDiscover = async (autoConnect = false, preferredIpOverride?: string) => {
-    setBusyAction(autoConnect ? 'auto_connect' : 'discover');
-    setErrorMessage(null);
-    try {
-      const data = await apiRequest<NetworkStatusPayload>(getApiUrl(API_ENDPOINTS.NETWORK_DISCOVER), {
+const handleDiscover = async (autoConnect = false, preferredIpOverride?: string) => {
+  setBusyAction(autoConnect ? 'auto_connect' : 'discover');
+  setErrorMessage(null);
+  try {
+      const data = await apiRequest<NetworkStatusPayload>(resolveControlUrl(API_ENDPOINTS.NETWORK_DISCOVER, localAgentActive), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -200,45 +252,45 @@ export const NetworkSetupPanel: React.FC<NetworkSetupPanelProps> = ({
         }),
         timeoutMs: 12000,
       });
-      if (!mountedRef.current) return;
-      setStatus(data);
-      if (data.detected_network?.selected_ip) {
-        setSelectedInterfaceIp(data.detected_network.selected_ip);
-      }
-    } catch (err) {
-      if (mountedRef.current) {
-        setErrorMessage(err instanceof Error ? err.message : 'Discovery failed');
-      }
-    } finally {
-      if (mountedRef.current) setBusyAction(null);
+      if(!mountedRef.current) return;
+    setStatus(data);
+    if (data.detected_network?.selected_ip) {
+      setSelectedInterfaceIp(data.detected_network.selected_ip);
     }
-  };
+  } catch (err) {
+    if (mountedRef.current) {
+      setErrorMessage(err instanceof Error ? err.message : 'Discovery failed');
+    }
+  } finally {
+    if (mountedRef.current) setBusyAction(null);
+  }
+};
 
-  const handleModeSwitch = async (mode: 'AUTO' | 'PI' | 'LAPTOP_FALLBACK') => {
-    setBusyAction(`mode_${mode}`);
-    setErrorMessage(null);
-    try {
-      const data = await apiRequest<NetworkStatusPayload>(getApiUrl(API_ENDPOINTS.NETWORK_MODE), {
+const handleModeSwitch = async (mode: 'AUTO' | 'PI' | 'LAPTOP_FALLBACK') => {
+  setBusyAction(`mode_${mode}`);
+  setErrorMessage(null);
+  try {
+      const data = await apiRequest<NetworkStatusPayload>(resolveControlUrl(API_ENDPOINTS.NETWORK_MODE, localAgentActive), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode, force_switch_to_pi: mode === 'PI' }),
         timeoutMs: 12000,
       });
-      if (!mountedRef.current) return;
-      setStatus(data);
-    } catch (err) {
-      if (mountedRef.current) {
-        setErrorMessage(err instanceof Error ? err.message : 'Mode switch failed');
-      }
-    } finally {
-      if (mountedRef.current) setBusyAction(null);
+      if(!mountedRef.current) return;
+    setStatus(data);
+  } catch (err) {
+    if (mountedRef.current) {
+      setErrorMessage(err instanceof Error ? err.message : 'Mode switch failed');
     }
-  };
+  } finally {
+    if (mountedRef.current) setBusyAction(null);
+  }
+};
 
-  const handleRefreshToken = async () => {
-    setBusyAction('token');
-    try {
-      await apiRequest(getApiUrl(API_ENDPOINTS.NETWORK_PAIRING_TOKEN), {
+const handleRefreshToken = async () => {
+  setBusyAction('token');
+  try {
+      await apiRequest(resolveControlUrl(API_ENDPOINTS.NETWORK_PAIRING_TOKEN, localAgentActive), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ttl_seconds: 900 }),
@@ -263,7 +315,7 @@ export const NetworkSetupPanel: React.FC<NetworkSetupPanelProps> = ({
         backend: { reachable: boolean; service_status: string };
         firewall: FirewallStatusPayload;
         diagnostics: string[];
-      }>(getApiUrl(API_ENDPOINTS.NETWORK_TEST_CONNECTION), {
+      } > (resolveControlUrl(API_ENDPOINTS.NETWORK_TEST_CONNECTION, localAgentActive), {
         method: 'POST',
         timeoutMs: 12000,
       });
@@ -350,6 +402,28 @@ export const NetworkSetupPanel: React.FC<NetworkSetupPanelProps> = ({
         </div>
       </div>
 
+      {/* Cloud / Vercel Hybrid Local Agent Guidance */}
+      {isRemoteCloudApi && (
+        <div
+          data-testid="vercel-agent-status"
+          className={`p-3 rounded-lg border text-[11px] font-mono flex flex-wrap items-center justify-between gap-2 ${localAgentActive
+              ? 'bg-emerald-500/10 border-emerald-500/35 text-emerald-200'
+              : 'bg-cyan-500/10 border-cyan-500/35 text-cyan-200'
+            }`}
+        >
+          {localAgentActive ? (
+            <span>
+              <strong>Connected to Local Laptop Gateway Agent</strong> ({localAgentUrl}) · Telemetry syncs to cloud backend ({effectiveApiBase}).
+            </span>
+          ) : (
+            <span>
+              Viewing cloud UI ({effectiveApiBase}). Start the Local Gateway Agent on your laptop (
+              <code>powershell -ExecutionPolicy Bypass -File scripts/start_laptop_gateway.ps1</code>) to discover your hotspot IP &amp; generate the QR code right here on Vercel.
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Recovery Notification Banner when Pi returns during active Laptop Fallback */}
       {isFallback && piRecovered && (
         <div
@@ -402,8 +476,8 @@ export const NetworkSetupPanel: React.FC<NetworkSetupPanelProps> = ({
             {isPi
               ? 'Raspberry Pi Ground Station Active'
               : isFallback
-              ? 'Laptop Fallback Active (Emergency Mode)'
-              : 'Searching for Raspberry Pi...'}
+                ? 'Laptop Fallback Active (Emergency Mode)'
+                : 'Searching for Raspberry Pi...'}
           </div>
           <div className="text-[10px] text-slate-400 mt-0.5">{status?.ground_station_id || 'KX-RPI-ZERO-GS-001'}</div>
         </div>
@@ -452,11 +526,10 @@ export const NetworkSetupPanel: React.FC<NetworkSetupPanelProps> = ({
                     type="button"
                     onClick={() => handleModeSwitch(mode)}
                     disabled={busyAction !== null}
-                    className={`px-2.5 py-1 font-bold transition-colors cursor-pointer ${
-                      active
+                    className={`px-2.5 py-1 font-bold transition-colors cursor-pointer ${active
                         ? 'bg-cyan-500 text-slate-950'
                         : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
-                    }`}
+                      }`}
                   >
                     {label}
                   </button>

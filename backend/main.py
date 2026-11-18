@@ -256,10 +256,20 @@ if not origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"^https://[a-zA-Z0-9-]+\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_private_network_access_header(request: Request, call_next):
+    """Allow HTTPS origins (e.g. Vercel) to query local 127.0.0.1 Gateway Agent under Chrome PNA."""
+    response = await call_next(request)
+    if request.headers.get("access-control-request-private-network", "").lower() == "true":
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
 
 # ============================================================
 # WebSocket Connection Manager

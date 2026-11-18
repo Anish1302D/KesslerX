@@ -71,10 +71,23 @@ Both modes keep all KesslerX functionality intact: `PHONE SATELLITE` (`PHONE-SAT
 
 ---
 
-## 5. Event-Day Quick Checklist
+## 5. Using the Hosted Vercel Dashboard (`https://kessler-x.vercel.app`)
+
+When opening KesslerX on **Vercel** (`https://kessler-x.vercel.app`) instead of `localhost:5173`:
+
+1. Vercel loads telemetry, `PHONE SATELLITE` conjunction risk, and `MOCK_LEO_PHONE_DEMO` directly from Render (`https://kesslerx-backend.onrender.com`).
+2. Because Render runs in the cloud, it cannot see your laptop's hotspot IP or bind port `8444`. Start the **Local Laptop Gateway Agent** on your Windows 11 laptop in one command:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts/start_laptop_gateway.ps1
+   ```
+3. `NetworkSetupPanel` on Vercel automatically connects to `http://127.0.0.1:8000` (if Chrome/Edge prompts once to allow local network access from Vercel, click **Allow**), displays your hotspot IP + scannable QR code on the Vercel page, and forwards phone telemetry through Render to Vercel live.
+
+---
+
+## 6. Event-Day Quick Checklist
 
 1. Connect the laptop and phone to your hotspot (or enable Windows Mobile Hotspot on Galaxy Book 5 and join it with Samsung Galaxy A35).
-2. Open KesslerX Mission Control -> **Ground Station** (`/ground-station`) or **Network Setup** (`/network-setup`).
+2. If using **Vercel**, run `scripts/start_laptop_gateway.ps1` on the laptop and open `https://kessler-x.vercel.app/ground-station` (or `/network-setup`).
 3. Verify **Detected Network**, **Laptop Local IP**, and **Raspberry Pi Zero W** status.
 4. If Raspberry Pi is **Active** (`KX-RPI-ZERO-GS-001`), scan/open its HTTPS URL on Samsung Galaxy A35.
-5. If Raspberry Pi is **Unreachable**, click **Auto Connect** or **Laptop Fallback** (`KX-LAPTOP-FALLBACK-001`), verify Private firewall status, scan the QR code on Samsung Galaxy A35, accept the self-signed HTTPS warning once, tap **Connect & Start Streaming**, and verify telemetry updates in `PHONE SATELLITE`.
+5. If Raspberry Pi is **Unreachable**, click **Auto Connect** or **Laptop Fallback** (`KX-LAPTOP-FALLBACK-001`), verify Private firewall status, scan the QR code on Samsung Galaxy A35, accept the self-signed HTTPS warning once, tap **Start Telemetry**, and verify telemetry updates in `PHONE SATELLITE`.

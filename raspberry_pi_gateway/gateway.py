@@ -1012,17 +1012,23 @@ def create_gateway_handler(forwarder: TelemetryForwarder, html_path: Path = PHON
                 self._send_json(404, {"error": "Unknown endpoint. Send telemetry only to POST /telemetry."})
                 return
 
+            try:
+                content_len = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                content_len = 0
+
+            # Drain small incoming body before responding so Win32 TCP stack does not RST on 401/400
+            raw_bytes = b""
+            if 0 < content_len <= 65536:
+                try:
+                    raw_bytes = self.rfile.read(content_len)
+                except Exception:
+                    raw_bytes = b""
+
             parsed_qs = urllib.parse.parse_qs(parsed.query)
             if not forwarder.verify_pairing_token(self._extract_pairing_token(parsed_qs)):
                 forwarder.record_rejection()
                 self._send_json(401, {"error": "Invalid or expired pairing token."})
-                return
-
-            try:
-                content_len = int(self.headers.get("Content-Length", "0"))
-            except ValueError:
-                forwarder.record_rejection()
-                self._send_json(400, {"error": "Invalid Content-Length header."})
                 return
 
             if content_len <= 0 or content_len > 65536:
@@ -1030,7 +1036,6 @@ def create_gateway_handler(forwarder: TelemetryForwarder, html_path: Path = PHON
                 self._send_json(400, {"error": "Invalid payload size."})
                 return
 
-            raw_bytes = self.rfile.read(content_len)
             try:
                 raw_json = json.loads(raw_bytes.decode("utf-8"))
             except Exception as exc:

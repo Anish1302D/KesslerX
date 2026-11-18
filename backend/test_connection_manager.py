@@ -481,3 +481,23 @@ def test_network_api_endpoints_integration():
     sat = client.get("/api/phone-satellite").json()
     assert sat["telemetry"]["link_status"] == "LIVE_LAPTOP_FALLBACK"
     assert any("Emergency laptop fallback gateway active" in w for w in sat["telemetry"]["warnings"])
+
+    # Verify Vercel -> Local 127.0.0.1 Gateway Agent CORS + Private Network Access preflight
+    opt_resp = client.options(
+        "/api/network/status",
+        headers={
+            "Origin": "https://kessler-x.vercel.app",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Private-Network": "true",
+        },
+    )
+    assert opt_resp.status_code == 200
+    assert opt_resp.headers.get("access-control-allow-origin") == "https://kessler-x.vercel.app"
+    assert opt_resp.headers.get("access-control-allow-private-network") == "true"
+
+    preview_resp = client.get(
+        "/api/network/status",
+        headers={"Origin": "https://kesslerx-preview-123.vercel.app"},
+    )
+    assert preview_resp.status_code == 200
+    assert preview_resp.headers.get("access-control-allow-origin") == "https://kesslerx-preview-123.vercel.app"
