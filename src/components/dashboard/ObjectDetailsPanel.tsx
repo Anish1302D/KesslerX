@@ -27,6 +27,7 @@ interface ObjectDetailsPanelProps {
   followState?: FollowState;
   onFollowSatellite?: () => void;
   onStopFollowing?: () => void;
+  panelPositionClassName?: string;
 }
 
 export default function ObjectDetailsPanel({
@@ -36,6 +37,7 @@ export default function ObjectDetailsPanel({
   followState,
   onFollowSatellite,
   onStopFollowing,
+  panelPositionClassName = 'top-4 right-4',
 }: ObjectDetailsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -68,23 +70,23 @@ export default function ObjectDetailsPanel({
       if (positionAndVelocity && positionAndVelocity.position && positionAndVelocity.velocity) {
         const positionEci = positionAndVelocity.position;
         const velocityEci = positionAndVelocity.velocity;
-      
-      if (positionEci && velocityEci && typeof positionEci !== 'boolean' && typeof velocityEci !== 'boolean') {
-        const gmst = satellite.gstime(new Date());
-        const positionGd = satellite.eciToGeodetic(positionEci as satellite.EciVec3<number>, gmst);
-        altitude = Math.round(positionGd.height).toLocaleString();
-        
-        // Calculate velocity magnitude in km/s then to km/h
-        const v = velocityEci as satellite.EciVec3<number>;
-        const vMag = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-        velocity = Math.round(vMag * 3600).toLocaleString();
 
-        inclination = (satrec.inclo * (180 / Math.PI)).toFixed(2);
-        const meanMotionRevPerDay = satrec.no * 60 * 24 / (2 * Math.PI);
-        if (meanMotionRevPerDay > 0) {
-           period = Math.round(1440 / meanMotionRevPerDay).toString();
+        if (positionEci && velocityEci && typeof positionEci !== 'boolean' && typeof velocityEci !== 'boolean') {
+          const gmst = satellite.gstime(new Date());
+          const positionGd = satellite.eciToGeodetic(positionEci as satellite.EciVec3<number>, gmst);
+          altitude = Math.round(positionGd.height).toLocaleString();
+
+          // Calculate velocity magnitude in km/s then to km/h
+          const v = velocityEci as satellite.EciVec3<number>;
+          const vMag = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+          velocity = Math.round(vMag * 3600).toLocaleString();
+
+          inclination = (satrec.inclo * (180 / Math.PI)).toFixed(2);
+          const meanMotionRevPerDay = satrec.no * 60 * 24 / (2 * Math.PI);
+          if (meanMotionRevPerDay > 0) {
+            period = Math.round(1440 / meanMotionRevPerDay).toString();
+          }
         }
-      }
       }
     } catch {
       // Fallback
@@ -164,7 +166,8 @@ export default function ObjectDetailsPanel({
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 30 }}
           transition={{ duration: 0.3 }}
-          className="absolute top-4 right-4 w-80 z-20 max-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar"
+          onWheel={(e) => e.stopPropagation()}
+          className={`absolute ${panelPositionClassName} w-80 z-30 max-h-[calc(100vh-120px)] overflow-y-auto overscroll-contain pointer-events-auto custom-scrollbar`}
         >
           <div ref={panelRef} className="glass-panel-strong p-5 rounded-xl border border-primary/20" style={{ background: 'rgba(6, 14, 32, 0.85)', backdropFilter: 'blur(16px)' }}>
             <div className="flex items-center justify-between mb-4">
@@ -194,13 +197,12 @@ export default function ObjectDetailsPanel({
                 {isPhoneSat ? `ID: ${satelliteData.NORAD_CAT_ID || PHONE_SATELLITE_IDENTITY.id}` : `NORAD: ${satelliteData.NORAD_CAT_ID}`}
               </span>
               <span
-                className={`text-[9px] font-mono px-2 py-0.5 rounded border uppercase ml-auto shrink-0 ${
-                  isPhoneSat
+                className={`text-[9px] font-mono px-2 py-0.5 rounded border uppercase ml-auto shrink-0 ${isPhoneSat
                     ? 'bg-[#FF2EF5]/15 text-[#F9A8D4] border-[#FF2EF5]/40'
                     : satelliteData.source === 'space-track'
-                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                    : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                }`}
+                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                      : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                  }`}
               >
                 {isPhoneSat ? 'SIMULATED' : satelliteData.source === 'space-track' ? 'LIVE TLE' : 'SIMULATED'}
               </span>
@@ -210,7 +212,9 @@ export default function ObjectDetailsPanel({
               <div className="mb-4 p-3 rounded-lg bg-[#FF2EF5]/10 border border-[#FF2EF5]/35 space-y-2">
                 <div className="flex items-center justify-between text-[10px] font-mono">
                   <span className="font-bold text-[#F9A8D4]">{PHONE_SATELLITE_SAFETY_LABELS.simulated}</span>
-                  <span className="text-slate-300">{PHONE_SATELLITE_IDENTITY.ground_station_id}</span>
+                  <span className="text-slate-300">
+                    {resolvedPhone.telemetry.ground_station_id || PHONE_SATELLITE_IDENTITY.ground_station_id}
+                  </span>
                 </div>
                 <p className="text-[11px] text-slate-200 leading-relaxed">
                   {PHONE_SATELLITE_IDENTITY.description}
@@ -375,9 +379,9 @@ export default function ObjectDetailsPanel({
                     <StatusBadge
                       severity={
                         resolvedPhone.conjunction.risk_level === 'CRITICAL' ||
-                        resolvedPhone.conjunction.risk_level === 'HIGH' ||
-                        resolvedPhone.conjunction.risk_level === 'MEDIUM' ||
-                        resolvedPhone.conjunction.risk_level === 'LOW'
+                          resolvedPhone.conjunction.risk_level === 'HIGH' ||
+                          resolvedPhone.conjunction.risk_level === 'MEDIUM' ||
+                          resolvedPhone.conjunction.risk_level === 'LOW'
                           ? resolvedPhone.conjunction.risk_level
                           : 'NOMINAL'
                       }
@@ -444,84 +448,84 @@ export default function ObjectDetailsPanel({
               )}
             </div>
 
-              <div className="flex flex-col gap-2">
-                {/* Follow Satellite Button */}
-                {onFollowSatellite && onStopFollowing && (
-                  isFollowing ? (
-                    <button
-                      onClick={onStopFollowing}
-                      id="exit-follow-btn"
-                      className="w-full py-2.5 rounded-lg text-xs font-space font-semibold tracking-wider transition-all duration-200 flex items-center justify-center gap-2"
-                      style={{
-                        background: 'rgba(16, 185, 129, 0.2)',
-                        border: '1px solid rgba(16, 185, 129, 0.4)',
-                        color: '#10B981',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                        e.currentTarget.style.color = '#EF4444';
-                        e.currentTarget.querySelector('span')!.textContent = 'EXIT FOLLOW';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)';
-                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-                        e.currentTarget.style.color = '#10B981';
-                        e.currentTarget.querySelector('span')!.textContent = 'FOLLOWING';
-                      }}
-                    >
-                      <Crosshair className="w-4 h-4" />
-                      <span>FOLLOWING</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={onFollowSatellite}
-                      disabled={isFocusing}
-                      id="follow-satellite-btn"
-                      className="w-full py-2.5 rounded-lg text-xs font-space font-semibold tracking-wider transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
-                      style={{
-                        background: 'rgba(0, 174, 239, 0.15)',
-                        border: '1px solid rgba(0, 174, 239, 0.3)',
-                        color: '#00AEEF',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isFocusing) {
-                          e.currentTarget.style.background = 'rgba(0, 174, 239, 0.25)';
-                          e.currentTarget.style.boxShadow = '0 0 15px rgba(0,174,239,0.2)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(0, 174, 239, 0.15)';
-                        e.currentTarget.style.boxShadow = 'none';
-                      }}
-                    >
-                      <Crosshair className="w-4 h-4" />
-                      {isFocusing ? 'FOCUSING...' : 'FOLLOW SATELLITE'}
-                    </button>
-                  )
-                )}
+            <div className="flex flex-col gap-2">
+              {/* Follow Satellite Button */}
+              {onFollowSatellite && onStopFollowing && (
+                isFollowing ? (
+                  <button
+                    onClick={onStopFollowing}
+                    id="exit-follow-btn"
+                    className="w-full py-2.5 rounded-lg text-xs font-space font-semibold tracking-wider transition-all duration-200 flex items-center justify-center gap-2"
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.2)',
+                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                      color: '#10B981',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                      e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                      e.currentTarget.style.color = '#EF4444';
+                      e.currentTarget.querySelector('span')!.textContent = 'EXIT FOLLOW';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)';
+                      e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                      e.currentTarget.style.color = '#10B981';
+                      e.currentTarget.querySelector('span')!.textContent = 'FOLLOWING';
+                    }}
+                  >
+                    <Crosshair className="w-4 h-4" />
+                    <span>FOLLOWING</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={onFollowSatellite}
+                    disabled={isFocusing}
+                    id="follow-satellite-btn"
+                    className="w-full py-2.5 rounded-lg text-xs font-space font-semibold tracking-wider transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                    style={{
+                      background: 'rgba(0, 174, 239, 0.15)',
+                      border: '1px solid rgba(0, 174, 239, 0.3)',
+                      color: '#00AEEF',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isFocusing) {
+                        e.currentTarget.style.background = 'rgba(0, 174, 239, 0.25)';
+                        e.currentTarget.style.boxShadow = '0 0 15px rgba(0,174,239,0.2)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(0, 174, 239, 0.15)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <Crosshair className="w-4 h-4" />
+                    {isFocusing ? 'FOCUSING...' : 'FOLLOW SATELLITE'}
+                  </button>
+                )
+              )}
 
-                <button
-                  onClick={() => setShowReportModal(true)}
-                  className="w-full py-2.5 rounded-lg text-xs font-space font-semibold tracking-wider transition-all duration-200 flex items-center justify-center gap-2"
-                  style={{
-                    background: 'rgba(0, 174, 239, 0.15)',
-                    border: '1px solid rgba(0, 174, 239, 0.3)',
-                    color: '#00AEEF',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(0, 174, 239, 0.25)';
-                    e.currentTarget.style.boxShadow = '0 0 15px rgba(0,174,239,0.2)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(0, 174, 239, 0.15)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <Download className="w-4 h-4" />
-                  DOWNLOAD PDF REPORT
-                </button>
-              </div>
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="w-full py-2.5 rounded-lg text-xs font-space font-semibold tracking-wider transition-all duration-200 flex items-center justify-center gap-2"
+                style={{
+                  background: 'rgba(0, 174, 239, 0.15)',
+                  border: '1px solid rgba(0, 174, 239, 0.3)',
+                  color: '#00AEEF',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 174, 239, 0.25)';
+                  e.currentTarget.style.boxShadow = '0 0 15px rgba(0,174,239,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 174, 239, 0.15)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <Download className="w-4 h-4" />
+                DOWNLOAD PDF REPORT
+              </button>
+            </div>
           </div>
         </motion.div>
       )}

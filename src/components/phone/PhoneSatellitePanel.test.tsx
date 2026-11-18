@@ -140,4 +140,27 @@ describe('Phone Satellite UI, Fallback & Safety Labels', () => {
     expect(screen.getByTestId('fallback-phone-telemetry')).toBeDefined();
     expect(screen.getByText(/0\.50% \(SAFE\)/i)).toBeDefined();
   });
+
+  it('makes compact PhoneSatellitePanel body scrollable and displays live ground_station_id in ObjectDetailsPanel', () => {
+    const phoneData = createDefaultPhoneSatelliteData();
+    phoneData.telemetry.ground_station_id = 'KX-LAPTOP-FALLBACK-001';
+    phoneData.telemetry.link_status = 'LIVE_LAPTOP_FALLBACK';
+
+    render(
+      <MemoryRouter>
+        <UserProvider>
+          <PhoneSatellitePanel phoneSatellite={phoneData} defaultExpanded={true} compact={true} />
+          <ObjectDetailsPanel
+            satelliteData={phoneSatelliteToItem(phoneData)}
+            phoneSatellite={phoneData}
+            onClose={() => {}}
+          />
+        </UserProvider>
+      </MemoryRouter>
+    );
+
+    const scrollBody = screen.getByTestId('phone-satellite-scroll-body');
+    expect(scrollBody.className).toContain('overflow-y-auto');
+    expect(screen.getAllByText(/KX-LAPTOP-FALLBACK-001/).length).toBeGreaterThan(0);
+  });
 });

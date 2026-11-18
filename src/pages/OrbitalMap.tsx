@@ -211,461 +211,461 @@ export default function OrbitalMap() {
         followState={followState}
         onFollowSatellite={handleFollowSatellite}
         onStopFollowing={handleStopFollowing}
+        panelPositionClassName="top-20 right-20"
       />
 
-      {/* Additive Compact Phone Satellite Panel (visible even if WebGL fails) */}
-      {!selectedObject && !isUIHidden && (
-        <div className="hidden lg:block absolute top-20 right-6 z-20 w-80 pointer-events-auto">
-          <PhoneSatellitePanel
-            phoneSatellite={phoneSatellite}
-            onSelectPhoneSatellite={() => handleSelectObject(phoneSatelliteItem)}
-            defaultExpanded={false}
-            compact
-          />
-        </div>
-      )}
-
-      {/* ── Follow Mode HUD Indicator ────────────────── */}
-      {followState.mode !== 'FREE' && !isUIHidden && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 pointer-events-auto">
-          <div
-            className="flex items-center gap-3 px-4 py-2.5 rounded-full"
-            style={{
-              background: followState.mode === 'FOLLOWING'
-                ? 'rgba(16, 185, 129, 0.15)'
-                : 'rgba(0, 174, 239, 0.15)',
-              border: `1px solid ${followState.mode === 'FOLLOWING'
-                ? 'rgba(16, 185, 129, 0.3)'
-                : 'rgba(0, 174, 239, 0.3)'}`,
-              backdropFilter: 'blur(12px)',
-            }}
-          >
+          {/* Additive Compact Phone Satellite Panel (stays visible even if Hide UI is toggled or WebGL fails) */}
+          {!selectedObject && (
             <div
-              className="w-2 h-2 rounded-full animate-pulse"
-              style={{
-                background: followState.mode === 'FOLLOWING' ? '#10B981' : '#00AEEF',
-                boxShadow: `0 0 6px ${followState.mode === 'FOLLOWING' ? '#10B981' : '#00AEEF'}`,
-              }}
-            />
-            <span
-              className="text-[11px] font-label-mono uppercase tracking-widest"
-              style={{ color: followState.mode === 'FOLLOWING' ? '#10B981' : '#00AEEF' }}
+              data-testid="orbital-map-phone-panel-container"
+              className="block absolute top-20 right-20 z-30 w-72 sm:w-80 max-h-[calc(100vh-7.5rem)] pointer-events-auto"
             >
-              {followState.mode === 'FOCUSING' ? 'Focusing' : 'Following'} · {followState.targetName}
-            </span>
-            {followState.mode === 'FOLLOWING' && (
-              <button
-                onClick={handleStopFollowing}
-                className="ml-1 text-[10px] font-label-mono uppercase tracking-widest px-2.5 py-1 rounded-full transition-all hover:brightness-125"
+              <PhoneSatellitePanel
+                phoneSatellite={phoneSatellite}
+                onSelectPhoneSatellite={() => handleSelectObject(phoneSatelliteItem)}
+                defaultExpanded={false}
+                compact
+              />
+            </div>
+          )}
+
+          {/* ── Follow Mode HUD Indicator ────────────────── */}
+          {followState.mode !== 'FREE' && !isUIHidden && (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40 pointer-events-auto">
+              <div
+                className="flex items-center gap-3 px-4 py-2.5 rounded-full"
                 style={{
-                  background: 'rgba(239, 68, 68, 0.2)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  color: '#EF4444',
+                  background: followState.mode === 'FOLLOWING'
+                    ? 'rgba(16, 185, 129, 0.15)'
+                    : 'rgba(0, 174, 239, 0.15)',
+                  border: `1px solid ${followState.mode === 'FOLLOWING'
+                    ? 'rgba(16, 185, 129, 0.3)'
+                    : 'rgba(0, 174, 239, 0.3)'}`,
+                  backdropFilter: 'blur(12px)',
                 }}
               >
-                Exit
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Catalog Load Failure Banner */}
-      {satError && satellites.length === 0 && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 glass border border-rose-500/50 bg-surface-container-lowest/90 px-4 py-2.5 rounded-xl flex items-center gap-3 text-rose-300 font-mono text-xs pointer-events-auto shadow-2xl">
-          <span className="material-symbols-outlined text-rose-400 text-sm">warning</span>
-          <span>Failed to load orbital catalog. Object counts unavailable.</span>
-          <button
-            onClick={() => void refreshSatellites()}
-            className="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* 2D / 3D Tracking Navigation Action */}
-      <button 
-        className="absolute top-6 right-20 z-50 px-3.5 py-2 glass rounded-xl flex items-center gap-2 hover:bg-primary/20 hover:text-primary transition-all active:scale-95 text-xs font-mono font-bold"
-        title={viewMode === '3d' ? "Open 2D Tracking Table" : "Switch to 3D Globe"}
-        onClick={() => setViewMode(prev => prev === '3d' ? '2d' : '3d')}
-      >
-        <span className="material-symbols-outlined text-sm">
-          {viewMode === '3d' ? 'table_rows' : 'public'}
-        </span>
-        {viewMode === '3d' ? 'Open 2D Tracking Table' : 'Switch to 3D Globe'}
-      </button>
-
-      {/* UI Visibility Toggle (Always Visible) */}
-      <button 
-        className="absolute top-6 right-6 z-50 w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90"
-        title={isUIHidden ? "Show UI" : "Hide UI"}
-        onClick={() => setIsUIHidden(!isUIHidden)}
-      >
-        <span className="material-symbols-outlined">
-          {isUIHidden ? "visibility" : "visibility_off"}
-        </span>
-      </button>
-
-      {/* Map Control Sidebar */}
-      <div className={`absolute left-6 top-6 z-30 w-72 flex flex-col gap-4 max-h-[calc(100vh-100px)] pointer-events-none transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        
-        {/* Statistics Widget */}
-        <div className="glass rounded-xl p-inner-padding border-primary/20 pointer-events-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-headline-sm text-headline-sm text-primary flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm">analytics</span>
-              Live Telemetry
-            </h3>
-            <ProvenanceBadge
-              compact
-              source={satellites.length > 50 ? 'space-track' : 'demo'}
-              mode={satellites.length > 50 ? 'observed' : 'fallback'}
-              warnings={satellites.length > 50 ? [] : ['Simulated Demo Fixtures']}
-            />
-          </div>
-          <div className="space-y-4">
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="font-label-mono text-[10px] text-outline uppercase">Active Satellites</p>
-                <h2 className="font-stat-lg text-stat-lg text-primary">{formatObjectCount(activePayLoads, satDataState)}</h2>
-              </div>
-              <div className="text-emerald-400 text-[12px] font-label-mono flex items-center">
-                <span className="material-symbols-outlined text-xs">trending_up</span> 2.35%
-              </div>
-            </div>
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="font-label-mono text-[10px] text-outline uppercase">Tracked Debris</p>
-                <h2 className="font-stat-lg text-stat-lg">{formatObjectCount(debrisCount, satDataState)}</h2>
-              </div>
-              <div className="text-error text-[12px] font-label-mono flex items-center">
-                <span className="material-symbols-outlined text-xs">trending_up</span> 1.89%
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Advanced Filter Sidebar */}
-        <div className="glass rounded-xl flex-1 flex flex-col overflow-hidden pointer-events-auto">
-          <div className="p-inner-padding border-b border-outline-variant/10 flex justify-between items-center cursor-pointer" onClick={() => setShowFilters(!showFilters)}>
-            <h3 className="font-headline-sm text-headline-sm flex items-center gap-2">
-              <span className="material-symbols-outlined">filter_alt</span>
-              Object Filtering
-            </h3>
-            <span className={`material-symbols-outlined transition-transform ${showFilters ? 'rotate-180' : ''}`}>expand_more</span>
-          </div>
-          
-          {showFilters && (
-            <div className="p-inner-padding overflow-y-auto custom-scrollbar space-y-6 max-h-64">
-              <div className="space-y-3">
-                <p className="font-label-mono text-[10px] text-outline uppercase tracking-wider">Object Types</p>
-                
-                {Object.entries(filters).map(([key, enabled]) => {
-                  const colors: Record<string, string> = {
-                    Communication: 'text-primary', Debris: 'text-error', ISS: 'text-white', Weather: 'text-yellow-500',
-                    Military: 'text-orange-500', GPS: 'text-emerald-500', Scientific: 'text-purple-500',
-                  };
-                  return (
-                    <label key={key} className="flex items-center gap-3 cursor-pointer group">
-                      <input 
-                        type="checkbox" 
-                        checked={enabled} 
-                        onChange={() => toggleFilter(key)}
-                        className={`w-4 h-4 rounded bg-surface-container-highest border-outline-variant focus:ring-1 ${colors[key]} focus:ring-primary`} 
-                      />
-                      <span className={`font-body-md text-body-md transition-colors ${enabled ? colors[key] : 'text-on-surface-variant'}`}>
-                        {key}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-
-              {/* Display Layers / Lighting & Orbits */}
-              <div className="pt-3 border-t border-outline-variant/10 space-y-2">
-                <p className="font-label-mono text-[10px] text-outline uppercase tracking-wider mb-2">Display & Lighting</p>
-                
-                {/* Day / Night Realtime Lighting Toggle */}
-                <label className="flex items-center justify-between gap-3 cursor-pointer group p-2 rounded-lg bg-surface-container-highest/20 hover:bg-surface-container-highest/40 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-yellow-400">wb_sunny</span>
-                    <span className="text-xs font-medium text-on-surface">Day / Night Cycle</span>
-                  </div>
-                  <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors ${enableLighting ? 'bg-primary' : 'bg-outline-variant/40'}`}>
-                    <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${enableLighting ? 'translate-x-3.5' : 'translate-x-0'}`} />
-                  </div>
-                </label>
-
-                {/* Sun & Moon Celestial Objects */}
-                <label className="flex items-center justify-between gap-3 cursor-pointer group p-2 rounded-lg bg-surface-container-highest/20 hover:bg-surface-container-highest/40 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-blue-300">bedtime</span>
-                    <span className="text-xs font-medium text-on-surface">Sun & Moon</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={showSunMoon}
-                    onChange={(e) => setShowSunMoon(e.target.checked)}
-                  />
-                  <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors ${showSunMoon ? 'bg-primary' : 'bg-outline-variant/40'}`}>
-                    <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${showSunMoon ? 'translate-x-3.5' : 'translate-x-0'}`} />
-                  </div>
-                </label>
-
-                {/* Orbital Lines Toggle */}
-                <label className="flex items-center justify-between gap-3 cursor-pointer group p-2 rounded-lg bg-surface-container-highest/20 hover:bg-surface-container-highest/40 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-primary">polyline</span>
-                    <span className="text-xs font-medium text-on-surface">Orbital Lines</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={showOrbitLines}
-                    onChange={(e) => setShowOrbitLines(e.target.checked)}
-                  />
-                  <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors ${showOrbitLines ? 'bg-primary' : 'bg-outline-variant/40'}`}>
-                    <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${showOrbitLines ? 'translate-x-3.5' : 'translate-x-0'}`} />
-                  </div>
-                </label>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Satellite List — click to select & follow */}
-        <div className="glass rounded-xl flex-1 flex flex-col overflow-hidden pointer-events-auto">
-          <div className="p-inner-padding border-b border-outline-variant/10 flex justify-between items-center cursor-pointer" onClick={() => setShowSatList(!showSatList)}>
-            <h3 className="font-headline-sm text-headline-sm flex items-center gap-2">
-              <span className="material-symbols-outlined">satellite_alt</span>
-              Satellites
-            </h3>
-            <span className={`material-symbols-outlined transition-transform ${showSatList ? 'rotate-180' : ''}`}>expand_more</span>
-          </div>
-          
-          {showSatList && (
-            <div className="flex flex-col overflow-hidden">
-              {/* Search input */}
-              <div className="px-3 py-2 border-b border-outline-variant/10">
-                <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(6, 14, 32, 0.6)', border: '1px solid rgba(180, 197, 255, 0.1)' }}>
-                  <span className="material-symbols-outlined text-sm text-outline">search</span>
-                  <input
-                    type="text"
-                    placeholder="Search name or NORAD ID..."
-                    value={satSearch}
-                    onChange={(e) => setSatSearch(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const q = satSearch.toUpperCase().trim();
-                        const matching = [phoneSatelliteItem, ...satellites].filter(s => {
-                          const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
-                          const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
-                          const cat = String(s.CATEGORY || s.type || s.OBJECT_TYPE || '').toUpperCase();
-                          if (cat === 'DEBRIS') return false;
-                          if (!q) return true;
-                          return name.includes(q) || norad.includes(q);
-                        });
-                        if (matching.length > 0) {
-                          handleSelectObject(matching[0]);
-                        }
-                      }
+                <div
+                  className="w-2 h-2 rounded-full animate-pulse"
+                  style={{
+                    background: followState.mode === 'FOLLOWING' ? '#10B981' : '#00AEEF',
+                    boxShadow: `0 0 6px ${followState.mode === 'FOLLOWING' ? '#10B981' : '#00AEEF'}`,
+                  }}
+                />
+                <span
+                  className="text-[11px] font-label-mono uppercase tracking-widest"
+                  style={{ color: followState.mode === 'FOLLOWING' ? '#10B981' : '#00AEEF' }}
+                >
+                  {followState.mode === 'FOCUSING' ? 'Focusing' : 'Following'} · {followState.targetName}
+                </span>
+                {followState.mode === 'FOLLOWING' && (
+                  <button
+                    onClick={handleStopFollowing}
+                    className="ml-1 text-[10px] font-label-mono uppercase tracking-widest px-2.5 py-1 rounded-full transition-all hover:brightness-125"
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#EF4444',
                     }}
-                    className="bg-transparent border-none outline-none text-xs font-label-mono text-on-surface w-full placeholder:text-outline/50"
-                  />
-                  {satSearch && (
-                    <button onClick={() => setSatSearch('')} className="text-outline hover:text-on-surface">
-                      <span className="material-symbols-outlined text-sm">close</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Satellite list */}
-              <div className="overflow-y-auto custom-scrollbar max-h-48">
-                {[phoneSatelliteItem, ...satellites]
-                  .filter(s => {
-                    const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
-                    const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
-                    const cat = String(s.CATEGORY || s.type || s.OBJECT_TYPE || '').toUpperCase();
-                    if (cat === 'DEBRIS') return false; // hide debris from list
-                    if (!satSearch) return true;
-                    const q = satSearch.toUpperCase().trim();
-                    return name.includes(q) || norad.includes(q);
-                  })
-                  .slice(0, 50) // cap for performance
-                  .map((sat) => {
-                    const name = String(sat.OBJECT_NAME || sat.name || `Unknown`);
-                    const id = String(sat.NORAD_CAT_ID ?? sat.id ?? '');
-                    const isSelected = selectedObject?.NORAD_CAT_ID?.toString() === id || String(selectedObject?.id ?? '') === id;
-                    const catColors: Record<string, string> = {
-                      Communication: '#00AEEF', ISS: '#FFFFFF', Weather: '#EAB308',
-                      Military: '#F97316', GPS: '#10B981', Scientific: '#A855F7',
-                      'Phone Satellite': PHONE_SATELLITE_IDENTITY.color,
-                    };
-                    const cat = String(sat.CATEGORY || sat.type || '');
-                    const dotColor = catColors[cat] || '#94A3B8';
-                    return (
-                      <button
-                        key={id || name}
-                        onClick={() => handleSelectObject(sat)}
-                        className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors hover:bg-primary/10 ${
-                          isSelected ? 'bg-primary/15' : ''
-                        }`}
-                      >
-                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: dotColor, boxShadow: `0 0 4px ${dotColor}` }} />
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-[11px] font-label-mono truncate ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
-                            {name}
-                          </p>
-                          <p className="text-[9px] font-label-mono text-outline truncate">
-                            {cat} · {id}
-                          </p>
-                        </div>
-                        {isSelected && (
-                          <span className="material-symbols-outlined text-primary text-sm shrink-0">gps_fixed</span>
-                        )}
-                      </button>
-                    );
-                  })}
+                  >
+                    Exit
+                  </button>
+                )}
               </div>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* Overlay Controls (Bottom Right) */}
-      <div className={`absolute bottom-32 right-6 z-30 flex flex-col gap-3 transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <button className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90" title="Auto Rotate" onClick={() => globeRef.current?.toggleAutoRotate()}>
-          <span className="material-symbols-outlined">autorenew</span>
-        </button>
-        <button className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90" title="Zenith View" onClick={() => globeRef.current?.zenithView()}>
-          <span className="material-symbols-outlined">center_focus_weak</span>
-        </button>
-        <button
-          className={`w-12 h-12 glass rounded-full flex items-center justify-center transition-all active:scale-90 ${
-            enableLighting
-              ? 'text-yellow-400 bg-yellow-400/20 border border-yellow-400/40 shadow-[0_0_12px_rgba(250,204,21,0.3)]'
-              : 'text-outline hover:bg-surface-container-highest/40 hover:text-on-surface'
-          }`}
-          title={enableLighting ? "Disable Day/Night Lighting" : "Enable Real-Time Day/Night Lighting"}
-          onClick={() => setEnableLighting(!enableLighting)}
-        >
-          <span className="material-symbols-outlined">{enableLighting ? 'wb_sunny' : 'nightlight'}</span>
-        </button>
-        <button
-          className={`w-12 h-12 glass rounded-full flex items-center justify-center transition-all active:scale-90 ${
-            showOrbitLines
-              ? 'text-primary bg-primary/20 border border-primary/40 shadow-[0_0_12px_rgba(180,197,255,0.3)]'
-              : 'text-outline hover:bg-surface-container-highest/40 hover:text-on-surface'
-          }`}
-          title={showOrbitLines ? "Hide Orbital Lines" : "Show Orbital Lines"}
-          onClick={() => setShowOrbitLines(!showOrbitLines)}
-        >
-          <span className="material-symbols-outlined">polyline</span>
-        </button>
-        <div className="flex flex-col glass rounded-2xl overflow-hidden divide-y divide-outline-variant/10">
-          <button className="w-12 h-12 flex items-center justify-center hover:bg-primary/20 transition-all" title="Zoom In" onClick={() => globeRef.current?.zoomIn()}>
-            <span className="material-symbols-outlined">add</span>
-          </button>
-          <button className="w-12 h-12 flex items-center justify-center hover:bg-primary/20 transition-all" title="Zoom Out" onClick={() => globeRef.current?.zoomOut()}>
-            <span className="material-symbols-outlined">remove</span>
-          </button>
-        </div>
-        <button
-          onClick={() => setShowHelpModal(prev => !prev)}
-          className="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:brightness-110 active:scale-90 transition-all"
-          title="3D Navigation Help"
-          aria-label="Help"
-        >
-          <span className="material-symbols-outlined">help_center</span>
-        </button>
-      </div>
-
-      {/* Help Modal */}
-      {showHelpModal && (
-        <div className="absolute top-20 right-20 z-50 p-4 rounded-xl glass border border-primary/30 text-xs font-mono text-white/90 shadow-2xl max-w-xs space-y-2">
-          <div className="flex justify-between items-center pb-2 border-b border-white/10">
-            <span className="font-bold text-primary">3D Globe Controls</span>
-            <button onClick={() => setShowHelpModal(false)} className="text-white/40 hover:text-white">✕</button>
-          </div>
-          <p>• <strong>Left Click + Drag:</strong> Rotate globe</p>
-          <p>• <strong>Right Click + Drag:</strong> Zoom in / out</p>
-          <p>• <strong>Middle Click + Drag:</strong> Pan camera</p>
-          <p>• <strong>Click Satellite:</strong> Inspect & track orbit</p>
-        </div>
-      )}
-      
-      {/* Timeline Slider (Bottom Anchor) */}
-      <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-5xl glass rounded-2xl p-4 flex flex-col gap-4 border border-primary/10 transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <div className="flex items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => globeRef.current?.resetView()}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors"
-              title="Reset View"
-              aria-label="Reset View"
-            >
-              <span className="material-symbols-outlined">skip_previous</span>
-            </button>
-            <button
-              onClick={togglePlayback}
-              className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
-                isPlaying ? 'bg-secondary/30 text-secondary' : 'bg-primary/20 text-primary hover:bg-primary/30'
-              }`}
-              title={isPlaying ? 'Pause Auto-Rotate' : 'Start Auto-Rotate'}
-              aria-label="Play/Pause"
-            >
-              <span className="material-symbols-outlined">{isPlaying ? 'pause' : 'play_arrow'}</span>
-            </button>
-            <button
-              onClick={() => globeRef.current?.zoomIn()}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors"
-              title="Zoom Step Forward"
-              aria-label="Next Step"
-            >
-              <span className="material-symbols-outlined">skip_next</span>
-            </button>
-          </div>
-          <div className="flex-1 flex flex-col gap-2 relative">
-            <div className="flex justify-between px-2 text-[10px] font-label-mono text-outline uppercase">
-              <span>T - 24H</span>
-              <span className="text-primary font-bold">Now (Live Feed)</span>
-              <span>T + 72H (Predicted)</span>
+          {/* Catalog Load Failure Banner */}
+          {satError && satellites.length === 0 && (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 glass border border-rose-500/50 bg-surface-container-lowest/90 px-4 py-2.5 rounded-xl flex items-center gap-3 text-rose-300 font-mono text-xs pointer-events-auto shadow-2xl">
+              <span className="material-symbols-outlined text-rose-400 text-sm">warning</span>
+              <span>Failed to load orbital catalog. Object counts unavailable.</span>
+              <button
+                onClick={() => void refreshSatellites()}
+                className="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 transition-colors"
+              >
+                Retry
+              </button>
             </div>
-            <div className="h-2 bg-surface-container-highest rounded-full overflow-visible relative">
-              <div className="absolute top-0 left-0 h-full w-[40%] bg-primary/50 rounded-l-full"></div>
-              {/* Thumb */}
-              <div className="absolute top-1/2 left-[40%] -translate-x-1/2 -translate-y-1/2 group cursor-pointer hover:cursor-grab">
-                <div className="w-6 h-6 rounded-full bg-primary shadow-[0_0_15px_rgba(180,197,255,0.6)] flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
+          )}
+
+          {/* 2D / 3D Tracking Navigation Action */}
+          <button
+            className="absolute top-6 right-20 z-50 px-3.5 py-2 glass rounded-xl flex items-center gap-2 hover:bg-primary/20 hover:text-primary transition-all active:scale-95 text-xs font-mono font-bold"
+            title={viewMode === '3d' ? "Open 2D Tracking Table" : "Switch to 3D Globe"}
+            onClick={() => setViewMode(prev => prev === '3d' ? '2d' : '3d')}
+          >
+            <span className="material-symbols-outlined text-sm">
+              {viewMode === '3d' ? 'table_rows' : 'public'}
+            </span>
+            {viewMode === '3d' ? 'Open 2D Tracking Table' : 'Switch to 3D Globe'}
+          </button>
+
+          {/* UI Visibility Toggle (Always Visible) */}
+          <button
+            className="absolute top-6 right-6 z-50 w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90"
+            title={isUIHidden ? "Show UI" : "Hide UI"}
+            onClick={() => setIsUIHidden(!isUIHidden)}
+          >
+            <span className="material-symbols-outlined">
+              {isUIHidden ? "visibility" : "visibility_off"}
+            </span>
+          </button>
+
+          {/* Map Control Sidebar */}
+          <div className={`absolute left-6 top-6 z-30 w-72 flex flex-col gap-4 max-h-[calc(100vh-100px)] pointer-events-none transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+
+            {/* Statistics Widget */}
+            <div className="glass rounded-xl p-inner-padding border-primary/20 pointer-events-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-headline-sm text-headline-sm text-primary flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">analytics</span>
+                  Live Telemetry
+                </h3>
+                <ProvenanceBadge
+                  compact
+                  source={satellites.length > 50 ? 'space-track' : 'demo'}
+                  mode={satellites.length > 50 ? 'observed' : 'fallback'}
+                  warnings={satellites.length > 50 ? [] : ['Simulated Demo Fixtures']}
+                />
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="font-label-mono text-[10px] text-outline uppercase">Active Satellites</p>
+                    <h2 className="font-stat-lg text-stat-lg text-primary">{formatObjectCount(activePayLoads, satDataState)}</h2>
+                  </div>
+                  <div className="text-emerald-400 text-[12px] font-label-mono flex items-center">
+                    <span className="material-symbols-outlined text-xs">trending_up</span> 2.35%
+                  </div>
                 </div>
-                {/* Tooltip */}
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  <div className="glass px-3 py-1 rounded text-[12px] font-label-mono whitespace-nowrap text-white">
-                    Live Feed
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="font-label-mono text-[10px] text-outline uppercase">Tracked Debris</p>
+                    <h2 className="font-stat-lg text-stat-lg">{formatObjectCount(debrisCount, satDataState)}</h2>
+                  </div>
+                  <div className="text-error text-[12px] font-label-mono flex items-center">
+                    <span className="material-symbols-outlined text-xs">trending_up</span> 1.89%
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Advanced Filter Sidebar */}
+            <div className="glass rounded-xl flex-1 flex flex-col overflow-hidden pointer-events-auto">
+              <div className="p-inner-padding border-b border-outline-variant/10 flex justify-between items-center cursor-pointer" onClick={() => setShowFilters(!showFilters)}>
+                <h3 className="font-headline-sm text-headline-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined">filter_alt</span>
+                  Object Filtering
+                </h3>
+                <span className={`material-symbols-outlined transition-transform ${showFilters ? 'rotate-180' : ''}`}>expand_more</span>
+              </div>
+
+              {showFilters && (
+                <div className="p-inner-padding overflow-y-auto custom-scrollbar space-y-6 max-h-64">
+                  <div className="space-y-3">
+                    <p className="font-label-mono text-[10px] text-outline uppercase tracking-wider">Object Types</p>
+
+                    {Object.entries(filters).map(([key, enabled]) => {
+                      const colors: Record<string, string> = {
+                        Communication: 'text-primary', Debris: 'text-error', ISS: 'text-white', Weather: 'text-yellow-500',
+                        Military: 'text-orange-500', GPS: 'text-emerald-500', Scientific: 'text-purple-500',
+                      };
+                      return (
+                        <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={() => toggleFilter(key)}
+                            className={`w-4 h-4 rounded bg-surface-container-highest border-outline-variant focus:ring-1 ${colors[key]} focus:ring-primary`}
+                          />
+                          <span className={`font-body-md text-body-md transition-colors ${enabled ? colors[key] : 'text-on-surface-variant'}`}>
+                            {key}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {/* Display Layers / Lighting & Orbits */}
+                  <div className="pt-3 border-t border-outline-variant/10 space-y-2">
+                    <p className="font-label-mono text-[10px] text-outline uppercase tracking-wider mb-2">Display & Lighting</p>
+
+                    {/* Day / Night Realtime Lighting Toggle */}
+                    <label className="flex items-center justify-between gap-3 cursor-pointer group p-2 rounded-lg bg-surface-container-highest/20 hover:bg-surface-container-highest/40 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-yellow-400">wb_sunny</span>
+                        <span className="text-xs font-medium text-on-surface">Day / Night Cycle</span>
+                      </div>
+                      <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors ${enableLighting ? 'bg-primary' : 'bg-outline-variant/40'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${enableLighting ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                      </div>
+                    </label>
+
+                    {/* Sun & Moon Celestial Objects */}
+                    <label className="flex items-center justify-between gap-3 cursor-pointer group p-2 rounded-lg bg-surface-container-highest/20 hover:bg-surface-container-highest/40 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-blue-300">bedtime</span>
+                        <span className="text-xs font-medium text-on-surface">Sun & Moon</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={showSunMoon}
+                        onChange={(e) => setShowSunMoon(e.target.checked)}
+                      />
+                      <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors ${showSunMoon ? 'bg-primary' : 'bg-outline-variant/40'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${showSunMoon ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                      </div>
+                    </label>
+
+                    {/* Orbital Lines Toggle */}
+                    <label className="flex items-center justify-between gap-3 cursor-pointer group p-2 rounded-lg bg-surface-container-highest/20 hover:bg-surface-container-highest/40 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-primary">polyline</span>
+                        <span className="text-xs font-medium text-on-surface">Orbital Lines</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={showOrbitLines}
+                        onChange={(e) => setShowOrbitLines(e.target.checked)}
+                      />
+                      <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors ${showOrbitLines ? 'bg-primary' : 'bg-outline-variant/40'}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${showOrbitLines ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Satellite List — click to select & follow */}
+            <div className="glass rounded-xl flex-1 flex flex-col overflow-hidden pointer-events-auto">
+              <div className="p-inner-padding border-b border-outline-variant/10 flex justify-between items-center cursor-pointer" onClick={() => setShowSatList(!showSatList)}>
+                <h3 className="font-headline-sm text-headline-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined">satellite_alt</span>
+                  Satellites
+                </h3>
+                <span className={`material-symbols-outlined transition-transform ${showSatList ? 'rotate-180' : ''}`}>expand_more</span>
+              </div>
+
+              {showSatList && (
+                <div className="flex flex-col overflow-hidden">
+                  {/* Search input */}
+                  <div className="px-3 py-2 border-b border-outline-variant/10">
+                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(6, 14, 32, 0.6)', border: '1px solid rgba(180, 197, 255, 0.1)' }}>
+                      <span className="material-symbols-outlined text-sm text-outline">search</span>
+                      <input
+                        type="text"
+                        placeholder="Search name or NORAD ID..."
+                        value={satSearch}
+                        onChange={(e) => setSatSearch(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const q = satSearch.toUpperCase().trim();
+                            const matching = [phoneSatelliteItem, ...satellites].filter(s => {
+                              const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
+                              const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
+                              const cat = String(s.CATEGORY || s.type || s.OBJECT_TYPE || '').toUpperCase();
+                              if (cat === 'DEBRIS') return false;
+                              if (!q) return true;
+                              return name.includes(q) || norad.includes(q);
+                            });
+                            if (matching.length > 0) {
+                              handleSelectObject(matching[0]);
+                            }
+                          }
+                        }}
+                        className="bg-transparent border-none outline-none text-xs font-label-mono text-on-surface w-full placeholder:text-outline/50"
+                      />
+                      {satSearch && (
+                        <button onClick={() => setSatSearch('')} className="text-outline hover:text-on-surface">
+                          <span className="material-symbols-outlined text-sm">close</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Satellite list */}
+                  <div className="overflow-y-auto custom-scrollbar max-h-48">
+                    {[phoneSatelliteItem, ...satellites]
+                      .filter(s => {
+                        const name = String(s.OBJECT_NAME || s.name || '').toUpperCase();
+                        const norad = String(s.NORAD_CAT_ID ?? s.id ?? '');
+                        const cat = String(s.CATEGORY || s.type || s.OBJECT_TYPE || '').toUpperCase();
+                        if (cat === 'DEBRIS') return false; // hide debris from list
+                        if (!satSearch) return true;
+                        const q = satSearch.toUpperCase().trim();
+                        return name.includes(q) || norad.includes(q);
+                      })
+                      .slice(0, 50) // cap for performance
+                      .map((sat) => {
+                        const name = String(sat.OBJECT_NAME || sat.name || `Unknown`);
+                        const id = String(sat.NORAD_CAT_ID ?? sat.id ?? '');
+                        const isSelected = selectedObject?.NORAD_CAT_ID?.toString() === id || String(selectedObject?.id ?? '') === id;
+                        const catColors: Record<string, string> = {
+                          Communication: '#00AEEF', ISS: '#FFFFFF', Weather: '#EAB308',
+                          Military: '#F97316', GPS: '#10B981', Scientific: '#A855F7',
+                          'Phone Satellite': PHONE_SATELLITE_IDENTITY.color,
+                        };
+                        const cat = String(sat.CATEGORY || sat.type || '');
+                        const dotColor = catColors[cat] || '#94A3B8';
+                        return (
+                          <button
+                            key={id || name}
+                            onClick={() => handleSelectObject(sat)}
+                            className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors hover:bg-primary/10 ${isSelected ? 'bg-primary/15' : ''
+                              }`}
+                          >
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: dotColor, boxShadow: `0 0 4px ${dotColor}` }} />
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-[11px] font-label-mono truncate ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
+                                {name}
+                              </p>
+                              <p className="text-[9px] font-label-mono text-outline truncate">
+                                {cat} · {id}
+                              </p>
+                            </div>
+                            {isSelected && (
+                              <span className="material-symbols-outlined text-primary text-sm shrink-0">gps_fixed</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="px-3 py-1.5 glass rounded-lg flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm">speed</span>
-              <span className="font-label-mono text-[12px]">1.0x</span>
+
+          {/* Overlay Controls (Bottom Right) */}
+          <div className={`absolute bottom-32 right-6 z-30 flex flex-col gap-3 transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+            <button className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90" title="Auto Rotate" onClick={() => globeRef.current?.toggleAutoRotate()}>
+              <span className="material-symbols-outlined">autorenew</span>
+            </button>
+            <button className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all active:scale-90" title="Zenith View" onClick={() => globeRef.current?.zenithView()}>
+              <span className="material-symbols-outlined">center_focus_weak</span>
+            </button>
+            <button
+              className={`w-12 h-12 glass rounded-full flex items-center justify-center transition-all active:scale-90 ${enableLighting
+                  ? 'text-yellow-400 bg-yellow-400/20 border border-yellow-400/40 shadow-[0_0_12px_rgba(250,204,21,0.3)]'
+                  : 'text-outline hover:bg-surface-container-highest/40 hover:text-on-surface'
+                }`}
+              title={enableLighting ? "Disable Day/Night Lighting" : "Enable Real-Time Day/Night Lighting"}
+              onClick={() => setEnableLighting(!enableLighting)}
+            >
+              <span className="material-symbols-outlined">{enableLighting ? 'wb_sunny' : 'nightlight'}</span>
+            </button>
+            <button
+              className={`w-12 h-12 glass rounded-full flex items-center justify-center transition-all active:scale-90 ${showOrbitLines
+                  ? 'text-primary bg-primary/20 border border-primary/40 shadow-[0_0_12px_rgba(180,197,255,0.3)]'
+                  : 'text-outline hover:bg-surface-container-highest/40 hover:text-on-surface'
+                }`}
+              title={showOrbitLines ? "Hide Orbital Lines" : "Show Orbital Lines"}
+              onClick={() => setShowOrbitLines(!showOrbitLines)}
+            >
+              <span className="material-symbols-outlined">polyline</span>
+            </button>
+            <div className="flex flex-col glass rounded-2xl overflow-hidden divide-y divide-outline-variant/10">
+              <button className="w-12 h-12 flex items-center justify-center hover:bg-primary/20 transition-all" title="Zoom In" onClick={() => globeRef.current?.zoomIn()}>
+                <span className="material-symbols-outlined">add</span>
+              </button>
+              <button className="w-12 h-12 flex items-center justify-center hover:bg-primary/20 transition-all" title="Zoom Out" onClick={() => globeRef.current?.zoomOut()}>
+                <span className="material-symbols-outlined">remove</span>
+              </button>
             </div>
             <button
-              onClick={handleExportFrame}
-              className="px-4 py-1.5 bg-surface-container-highest rounded-lg font-body-md text-body-md hover:bg-surface-container-high transition-colors"
-              title="Export Current Frame JSON"
+              onClick={() => setShowHelpModal(prev => !prev)}
+              className="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/30 hover:brightness-110 active:scale-90 transition-all"
+              title="3D Navigation Help"
+              aria-label="Help"
             >
-              Export Frame
+              <span className="material-symbols-outlined">help_center</span>
             </button>
           </div>
+
+          {/* Help Modal */}
+          {showHelpModal && (
+            <div className="absolute top-20 right-20 z-50 p-4 rounded-xl glass border border-primary/30 text-xs font-mono text-white/90 shadow-2xl max-w-xs space-y-2">
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="font-bold text-primary">3D Globe Controls</span>
+                <button onClick={() => setShowHelpModal(false)} className="text-white/40 hover:text-white">✕</button>
+              </div>
+              <p>• <strong>Left Click + Drag:</strong> Rotate globe</p>
+              <p>• <strong>Right Click + Drag:</strong> Zoom in / out</p>
+              <p>• <strong>Middle Click + Drag:</strong> Pan camera</p>
+              <p>• <strong>Click Satellite:</strong> Inspect & track orbit</p>
+            </div>
+          )}
+
+          {/* Timeline Slider (Bottom Anchor) */}
+          <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-5xl glass rounded-2xl p-4 flex flex-col gap-4 border border-primary/10 transition-opacity duration-300 ${isUIHidden ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+            <div className="flex items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => globeRef.current?.resetView()}
+                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors"
+                  title="Reset View"
+                  aria-label="Reset View"
+                >
+                  <span className="material-symbols-outlined">skip_previous</span>
+                </button>
+                <button
+                  onClick={togglePlayback}
+                  className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${isPlaying ? 'bg-secondary/30 text-secondary' : 'bg-primary/20 text-primary hover:bg-primary/30'
+                    }`}
+                  title={isPlaying ? 'Pause Auto-Rotate' : 'Start Auto-Rotate'}
+                  aria-label="Play/Pause"
+                >
+                  <span className="material-symbols-outlined">{isPlaying ? 'pause' : 'play_arrow'}</span>
+                </button>
+                <button
+                  onClick={() => globeRef.current?.zoomIn()}
+                  className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-highest transition-colors"
+                  title="Zoom Step Forward"
+                  aria-label="Next Step"
+                >
+                  <span className="material-symbols-outlined">skip_next</span>
+                </button>
+              </div>
+              <div className="flex-1 flex flex-col gap-2 relative">
+                <div className="flex justify-between px-2 text-[10px] font-label-mono text-outline uppercase">
+                  <span>T - 24H</span>
+                  <span className="text-primary font-bold">Now (Live Feed)</span>
+                  <span>T + 72H (Predicted)</span>
+                </div>
+                <div className="h-2 bg-surface-container-highest rounded-full overflow-visible relative">
+                  <div className="absolute top-0 left-0 h-full w-[40%] bg-primary/50 rounded-l-full"></div>
+                  {/* Thumb */}
+                  <div className="absolute top-1/2 left-[40%] -translate-x-1/2 -translate-y-1/2 group cursor-pointer hover:cursor-grab">
+                    <div className="w-6 h-6 rounded-full bg-primary shadow-[0_0_15px_rgba(180,197,255,0.6)] flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    </div>
+                    {/* Tooltip */}
+                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <div className="glass px-3 py-1 rounded text-[12px] font-label-mono whitespace-nowrap text-white">
+                        Live Feed
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1.5 glass rounded-lg flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">speed</span>
+                  <span className="font-label-mono text-[12px]">1.0x</span>
+                </div>
+                <button
+                  onClick={handleExportFrame}
+                  className="px-4 py-1.5 bg-surface-container-highest rounded-lg font-body-md text-body-md hover:bg-surface-container-high transition-colors"
+                  title="Export Current Frame JSON"
+                >
+                  Export Frame
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
-      </div>
-      
-    </div>
-  );
+      );
 }
