@@ -17,7 +17,8 @@ describe('PHONE-SATELLITE-001 Deterministic Orbit & Tilt Model', () => {
     expect(PHONE_SATELLITE_IDENTITY.name).toBe('PHONE SATELLITE');
     expect(PHONE_SATELLITE_IDENTITY.object_type).toBe('PHONE_SATELLITE');
     expect(PHONE_SATELLITE_IDENTITY.color).toBe('#FF2EF5');
-    expect(PHONE_SATELLITE_IDENTITY.ground_station_id).toBe('KX-RPI3-GS-001');
+    expect(PHONE_SATELLITE_IDENTITY.ground_station_id).toBe('KX-RPI-ZERO-GS-001');
+    expect(PHONE_SATELLITE_IDENTITY.hardware_model).toBe('Raspberry Pi Zero W');
 
     // Existing fixtures must not be polluted by phone satellite or phone conjunction
     expect(existingSatellites.some((s) => s.id === 'PHONE-SATELLITE-001' || s.name === 'PHONE SATELLITE')).toBe(false);

@@ -101,7 +101,7 @@ class TelemetryUpload(BaseModel):
     signal: int = Field(default=-55, ge=-150, le=10)
     velocity: float = Field(default=0.0, ge=0.0, le=25.0)
     orientation: dict = Field(default_factory=dict)
-    # Optional Raspberry Pi 3 phone satellite telemetry fields
+    # Optional Raspberry Pi Zero W phone satellite telemetry fields (with RPi3 compat)
     device_id: Optional[str] = None
     satellite_name: Optional[str] = None
     sequence: Optional[Any] = None
@@ -111,6 +111,7 @@ class TelemetryUpload(BaseModel):
     source: Optional[str] = None
     mode: Optional[str] = None
     ground_station_id: Optional[str] = None
+    hardware_model: Optional[str] = None
 
 # --- Handoff Request Models ---
 
@@ -1154,7 +1155,7 @@ async def ground_station_latest():
 
 @app.post("/api/ground-station/telemetry")
 async def ground_station_upload(payload: TelemetryUpload):
-    """Accept a telemetry upload from an authorized ground station (ESP32 or Raspberry Pi 3 KX-RPI3-GS-001)."""
+    """Accept a telemetry upload from an authorized ground station (ESP32, Raspberry Pi Zero W KX-RPI-ZERO-GS-001, or legacy KX-RPI3-GS-001)."""
     raw_payload = payload.model_dump()
 
     if is_phone_telemetry_payload(raw_payload):
@@ -1171,8 +1172,9 @@ async def ground_station_upload(payload: TelemetryUpload):
         packet = {
             "packet_id": gs_simulator.packet_count,
             "packet_type": "phone_telemetry",
-            "station_id": RPI_GROUND_STATION_ID,
-            "ground_station_id": RPI_GROUND_STATION_ID,
+            "station_id": validated_phone["ground_station_id"],
+            "ground_station_id": validated_phone["ground_station_id"],
+            "hardware_model": validated_phone["hardware_model"],
             "device_id": validated_phone["device_id"],
             "satellite_name": validated_phone["satellite_name"],
             "sequence": validated_phone["sequence"],
@@ -1182,6 +1184,7 @@ async def ground_station_upload(payload: TelemetryUpload):
             "angular_velocity": validated_phone["angular_velocity"],
             "source": validated_phone["source"],
             "mode": validated_phone["mode"],
+            "warnings": validated_phone.get("warnings", []),
             "conjunction": conjunction,
             # Backward-compatible GroundStation telemetry display keys
             "latitude": gs_simulator.base_lat,
@@ -1217,7 +1220,11 @@ async def ground_station_upload(payload: TelemetryUpload):
             "status": "received",
             "packet_id": packet["packet_id"],
             "device_id": validated_phone["device_id"],
-            "ground_station_id": RPI_GROUND_STATION_ID,
+            "source": validated_phone["source"],
+            "mode": validated_phone["mode"],
+            "ground_station_id": validated_phone["ground_station_id"],
+            "hardware_model": validated_phone["hardware_model"],
+            "warnings": validated_phone.get("warnings", []),
             "conjunction": conjunction,
         }
 

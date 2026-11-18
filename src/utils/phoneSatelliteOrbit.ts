@@ -21,7 +21,8 @@ export const PHONE_SATELLITE_IDENTITY = {
   category: 'Phone Satellite',
   source: 'phone_sensor',
   mode: 'simulated',
-  ground_station_id: 'KX-RPI3-GS-001',
+  ground_station_id: 'KX-RPI-ZERO-GS-001',
+  hardware_model: 'Raspberry Pi Zero W',
   color: '#FF2EF5',
   description:
     'Physical smartphone used as a satellite attitude simulator. Orbit is a controlled demonstration orbit, not a real spacecraft orbit.',
@@ -64,7 +65,9 @@ export interface PhoneTelemetrySnapshot {
   source: string;
   mode: string;
   ground_station_id: string;
-  link_status: 'LIVE_RPI3_GATEWAY' | 'AWAITING_RPI3_TELEMETRY' | string;
+  hardware_model?: string;
+  warnings?: string[];
+  link_status: 'LIVE_RPI_ZERO_GATEWAY' | 'AWAITING_RPI_ZERO_TELEMETRY' | 'LIVE_RPI3_GATEWAY' | 'AWAITING_RPI3_TELEMETRY' | string;
   packets_received: number;
 }
 
@@ -332,7 +335,7 @@ export function evaluatePhoneTiltConjunction(
     confidence: 100,
     confidence_note: 'Deterministic demonstration mapping; not a real orbital confidence estimate.',
     ground_station_id: PHONE_SATELLITE_IDENTITY.ground_station_id,
-    provenance: 'DEMO SIMULATION derived deterministically from KX-RPI3-GS-001 phone tilt telemetry',
+    provenance: 'DEMO SIMULATION derived deterministically from KX-RPI-ZERO-GS-001 (Raspberry Pi Zero W) phone tilt telemetry',
     last_updated: lastUpdated,
     disclaimer: PHONE_SATELLITE_SAFETY_LABELS.disclaimer,
     warnings: [
@@ -363,7 +366,9 @@ export function createDefaultPhoneSatelliteData(now: Date = new Date()): PhoneSa
       source: 'phone_sensor',
       mode: 'simulated',
       ground_station_id: PHONE_SATELLITE_IDENTITY.ground_station_id,
-      link_status: 'AWAITING_RPI3_TELEMETRY',
+      hardware_model: PHONE_SATELLITE_IDENTITY.hardware_model,
+      warnings: [],
+      link_status: 'AWAITING_RPI_ZERO_TELEMETRY',
       packets_received: 0,
     },
     conjunction: evaluatePhoneTiltConjunction(0, 0, 0, null),
@@ -407,8 +412,8 @@ export function phoneSatelliteToItem(
     epoch: `MOCK ORBIT (${PHONE_MOCK_ORBIT.orbit_type})`,
     source: `${PHONE_SATELLITE_IDENTITY.source} (${PHONE_SATELLITE_IDENTITY.ground_station_id})`,
     status:
-      data?.telemetry?.link_status === 'LIVE_RPI3_GATEWAY'
-        ? 'Live Sim (RPi3)'
+      data?.telemetry?.link_status === 'LIVE_RPI_ZERO_GATEWAY' || data?.telemetry?.link_status === 'LIVE_RPI3_GATEWAY'
+        ? 'Live Sim (Pi Zero W)'
         : 'Mock Demo Orbit',
   };
 }

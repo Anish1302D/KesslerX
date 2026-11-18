@@ -29,7 +29,14 @@ def reset_phone_state():
     phone_satellite_state.reset()
 
 
-def _valid_rpi_packet(seq: int = 1, roll: float = 0.0, pitch: float = 0.0, yaw: float = 0.0):
+def _valid_rpi_packet(
+    seq: int = 1,
+    roll: float = 0.0,
+    pitch: float = 0.0,
+    yaw: float = 0.0,
+    ground_station_id: str = "KX-RPI-ZERO-GS-001",
+    hardware_model: str = "Raspberry Pi Zero W",
+):
     return {
         "device_id": "PHONE-SATELLITE-001",
         "satellite_name": "PHONE SATELLITE",
@@ -48,7 +55,8 @@ def _valid_rpi_packet(seq: int = 1, roll: float = 0.0, pitch: float = 0.0, yaw: 
         },
         "source": "phone_sensor",
         "mode": "simulated",
-        "ground_station_id": "KX-RPI3-GS-001",
+        "ground_station_id": ground_station_id,
+        "hardware_model": hardware_model,
     }
 
 
@@ -63,7 +71,8 @@ def test_phone_satellite_exists_separately_from_existing_catalog():
     assert data["category"] == "Phone Satellite"
     assert data["source"] == "phone_sensor"
     assert data["mode"] == "simulated"
-    assert data["ground_station_id"] == "KX-RPI3-GS-001"
+    assert data["ground_station_id"] == "KX-RPI-ZERO-GS-001"
+    assert data["hardware_model"] == "Raspberry Pi Zero W"
     assert data["color"] == "#FF2EF5"
 
     # Separate from existing satellite catalog
@@ -130,22 +139,40 @@ def test_valid_phone_telemetry_accepted_and_reflected_in_latest():
     post_data = post_resp.json()
     assert post_data["status"] == "received"
     assert post_data["device_id"] == "PHONE-SATELLITE-001"
-    assert post_data["ground_station_id"] == "KX-RPI3-GS-001"
+    assert post_data["ground_station_id"] == "KX-RPI-ZERO-GS-001"
+    assert post_data["hardware_model"] == "Raspberry Pi Zero W"
+    assert post_data["warnings"] == []
 
     latest_resp = client.get("/api/ground-station/latest")
     assert latest_resp.status_code == 200
     latest = latest_resp.json()
     assert latest["device_id"] == "PHONE-SATELLITE-001"
-    assert latest["ground_station_id"] == "KX-RPI3-GS-001"
+    assert latest["ground_station_id"] == "KX-RPI-ZERO-GS-001"
     assert latest["orientation"]["roll_deg"] == 12.5
     assert latest["phone_telemetry"]["sequence"] == 7
 
     phone_resp = client.get("/api/phone-satellite")
     assert phone_resp.status_code == 200
     phone_data = phone_resp.json()
-    assert phone_data["telemetry"]["link_status"] == "LIVE_RPI3_GATEWAY"
+    assert phone_data["telemetry"]["link_status"] == "LIVE_RPI_ZERO_GATEWAY"
+    assert phone_data["telemetry"]["hardware_model"] == "Raspberry Pi Zero W"
     assert phone_data["telemetry"]["orientation"]["roll_deg"] == 12.5
     assert phone_data["conjunction"]["roll_deg"] == 12.5
+
+
+def test_legacy_rpi3_ground_station_id_remains_backward_compatible():
+    legacy_pkt = _valid_rpi_packet(
+        seq=3,
+        roll=8.0,
+        pitch=-2.0,
+        ground_station_id="KX-RPI3-GS-001",
+        hardware_model="Raspberry Pi 3",
+    )
+    resp = client.post("/api/ground-station/telemetry", json=legacy_pkt)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ground_station_id"] == "KX-RPI3-GS-001"
+    assert len(body["warnings"]) >= 1
 
 
 @pytest.mark.parametrize(
@@ -220,6 +247,7 @@ def test_tilt_collision_probability_progression_determinism_and_cap():
     d1 = evaluate_tilt_conjunction(18.5, -11.2, 42.0, "2026-11-17T12:00:00Z")
     d2 = evaluate_tilt_conjunction(18.5, -11.2, 42.0, "2026-11-17T12:00:00Z")
     assert d1 == d2
-    assert GROUND_STATION_ID == "KX-RPI3-GS-001"
+    assert GROUND_STATION_ID == "KX-RPI-ZERO-GS-001"
+    assert PHONE_SATELLITE_IDENTITY["hardware_model"] == "Raspberry Pi Zero W"
     assert PHONE_SATELLITE_IDENTITY["color"] == "#FF2EF5"
     assert PHONE_MOCK_ORBIT_ELEMENTS["orbit_type"] == "MOCK_LEO_PHONE_DEMO"

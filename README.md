@@ -160,3 +160,10 @@ Distributed under the MIT License. Orbit propagation powered by SGP4 (`sgp4` and
 - **Core Capabilities**: Deterministically evaluates 7 coordination courses of action across collision risk reduction, propellant cost, mission continuity, ephemeris uncertainty, nearby corridor externalities (`ImpactGraph`), fairness / burden sharing, Pareto frontier ranking, counterfactual ("What happens if no action is taken?"), prototype cross-operator privacy masking, SHA-256 evidence packets, and Two-Person Human Approval.
 - **Full Documentation**: [docs/ORBITAL_COMMONS_AI.md](docs/ORBITAL_COMMONS_AI.md)
 - **Safety Notice**: Decision support only — human approval required. Not a flight command system.
+
+---
+
+## Raspberry Pi Zero W Ground Station (`KX-RPI-ZERO-GS-001`)
+
+- **Role Separation**: The Raspberry Pi Zero W is the only ground station. The phone is the simulated satellite and telemetry source. The laptop is only the KesslerX mission-control display.
+- **Full Deployment & Hardware Guide**: [docs/RASPBERRY_PI_ZERO_W_GROUND_STATION.md](docs/RASPBERRY_PI_ZERO_W_GROUND_STATION.md)
