@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import http.client
 import http.server
 import ipaddress
 import json
@@ -226,6 +227,82 @@ def _strip_internal_fields(packet: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in packet.items() if not k.startswith("_")}
 
 
+class PersistentHttpSender:
+    """Thread-safe HTTP/1.1 keep-alive sender eliminating per-packet TLS handshakes."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._conn: Optional[http.client.HTTPConnection] = None
+        self._target_key: Optional[Tuple[str, str, int]] = None
+
+    def close(self) -> None:
+        with self._lock:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                except Exception:
+                    pass
+                self._conn = None
+                self._target_key = None
+
+    def _open_conn(self, scheme: str, host: str, port: int, timeout_s: float) -> http.client.HTTPConnection:
+        if scheme == "https":
+            return http.client.HTTPSConnection(host, port, timeout=timeout_s)
+        return http.client.HTTPConnection(host, port, timeout=timeout_s)
+
+    def __call__(self, url: str, packet: Dict[str, Any], timeout_s: float = 10.0) -> Tuple[int, str]:
+        parsed = urllib.parse.urlparse(url)
+        scheme = parsed.scheme.lower()
+        host = parsed.hostname or ""
+        port = parsed.port or (443 if scheme == "https" else 80)
+        path = parsed.path or "/"
+        if parsed.query:
+            path = f"{path}?{parsed.query}"
+
+        outgoing = _strip_internal_fields(packet)
+        body = json.dumps(outgoing, separators=(",", ":")).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "User-Agent": "KesslerX-RPiZero-Gateway/2.0",
+            "X-Ground-Station-Id": str(outgoing.get("ground_station_id", DEFAULT_GROUND_STATION_ID)),
+            "X-Hardware-Model": str(outgoing.get("hardware_model", DEFAULT_HARDWARE_MODEL)),
+        }
+        target_key = (scheme, host, port)
+
+        with self._lock:
+            last_exc: Optional[Exception] = None
+            for attempt in range(2):
+                try:
+                    if self._conn is None or self._target_key != target_key:
+                        if self._conn is not None:
+                            try:
+                                self._conn.close()
+                            except Exception:
+                                pass
+                        self._conn = self._open_conn(scheme, host, port, timeout_s)
+                        self._target_key = target_key
+                    else:
+                        if self._conn.sock is not None:
+                            self._conn.sock.settimeout(timeout_s)
+                    self._conn.request("POST", path, body=body, headers=headers)
+                    resp = self._conn.getresponse()
+                    raw_text = resp.read().decode("utf-8", errors="replace")
+                    return int(resp.status), raw_text
+                except (http.client.HTTPException, OSError, ValueError) as exc:
+                    last_exc = exc
+                    try:
+                        if self._conn is not None:
+                            self._conn.close()
+                    except Exception:
+                        pass
+                    self._conn = None
+                    self._target_key = None
+                    if attempt == 0:
+                        continue
+            raise urllib.error.URLError(last_exc or "Persistent HTTP forwarding failed")
+
+
 def default_http_sender(url: str, packet: Dict[str, Any], timeout_s: float = 10.0) -> Tuple[int, str]:
     """Forward clean JSON packet to KesslerX backend via Python stdlib urllib."""
     outgoing = _strip_internal_fields(packet)
@@ -273,6 +350,7 @@ class TelemetryForwarder:
         listen_host: str = "0.0.0.0",
         detected_network: Optional[str] = None,
         require_pairing_token: bool = False,
+        coalesce_live_backlog: bool = False,
         sender: Optional[Callable[[str, Dict[str, Any], float], Tuple[int, str]]] = None,
         base_backoff_s: float = 1.0,
         max_backoff_s: Optional[float] = None,
@@ -293,6 +371,7 @@ class TelemetryForwarder:
         self.listen_host = listen_host
         self.detected_network = detected_network or "Local LAN"
         self.require_pairing_token = require_pairing_token
+        self.coalesce_live_backlog = bool(coalesce_live_backlog)
         self._pairing_token: Optional[str] = None
         self._pairing_expires_at: float = 0.0
         self.architecture = platform.machine() or "unknown"
@@ -321,7 +400,12 @@ class TelemetryForwarder:
         else:
             self.sqlite_path = Path(cfg["sqlite_db_path"])
 
-        self._sender = sender or default_http_sender
+        if sender is not None:
+            self._persistent_sender: Optional[PersistentHttpSender] = None
+            self._sender = sender
+        else:
+            self._persistent_sender = PersistentHttpSender()
+            self._sender = self._persistent_sender
         self._db_lock = threading.Lock()
         self._state_lock = threading.Lock()
         self._flush_lock = threading.Lock()
@@ -422,6 +506,8 @@ class TelemetryForwarder:
 
     def close(self) -> None:
         self.stop()
+        if self._persistent_sender is not None:
+            self._persistent_sender.close()
         with self._db_lock:
             try:
                 self._conn.close()
@@ -648,10 +734,30 @@ class TelemetryForwarder:
         sent = 0
         with self._flush_lock:
             with self._db_lock:
-                rows = self._conn.execute(
-                    "SELECT id, sequence, payload_json FROM telemetry_queue WHERE forwarded = 0 ORDER BY id ASC LIMIT ?",
-                    (batch_limit,),
-                ).fetchall()
+                if self.coalesce_live_backlog and self.backend_connected:
+                    newest = self._conn.execute(
+                        "SELECT id, sequence, payload_json FROM telemetry_queue WHERE forwarded = 0 ORDER BY id DESC LIMIT 1"
+                    ).fetchall()
+                    if newest:
+                        newest_id = newest[0][0]
+                        res_upd = self._conn.execute(
+                            "UPDATE telemetry_queue SET forwarded = 2, forwarded_at = 'superseded' WHERE forwarded = 0 AND id < ?",
+                            (newest_id,),
+                        )
+                        if res_upd.rowcount:
+                            self._conn.commit()
+                            with self._state_lock:
+                                while len(self._memory_queue) > 1:
+                                    self._memory_queue.popleft()
+                                self.buffered_count_cached = 1
+                        rows = newest
+                    else:
+                        rows = []
+                else:
+                    rows = self._conn.execute(
+                        "SELECT id, sequence, payload_json FROM telemetry_queue WHERE forwarded = 0 ORDER BY id ASC LIMIT ?",
+                        (batch_limit,),
+                    ).fetchall()
 
             for row_id, seq, payload_str in rows:
                 packet = json.loads(payload_str)
@@ -1296,6 +1402,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         hardware_model=args.hardware_model,
         listen_host=args.host,
         detected_network=net_name,
+        coalesce_live_backlog=os.getenv("COALESCE_LIVE_TELEMETRY", "1") != "0",
     )
     forwarder.start()
 

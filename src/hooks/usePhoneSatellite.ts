@@ -25,7 +25,24 @@ export function usePhoneSatellite(pollIntervalMs: number = 2500): UsePhoneSatell
   const mountedRef = useRef(true);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const connectWsRef = useRef<() => void>(() => {});
+  const connectWsRef = useRef<() => void>(() => { });
+
+  const shouldApplySnapshot = (
+    prev: PhoneSatelliteData,
+    next: PhoneSatelliteData
+  ): boolean => {
+    const prevSeq = prev.telemetry?.sequence ?? 0;
+    const nextSeq = next.telemetry?.sequence ?? 0;
+    const prevSession = prev.telemetry?.session_id;
+    const nextSession = next.telemetry?.session_id;
+    if (nextSession && prevSession && nextSession !== prevSession) {
+      return true;
+    }
+    if (prev.telemetry?.ground_station_id !== next.telemetry?.ground_station_id && nextSeq > 0) {
+      return true;
+    }
+    return prevSeq === 0 || nextSeq >= prevSeq;
+  };
 
   const fetchPhoneSatellite = useCallback(async () => {
     try {
@@ -34,7 +51,7 @@ export function usePhoneSatellite(pollIntervalMs: number = 2500): UsePhoneSatell
         { timeoutMs: 10000, retries: 1 }
       );
       if (mountedRef.current && data && data.id === 'PHONE-SATELLITE-001') {
-        setPhoneSatellite(data);
+        setPhoneSatellite((prev) => (shouldApplySnapshot(prev, data) ? data : prev));
         setError(null);
       }
     } catch (err) {
@@ -150,7 +167,7 @@ export function usePhoneSatellite(pollIntervalMs: number = 2500): UsePhoneSatell
           { timeoutMs: 10000, retries: 1 }
         );
         if (mountedRef.current && data && data.id === 'PHONE-SATELLITE-001') {
-          setPhoneSatellite(data);
+          setPhoneSatellite((prev) => (shouldApplySnapshot(prev, data) ? data : prev));
           setError(null);
         }
       } catch (err) {

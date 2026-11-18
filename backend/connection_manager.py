@@ -870,6 +870,8 @@ class ConnectionManager:
             listen_host=bind_ip,
             detected_network=net_label,
             require_pairing_token=self.require_pairing_token,
+            telemetry_rate_hz=4.0,
+            coalesce_live_backlog=True,
         )
         remaining_ttl = max(60.0, self._pairing_token_expiry_mono - time.monotonic())
         forwarder.set_pairing_token(token, ttl_seconds=remaining_ttl, required=self.require_pairing_token)

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -18,7 +19,12 @@
       --text: #F8FAFC;
       --muted: #94A3B8;
     }
-    * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+
+    * {
+      box-sizing: border-box;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
     body {
       margin: 0;
       padding: 16px;
@@ -26,7 +32,15 @@
       color: var(--text);
       min-height: 100vh;
     }
-    .container { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
     .banner {
       background: rgba(245, 158, 11, 0.14);
       border: 1px solid rgba(245, 158, 11, 0.45);
@@ -38,15 +52,32 @@
       letter-spacing: 0.04em;
       text-align: center;
     }
+
     .card {
       background: var(--card);
       border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 14px;
       padding: 14px;
     }
-    .header-card { border-color: var(--border); }
-    .title-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .title { font-size: 18px; font-weight: 800; color: var(--accent); letter-spacing: 0.04em; }
+
+    .header-card {
+      border-color: var(--border);
+    }
+
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+
     .pill {
       display: inline-flex;
       align-items: center;
@@ -58,11 +89,34 @@
       border: 1px solid rgba(148, 163, 184, 0.3);
       background: rgba(15, 23, 42, 0.7);
     }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-    .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-    .dot.buffered { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
-    .dot.error { background: var(--err); }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .dot.live {
+      background: var(--ok);
+      box-shadow: 0 0 8px var(--ok);
+    }
+
+    .dot.buffered {
+      background: var(--warn);
+      box-shadow: 0 0 8px var(--warn);
+    }
+
+    .dot.error {
+      background: var(--err);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
     .metric {
       background: rgba(6, 14, 32, 0.85);
       border: 1px solid rgba(148, 163, 184, 0.15);
@@ -70,8 +124,21 @@
       padding: 10px;
       text-align: center;
     }
-    .metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-    .metric-value { font-size: 20px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; margin-top: 4px; }
+
+    .metric-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      margin-top: 4px;
+    }
+
     .horizon-wrap {
       height: 110px;
       display: flex;
@@ -82,6 +149,7 @@
       border: 1px solid rgba(255, 46, 245, 0.25);
       overflow: hidden;
     }
+
     .sat-model {
       width: 110px;
       height: 52px;
@@ -97,7 +165,13 @@
       box-shadow: 0 0 18px rgba(255, 46, 245, 0.35);
       transition: transform 80ms linear;
     }
-    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
     button {
       border: none;
       border-radius: 10px;
@@ -106,9 +180,22 @@
       font-weight: 700;
       cursor: pointer;
     }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .btn-start { background: var(--ok); color: #04120c; }
-    .btn-stop { background: var(--err); color: #ffffff; }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-start {
+      background: var(--ok);
+      color: #04120c;
+    }
+
+    .btn-stop {
+      background: var(--err);
+      color: #ffffff;
+    }
+
     .btn-zero {
       grid-column: span 2;
       background: rgba(0, 174, 239, 0.16);
@@ -117,7 +204,14 @@
       padding: 10px 12px;
       font-size: 12px;
     }
-    .meta { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; line-height: 1.5; }
+
+    .meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: ui-monospace, monospace;
+      line-height: 1.5;
+    }
+
     .notice {
       font-size: 11px;
       color: #FCA5A5;
@@ -129,6 +223,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <div class="banner">SIMULATED SATELLITE — NOT A REAL SPACECRAFT</div>
@@ -144,11 +239,13 @@
           <span id="status-text">STOPPED</span>
         </div>
       </div>
-      <div id="fallback-banner" class="banner" style="display: none; margin-top: 8px; background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.45); color: #FCA5A5;">
+      <div id="fallback-banner" class="banner"
+        style="display: none; margin-top: 8px; background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.45); color: #FCA5A5;">
         EMERGENCY LAPTOP FALLBACK ACTIVE — Physical Raspberry Pi unavailable
       </div>
       <div class="meta" style="margin-top: 8px;">
-        Telemetry path: Phone sensors &rarr; <span id="gs-path-name">Raspberry Pi Zero W</span> (<strong id="pi-origin"></strong> via WS/HTTP) &rarr; KesslerX
+        Telemetry path: Phone sensors &rarr; <span id="gs-path-name">Raspberry Pi Zero W</span> (<strong
+          id="pi-origin"></strong> via WS/HTTP) &rarr; KesslerX
       </div>
     </div>
 
@@ -180,7 +277,8 @@
     </div>
 
     <div class="card meta">
-      <div>Packets sent to <span id="gs-target-short">Raspberry Pi Zero W</span>: <strong id="seq-count">0</strong> · Transport: <strong id="tx-mode">WS / POST Fallback</strong></div>
+      <div>Packets sent to <span id="gs-target-short">Raspberry Pi Zero W</span>: <strong id="seq-count">0</strong> ·
+        Transport: <strong id="tx-mode">WS / POST Fallback</strong></div>
       <div>Ground Station Reply: <strong id="gs-reply">Idle</strong></div>
       <div style="margin-top: 6px; color: #FCD34D;">
         Decision support only — human approval required. Not a flight command system.
@@ -223,7 +321,7 @@
           gsTargetShortEl.textContent = HARDWARE_MODEL;
           fallbackBannerEl.style.display = GATEWAY_MODE === 'laptop_fallback' ? 'block' : 'none';
           SESSION_ID = 'sess-' + GROUND_STATION_ID.toLowerCase().replace(/[^a-z0-9]/g, '') + '-' + Date.now().toString(36);
-        } catch (_) {}
+        } catch (_) { }
       }
       detectGatewayIdentity();
 
@@ -256,6 +354,9 @@
       let angY = 0;
       let angZ = 0;
       let sensorEventsReceived = 0;
+      let httpInFlight = false;
+      let lastSentAt = 0;
+      let lastSentOri = null;
 
       if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         noticeBox.style.display = 'block';
@@ -316,164 +417,185 @@
         }
       }
 
-      async function transmitTelemetry() {
-        if (!running) return;
-        seq += 1;
-        seqEl.textContent = String(seq);
-
-        const packet = {
-          device_id: DEVICE_ID,
-          satellite_name: SATELLITE_NAME,
-          sequence: seq,
-          session_id: SESSION_ID,
-          timestamp: new Date().toISOString(),
-          orientation: currentOrientation(),
-          angular_velocity: {
-            x_dps: angX,
-            y_dps: angY,
-            z_dps: angZ,
-          },
-          source: 'phone_sensor',
-          mode: 'simulated',
-          ground_station_id: GROUND_STATION_ID,
-          hardware_model: HARDWARE_MODEL,
-        };
-
-        if (ws && wsReady && ws.readyState === WebSocket.OPEN) {
-          txModeEl.textContent = 'WebSocket (/ws/phone)';
-          ws.send(JSON.stringify(packet));
-          return;
-        }
-
-        txModeEl.textContent = 'HTTP POST (/telemetry)';
-        try {
-          const postHeaders = { 'Content-Type': 'application/json' };
-          if (PAIRING_TOKEN) {
-            postHeaders['X-KesslerX-Pairing-Token'] = PAIRING_TOKEN;
+        async function transmitTelemetry(force = false) {
+          if (!running) return;
+          const ori = currentOrientation();
+          const nowMs = Date.now();
+          if (!force && lastSentOri) {
+            const moved =
+              Math.abs(ori.roll_deg - lastSentOri.roll_deg) >= 0.4 ||
+              Math.abs(ori.pitch_deg - lastSentOri.pitch_deg) >= 0.4 ||
+              Math.abs(ori.yaw_deg - lastSentOri.yaw_deg) >= 0.8;
+            if (!moved && (nowMs - lastSentAt) < 1000) {
+              return;
+            }
           }
-          const resp = await fetch(TELEMETRY_URL, {
-            method: 'POST',
-            headers: postHeaders,
-            body: JSON.stringify(packet),
-          });
-          const data = await resp.json();
-          handleGatewayAck(resp.status, data);
-        } catch (err) {
-          setStatus('error', 'PI UNREACHABLE');
-          replyEl.textContent = err && err.message ? err.message : 'Network error';
-        }
-      }
+          if (!(ws && wsReady && ws.readyState === WebSocket.OPEN) && httpInFlight) {
+            return;
+          }
+          lastSentAt = nowMs;
+          lastSentOri = ori;
 
-      function handleGatewayAck(httpStatus, data) {
-        if (data && data.status === 'forwarded') {
-          setStatus('live', 'CONNECTED (FORWARDED)');
-          replyEl.textContent = 'Forwarded #' + data.sequence + ' via ' + data.ground_station_id;
-        } else if (data && (data.status === 'buffered' || data.status === 'duplicate' || data.status === 'throttled')) {
-          setStatus('buffered', 'PI BUFFERING (' + (data.buffered_count || 0) + ')');
-          replyEl.textContent = data.status.toUpperCase() + ' #' + data.sequence + ' (' + (data.buffered_count || 0) + ' queued)';
-        } else if (httpStatus >= 200 && httpStatus < 300) {
-          setStatus('live', 'CONNECTED');
-          replyEl.textContent = 'Accepted #' + (data && data.sequence ? data.sequence : seq);
-        } else {
-          setStatus('error', 'REJECTED (' + httpStatus + ')');
-          replyEl.textContent = (data && data.error) || 'Validation error';
-        }
-      }
+          seq += 1;
+          seqEl.textContent = String(seq);
 
-      function connectWebSocket() {
-        if (typeof WebSocket === 'undefined') return;
-        try {
-          ws = new WebSocket(WS_URL);
-          ws.onopen = function () {
-            wsReady = true;
+          const packet = {
+            device_id: DEVICE_ID,
+            satellite_name: SATELLITE_NAME,
+            sequence: seq,
+            session_id: SESSION_ID,
+            timestamp: new Date().toISOString(),
+            orientation: ori,
+            angular_velocity: {
+              x_dps: angX,
+              y_dps: angY,
+              z_dps: angZ,
+            },
+            source: 'phone_sensor',
+            mode: 'simulated',
+            ground_station_id: GROUND_STATION_ID,
+            hardware_model: HARDWARE_MODEL,
+          };
+
+          if (ws && wsReady && ws.readyState === WebSocket.OPEN) {
             txModeEl.textContent = 'WebSocket (/ws/phone)';
-          };
-          ws.onmessage = function (ev) {
-            try {
-              const data = JSON.parse(ev.data);
-              handleGatewayAck(data.status === 'rejected' ? 422 : 200, data);
-            } catch (_) {}
-          };
-          ws.onerror = function () {
-            wsReady = false;
-          };
-          ws.onclose = function () {
+            ws.send(JSON.stringify(packet));
+            return;
+          }
+
+          txModeEl.textContent = 'HTTP POST (/telemetry)';
+          httpInFlight = true;
+          try {
+            const postHeaders = { 'Content-Type': 'application/json' };
+            if (PAIRING_TOKEN) {
+              postHeaders['X-KesslerX-Pairing-Token'] = PAIRING_TOKEN;
+            }
+            const resp = await fetch(TELEMETRY_URL, {
+              method: 'POST',
+              headers: postHeaders,
+              body: JSON.stringify(packet),
+            });
+            const data = await resp.json();
+            handleGatewayAck(resp.status, data);
+          } catch (err) {
+            setStatus('error', 'PI UNREACHABLE');
+            replyEl.textContent = err && err.message ? err.message : 'Network error';
+          } finally {
+            httpInFlight = false;
+          }
+        }
+
+        function handleGatewayAck(httpStatus, data) {
+          if (data && data.status === 'forwarded') {
+            setStatus('live', 'CONNECTED (FORWARDED)');
+            replyEl.textContent = 'Forwarded #' + data.sequence + ' via ' + data.ground_station_id;
+          } else if (data && (data.status === 'buffered' || data.status === 'duplicate' || data.status === 'throttled')) {
+            setStatus('buffered', 'PI BUFFERING (' + (data.buffered_count || 0) + ')');
+            replyEl.textContent = data.status.toUpperCase() + ' #' + data.sequence + ' (' + (data.buffered_count || 0) + ' queued)';
+          } else if (httpStatus >= 200 && httpStatus < 300) {
+            setStatus('live', 'CONNECTED');
+            replyEl.textContent = 'Accepted #' + (data && data.sequence ? data.sequence : seq);
+          } else {
+            setStatus('error', 'REJECTED (' + httpStatus + ')');
+            replyEl.textContent = (data && data.error) || 'Validation error';
+          }
+        }
+
+        function connectWebSocket() {
+          if (typeof WebSocket === 'undefined') return;
+          try {
+            ws = new WebSocket(WS_URL);
+            ws.onopen = function () {
+              wsReady = true;
+              txModeEl.textContent = 'WebSocket (/ws/phone)';
+            };
+            ws.onmessage = function (ev) {
+              try {
+                const data = JSON.parse(ev.data);
+                handleGatewayAck(data.status === 'rejected' ? 422 : 200, data);
+              } catch (_) { }
+            };
+            ws.onerror = function () {
+              wsReady = false;
+            };
+            ws.onclose = function () {
+              wsReady = false;
+              ws = null;
+            };
+          } catch (_) {
             wsReady = false;
             ws = null;
-          };
-        } catch (_) {
-          wsReady = false;
-          ws = null;
-        }
-      }
-
-      async function requestSensorPermissions() {
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const perm = await DeviceOrientationEvent.requestPermission();
-          if (perm !== 'granted') {
-            throw new Error('Orientation sensor permission was denied.');
           }
         }
-        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-          const perm = await DeviceMotionEvent.requestPermission();
-          if (perm !== 'granted') {
-            throw new Error('Motion sensor permission was denied.');
+
+        async function requestSensorPermissions() {
+          if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            const perm = await DeviceOrientationEvent.requestPermission();
+            if (perm !== 'granted') {
+              throw new Error('Orientation sensor permission was denied.');
+            }
+          }
+          if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            const perm = await DeviceMotionEvent.requestPermission();
+            if (perm !== 'granted') {
+              throw new Error('Motion sensor permission was denied.');
+            }
           }
         }
-      }
 
-      btnStart.addEventListener('click', async function () {
-        if (running) return;
-        setStatus('buffered', 'REQUESTING PERMISSION...');
-        try {
-          await requestSensorPermissions();
-        } catch (err) {
-          setStatus('error', 'PERMISSION DENIED');
-          noticeBox.style.display = 'block';
-          noticeBox.textContent = err && err.message ? err.message : 'Motion/orientation sensor permission denied.';
-          return;
-        }
+        btnStart.addEventListener('click', async function () {
+          if (running) return;
+          setStatus('buffered', 'REQUESTING PERMISSION...');
+          try {
+            await requestSensorPermissions();
+          } catch (err) {
+            setStatus('error', 'PERMISSION DENIED');
+            noticeBox.style.display = 'block';
+            noticeBox.textContent = err && err.message ? err.message : 'Motion/orientation sensor permission denied.';
+            return;
+          }
 
-        running = true;
-        btnStart.disabled = true;
-        btnStop.disabled = false;
-        window.addEventListener('deviceorientation', handleOrientation);
-        window.addEventListener('devicemotion', handleMotion);
-        setStatus('live', 'STREAMING TO PI');
-        connectWebSocket();
+          running = true;
+          btnStart.disabled = true;
+          btnStop.disabled = false;
+          window.addEventListener('deviceorientation', handleOrientation);
+          window.addEventListener('devicemotion', handleMotion);
+          setStatus('live', 'STREAMING TO PI');
+          connectWebSocket();
 
-        await transmitTelemetry();
-        sendTimer = window.setInterval(transmitTelemetry, 500);
-      });
+          await transmitTelemetry(true);
+          sendTimer = window.setInterval(function () { void transmitTelemetry(false); }, 200);
+        });
 
-      btnStop.addEventListener('click', function () {
-        running = false;
-        btnStart.disabled = false;
-        btnStop.disabled = true;
-        if (sendTimer !== null) {
-          clearInterval(sendTimer);
-          sendTimer = null;
-        }
-        if (ws) {
-          try { ws.close(); } catch (_) {}
-          ws = null;
-          wsReady = false;
-        }
-        window.removeEventListener('deviceorientation', handleOrientation);
-        window.removeEventListener('devicemotion', handleMotion);
-        setStatus('idle', 'STOPPED');
-        replyEl.textContent = 'Stopped by operator';
-      });
+        btnStop.addEventListener('click', function () {
+          running = false;
+          btnStart.disabled = false;
+          btnStop.disabled = true;
+          if (sendTimer !== null) {
+            clearInterval(sendTimer);
+            sendTimer = null;
+          }
+          if (ws) {
+            try { ws.close(); } catch (_) { }
+            ws = null;
+            wsReady = false;
+          }
+          window.removeEventListener('deviceorientation', handleOrientation);
+          window.removeEventListener('devicemotion', handleMotion);
+          setStatus('idle', 'STOPPED');
+          replyEl.textContent = 'Stopped by operator';
+        });
 
-      btnZero.addEventListener('click', function () {
-        offsetRoll = rawRoll;
-        offsetPitch = rawPitch;
-        offsetYaw = rawYaw;
+        btnZero.addEventListener('click', function () {
+          offsetRoll = rawRoll;
+          offsetPitch = rawPitch;
+          offsetYaw = rawYaw;
+          renderValues();
+        });
+
         renderValues();
-      });
-
-      renderValues();
-    })();
+      }) ();
   </script>
 </body>
+
 </html>

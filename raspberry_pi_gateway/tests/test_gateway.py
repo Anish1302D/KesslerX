@@ -431,6 +431,41 @@ class TestPiZeroGateway(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_live_backlog_coalescing_supersedes_stale_frames(self):
+        delivered = []
+
+        def mock_sender(url: str, pkt: dict, timeout_s: float):
+            delivered.append(pkt)
+            return 200, json.dumps({"status": "received", "packet_id": pkt["sequence"]})
+
+        fwd = TelemetryForwarder(
+            backend_url="http://127.0.0.1:8000",
+            sqlite_path=self.tmp_dir / "coalesce.db",
+            telemetry_rate_hz=0.0,
+            coalesce_live_backlog=True,
+            sender=mock_sender,
+        )
+        try:
+            # Enqueue seq 1 when connected=False -> establishes online baseline on flush
+            fwd.enqueue_and_try_forward(validate_and_enrich_phone_packet(_sample_phone_packet(seq=1, roll=5.0)), immediate=True)
+            self.assertEqual(len(delivered), 1)
+            self.assertTrue(fwd.backend_connected)
+
+            # Queue 4 backlogged frames asynchronously, then flush -> only newest (seq=5) should go out
+            for seq, roll in ((2, 10.0), (3, 15.0), (4, 20.0), (5, 42.0)):
+                fwd.enqueue_and_try_forward(
+                    validate_and_enrich_phone_packet(_sample_phone_packet(seq=seq, roll=roll)),
+                    immediate=False,
+                )
+            self.assertEqual(fwd.buffered_count, 4)
+            flushed = fwd.flush_pending()
+            self.assertEqual(flushed, 1)
+            self.assertEqual(fwd.buffered_count, 0)
+            self.assertEqual(delivered[-1]["sequence"], 5)
+            self.assertEqual(delivered[-1]["orientation"]["roll_deg"], 42.0)
+        finally:
+            fwd.close()
+
 
 if __name__ == "__main__":
     unittest.main()
